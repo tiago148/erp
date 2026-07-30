@@ -24,3 +24,26 @@ enum Role {
   ADMIN
   USER
 }
+
+model Client {
+  id        String      @id @default(uuid())
+  type      ClientType  @default(INDIVIDUAL)
+  name      String
+  document  String      @unique
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("clients")
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+}

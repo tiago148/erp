@@ -34,6 +34,24 @@ export interface AuthResponse {
   };
 }
 
+export interface Client {
+  id: string;
+  type: 'INDIVIDUAL' | 'COMPANY';
+  name: string;
+  document: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ClientInput = Omit<Client, 'id' | 'createdAt' | 'updatedAt'>;
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', {
@@ -50,6 +68,32 @@ export const api = {
   me: (token: string) =>
     request<{ userId: string; email: string; role: string }>('/auth/me', {
       method: 'GET',
+      token,
+    }),
+
+  listClients: (token: string, search?: string) =>
+    request<Client[]>(`/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+      method: 'GET',
+      token,
+    }),
+
+  createClient: (token: string, data: ClientInput) =>
+    request<Client>('/clients', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  updateClient: (token: string, id: string, data: Partial<ClientInput>) =>
+    request<Client>(`/clients/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteClient: (token: string, id: string) =>
+    request<void>(`/clients/${id}`, {
+      method: 'DELETE',
       token,
     }),
 };
