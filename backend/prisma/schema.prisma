@@ -47,3 +47,16 @@ enum ClientType {
   INDIVIDUAL
   COMPANY
 }
+model Material {
+  id        String   @id @default(uuid())
+  code      String?  @unique
+  name      String
+  category  String
+  unit      String
+  unitCost  Decimal  @db.Decimal(12, 2)
+  supplier  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("materials")
+}

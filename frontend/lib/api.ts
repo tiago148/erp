@@ -52,6 +52,20 @@ export interface Client {
 
 export type ClientInput = Omit<Client, 'id' | 'createdAt' | 'updatedAt'>;
 
+export interface Material {
+  id: string;
+  code?: string;
+  name: string;
+  category: string;
+  unit: string;
+  unitCost: number;
+  supplier?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', {
@@ -93,6 +107,32 @@ export const api = {
 
   deleteClient: (token: string, id: string) =>
     request<void>(`/clients/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  listMaterials: (token: string, search?: string) =>
+    request<Material[]>(`/materials${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+      method: 'GET',
+      token,
+    }),
+
+  createMaterial: (token: string, data: MaterialInput) =>
+    request<Material>('/materials', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  updateMaterial: (token: string, id: string, data: Partial<MaterialInput>) =>
+    request<Material>(`/materials/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteMaterial: (token: string, id: string) =>
+    request<void>(`/materials/${id}`, {
       method: 'DELETE',
       token,
     }),
