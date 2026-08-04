@@ -91,6 +91,94 @@ export interface Vehicle {
 
 export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
 
+export type BudgetStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'NEGOTIATING';
+export type TaxRegime = 'SIMPLES' | 'LUCRO_PRESUMIDO' | 'LUCRO_REAL' | 'MEI';
+
+export interface BudgetMaterialItem {
+  id: string;
+  materialId: string;
+  material: Material;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface BudgetLaborItem {
+  id: string;
+  laborRoleId: string;
+  laborRole: LaborRole;
+  hours: number;
+  hourlyRate: number;
+}
+
+export interface BudgetTravelItem {
+  id: string;
+  vehicleId: string;
+  vehicle: Vehicle;
+  distanceKm: number;
+  trips: number;
+  fuelPrice: number;
+}
+
+export interface BudgetOtherItem {
+  id: string;
+  description: string;
+  amount: number;
+}
+
+export interface BudgetTax {
+  name: string;
+  rate: number;
+  value: number;
+}
+
+export interface BudgetTotals {
+  materialsTotal: number;
+  laborTotal: number;
+  travelTotal: number;
+  otherTotal: number;
+  subtotal: number;
+  bdiValue: number;
+  base: number;
+  taxes: BudgetTax[];
+  taxTotal: number;
+  discountValue: number;
+  total: number;
+}
+
+export interface Budget {
+  id: string;
+  number: string;
+  clientId: string;
+  client: Client;
+  description?: string;
+  status: BudgetStatus;
+  regime: TaxRegime;
+  bdiPct: number;
+  discountPct: number;
+  notes?: string;
+  materialItems: BudgetMaterialItem[];
+  laborItems: BudgetLaborItem[];
+  travelItems: BudgetTravelItem[];
+  otherItems: BudgetOtherItem[];
+  totals: BudgetTotals;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetInput {
+  clientId: string;
+  description?: string;
+  status?: BudgetStatus;
+  regime?: TaxRegime;
+  bdiPct?: number;
+  discountPct?: number;
+  notes?: string;
+  materialItems?: { materialId: string; quantity: number }[];
+  laborItems?: { laborRoleId: string; hours: number }[];
+  travelItems?: { vehicleId: string; distanceKm: number; trips: number; fuelPrice: number }[];
+  otherItems?: { description: string; amount: number }[];
+}
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', {
@@ -210,6 +298,38 @@ export const api = {
 
   deleteVehicle: (token: string, id: string) =>
     request<void>(`/vehicles/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  listBudgets: (token: string, search?: string) =>
+    request<Budget[]>(`/budgets${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+      method: 'GET',
+      token,
+    }),
+
+  getBudget: (token: string, id: string) =>
+    request<Budget>(`/budgets/${id}`, {
+      method: 'GET',
+      token,
+    }),
+
+  createBudget: (token: string, data: BudgetInput) =>
+    request<Budget>('/budgets', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  updateBudget: (token: string, id: string, data: Partial<BudgetInput>) =>
+    request<Budget>(`/budgets/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteBudget: (token: string, id: string) =>
+    request<void>(`/budgets/${id}`, {
       method: 'DELETE',
       token,
     }),

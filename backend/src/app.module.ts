@@ -8,6 +8,7 @@ import { ClientsModule } from './clients/clients.module';
 import { MaterialsModule } from './materials/materials.module';
 import { LaborRolesModule } from './labor-roles/labor-roles.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { BudgetsModule } from './budgets/budgets.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     MaterialsModule,
     LaborRolesModule,
     VehiclesModule,
+    BudgetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
