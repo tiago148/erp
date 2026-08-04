@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { MaterialsModule } from './materials/materials.module';
+import { LaborRolesModule } from './labor-roles/labor-roles.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MaterialsModule } from './materials/materials.module';
     AuthModule,
     ClientsModule,
     MaterialsModule,
+    LaborRolesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

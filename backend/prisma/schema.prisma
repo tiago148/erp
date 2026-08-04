@@ -60,3 +60,13 @@ model Material {
 
   @@map("materials")
 }
+model LaborRole {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  hourlyRate  Decimal  @db.Decimal(12, 2)
+  chargesPct  Decimal  @db.Decimal(5, 2) @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("labor_roles")
+}

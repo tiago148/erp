@@ -66,6 +66,18 @@ export interface Material {
 
 export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
 
+export interface LaborRole {
+  id: string;
+  name: string;
+  hourlyRate: number;
+  chargesPct: number;
+  effectiveHourlyRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 'effectiveHourlyRate'>;
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', {
@@ -133,6 +145,32 @@ export const api = {
 
   deleteMaterial: (token: string, id: string) =>
     request<void>(`/materials/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  listLaborRoles: (token: string, search?: string) =>
+    request<LaborRole[]>(`/labor-roles${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+      method: 'GET',
+      token,
+    }),
+
+  createLaborRole: (token: string, data: LaborRoleInput) =>
+    request<LaborRole>('/labor-roles', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  updateLaborRole: (token: string, id: string, data: Partial<LaborRoleInput>) =>
+    request<LaborRole>(`/labor-roles/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteLaborRole: (token: string, id: string) =>
+    request<void>(`/labor-roles/${id}`, {
       method: 'DELETE',
       token,
     }),

@@ -10,12 +10,14 @@ import {
   Wallet,
   BarChart3,
   Boxes,
+  HardHat,
 } from 'lucide-react';
 
 const menuItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Clientes', href: '/dashboard/clientes', icon: Users },
   { label: 'Materiais', href: '/dashboard/materiais', icon: Boxes },
+  { label: 'Mão de Obra', href: '/dashboard/mao-de-obra', icon: HardHat },
   { label: 'Orçamentos', href: '/dashboard/orcamentos', icon: FileText },
   { label: 'Estoque', href: '/dashboard/estoque', icon: Package },
   { label: 'Financeiro', href: '/dashboard/financeiro', icon: Wallet },
