@@ -78,6 +78,19 @@ export interface LaborRole {
 
 export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 'effectiveHourlyRate'>;
 
+export interface Vehicle {
+  id: string;
+  name: string;
+  plate: string;
+  type: string;
+  fuelType: string;
+  avgConsumption: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', {
@@ -171,6 +184,32 @@ export const api = {
 
   deleteLaborRole: (token: string, id: string) =>
     request<void>(`/labor-roles/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  listVehicles: (token: string, search?: string) =>
+    request<Vehicle[]>(`/vehicles${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+      method: 'GET',
+      token,
+    }),
+
+  createVehicle: (token: string, data: VehicleInput) =>
+    request<Vehicle>('/vehicles', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  updateVehicle: (token: string, id: string, data: Partial<VehicleInput>) =>
+    request<Vehicle>(`/vehicles/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteVehicle: (token: string, id: string) =>
+    request<void>(`/vehicles/${id}`, {
       method: 'DELETE',
       token,
     }),

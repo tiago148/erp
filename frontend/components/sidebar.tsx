@@ -11,6 +11,7 @@ import {
   BarChart3,
   Boxes,
   HardHat,
+  Truck,
 } from 'lucide-react';
 
 const menuItems = [
@@ -18,6 +19,7 @@ const menuItems = [
   { label: 'Clientes', href: '/dashboard/clientes', icon: Users },
   { label: 'Materiais', href: '/dashboard/materiais', icon: Boxes },
   { label: 'Mão de Obra', href: '/dashboard/mao-de-obra', icon: HardHat },
+  { label: 'Veículos', href: '/dashboard/veiculos', icon: Truck },
   { label: 'Orçamentos', href: '/dashboard/orcamentos', icon: FileText },
   { label: 'Estoque', href: '/dashboard/estoque', icon: Package },
   { label: 'Financeiro', href: '/dashboard/financeiro', icon: Wallet },

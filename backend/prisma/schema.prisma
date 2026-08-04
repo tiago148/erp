@@ -70,3 +70,15 @@ model LaborRole {
 
   @@map("labor_roles")
 }
+model Vehicle {
+  id             String   @id @default(uuid())
+  name           String
+  plate          String   @unique
+  type           String
+  fuelType       String
+  avgConsumption Decimal  @db.Decimal(6, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("vehicles")
+}
