@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 function formatCurrency(value: number) {
@@ -131,14 +131,7 @@ export default function OrcamentosPage() {
             ) : (
               budgets.map((budget) => (
                 <TableRow key={budget.id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/dashboard/orcamentos/${budget.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {budget.number}
-                    </Link>
-                  </TableCell>
+                  <TableCell className="font-medium">{budget.number}</TableCell>
                   <TableCell>{budget.client.name}</TableCell>
                   <TableCell>{formatDate(budget.createdAt)}</TableCell>
                   <TableCell>
@@ -152,13 +145,20 @@ export default function OrcamentosPage() {
                     {formatCurrency(budget.totals.total)}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(budget)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Link href={`/dashboard/orcamentos/${budget.id}`}>
+                        <Button variant="ghost" size="icon">
+                          <Pencil size={16} />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(budget)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
