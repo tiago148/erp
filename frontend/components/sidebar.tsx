@@ -10,6 +10,7 @@ import {
   BookOpen,
   HardHat,
   Boxes,
+  Package,
   Wallet,
   Wrench,
   ShieldCheck,
@@ -35,6 +36,10 @@ const menuGroups = [
       { label: 'Mão de Obra', href: '/dashboard/mao-de-obra', icon: HardHat },
       { label: 'Materiais', href: '/dashboard/materiais', icon: Boxes },
     ],
+  },
+  {
+    label: 'Suprimentos',
+    items: [{ label: 'Estoque', href: '/dashboard/estoque', icon: Package }],
   },
   {
     label: 'Equipamentos & Logística',

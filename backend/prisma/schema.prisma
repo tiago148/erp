@@ -60,6 +60,7 @@ model Material {
   unitCost    Decimal              @db.Decimal(12, 2)
   supplier    String?
   budgetItems BudgetMaterialItem[]
+  stockItem   StockItem?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
@@ -202,24 +203,25 @@ enum ProjectStatus {
 }
 
 model Project {
-  id                 String         @id @default(uuid())
-  number             String         @unique
+  id                 String          @id @default(uuid())
+  number             String          @unique
   name               String
   clientId           String
-  client             Client         @relation(fields: [clientId], references: [id])
+  client             Client          @relation(fields: [clientId], references: [id])
   workSiteId         String?
-  workSite           WorkSite?      @relation(fields: [workSiteId], references: [id])
-  budgetId           String?        @unique
-  budget             Budget?        @relation(fields: [budgetId], references: [id])
-  status             ProjectStatus  @default(PLANNING)
-  budgetAmount       Decimal        @db.Decimal(12, 2) @default(0)
+  workSite           WorkSite?       @relation(fields: [workSiteId], references: [id])
+  budgetId           String?         @unique
+  budget             Budget?         @relation(fields: [budgetId], references: [id])
+  status             ProjectStatus   @default(PLANNING)
+  budgetAmount       Decimal         @db.Decimal(12, 2) @default(0)
   startDate          DateTime?
   endDate            DateTime?
   notes              String?
   toolsCurrentlyHere Tool[]
   toolMovements      ToolMovement[]
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  stockMovements     StockMovement[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   @@map("projects")
 }
@@ -258,4 +260,36 @@ model ToolMovement {
   movedAt      DateTime     @default(now())
 
   @@map("tool_movements")
+}
+
+enum StockMovementType {
+  IN
+  OUT
+}
+
+model StockItem {
+  id          String          @id @default(uuid())
+  materialId  String          @unique
+  material    Material        @relation(fields: [materialId], references: [id])
+  quantity    Decimal         @db.Decimal(12, 2) @default(0)
+  minQuantity Decimal         @db.Decimal(12, 2) @default(0)
+  movements   StockMovement[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("stock_items")
+}
+
+model StockMovement {
+  id          String            @id @default(uuid())
+  stockItemId String
+  stockItem   StockItem         @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  type        StockMovementType
+  quantity    Decimal           @db.Decimal(12, 2)
+  projectId   String?
+  project     Project?          @relation(fields: [projectId], references: [id])
+  notes       String?
+  movedAt     DateTime          @default(now())
+
+  @@map("stock_movements")
 }

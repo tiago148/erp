@@ -116,6 +116,18 @@ export interface MoveToolInput {
   notes?: string;
 }
 
+export type StockMovementType = 'IN' | 'OUT';
+export interface StockMovement {
+  id: string; stockItemId: string; type: StockMovementType; quantity: number;
+  projectId?: string; project?: Project; notes?: string; movedAt: string;
+}
+export interface StockItem {
+  id: string; materialId: string; material: Material; quantity: number; minQuantity: number;
+  movements: StockMovement[]; createdAt: string; updatedAt: string;
+}
+export interface StockItemInput { materialId: string; quantity: number; minQuantity: number; }
+export interface StockMovementInput { type: StockMovementType; quantity: number; projectId?: string; notes?: string; }
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -198,4 +210,15 @@ export const api = {
     request<Tool>(`/tools/${id}/move`, { method: 'POST', token, body: JSON.stringify(data) }),
   deleteTool: (token: string, id: string) =>
     request<void>(`/tools/${id}`, { method: 'DELETE', token }),
+
+  listStockItems: (token: string, search?: string) =>
+    request<StockItem[]>(`/stock${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createStockItem: (token: string, data: StockItemInput) =>
+    request<StockItem>('/stock', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateStockItem: (token: string, id: string, data: { minQuantity?: number }) =>
+    request<StockItem>(`/stock/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  addStockMovement: (token: string, id: string, data: StockMovementInput) =>
+    request<StockItem>(`/stock/${id}/movements`, { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteStockItem: (token: string, id: string) =>
+    request<void>(`/stock/${id}`, { method: 'DELETE', token }),
 };
