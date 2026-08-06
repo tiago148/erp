@@ -177,17 +177,18 @@ model BudgetOtherItem {
 }
 
 model WorkSite {
-  id        String    @id @default(uuid())
-  name      String
-  clientId  String
-  client    Client    @relation(fields: [clientId], references: [id])
-  address   String
-  city      String?
-  state     String?
-  notes     String?
-  projects  Project[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String    @id @default(uuid())
+  name       String
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id])
+  address    String
+  city       String?
+  state      String?
+  distanceKm Decimal?  @db.Decimal(10, 2)
+  notes      String?
+  projects   Project[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@map("work_sites")
 }

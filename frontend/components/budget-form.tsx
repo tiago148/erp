@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle } from '@/lib/api';
+import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,6 +39,8 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [laborRoles, setLaborRoles] = useState<LaborRole[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [workSites, setWorkSites] = useState<WorkSite[]>([]);
+  const [selectedWorkSiteId, setSelectedWorkSiteId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -73,7 +75,18 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     api.listMaterials(token).then(setMaterials);
     api.listLaborRoles(token).then(setLaborRoles);
     api.listVehicles(token).then(setVehicles);
+    api.listWorkSites(token).then(setWorkSites);
   }, [token]);
+
+function applyWorkSiteDistance(workSiteId: string) {
+  setSelectedWorkSiteId(workSiteId);
+  const site = workSites.find((w) => w.id === workSiteId);
+  if (site?.distanceKm && travelItems.length > 0) {
+    const arr = [...travelItems];
+    arr[0].distanceKm = Number(site.distanceKm);
+    setTravelItems(arr);
+  }
+}
 
   function materialCost(materialId: string, qty: number) {
     const m = materials.find((x) => x.id === materialId);
@@ -91,6 +104,14 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     const liters = (t.distanceKm * 2 * t.trips) / v.avgConsumption;
     return liters * t.fuelPrice;
   }
+
+ function addTravelItem() {
+  const site = workSites.find((w) => w.id === selectedWorkSiteId);
+  setTravelItems([
+    ...travelItems,
+    { vehicleId: '', distanceKm: site?.distanceKm ? Number(site.distanceKm) : 1, trips: 1, fuelPrice: 6 },
+  ]);
+}
 
   const materialsTotal = materialItems.reduce((s, i) => s + materialCost(i.materialId, i.quantity), 0);
   const laborTotal = laborItems.reduce((s, i) => s + laborCost(i.laborRoleId, i.hours), 0);
@@ -174,6 +195,24 @@ export function BudgetForm({ initialData, onSaved }: Props) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Local de Obra (preenche a distância automaticamente)</Label>
+        <Select value={selectedWorkSiteId} onValueChange={applyWorkSiteDistance}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione (opcional)...">
+              {workSites.find((w) => w.id === selectedWorkSiteId)?.name}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {workSites.map((w) => (
+              <SelectItem key={w.id} value={w.id}>
+                {w.name} {w.distanceKm ? `(${w.distanceKm} km)` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* MATERIAIS */}
@@ -282,9 +321,9 @@ export function BudgetForm({ initialData, onSaved }: Props) {
       <div className="border rounded-md p-4 space-y-3">
         <div className="flex justify-between items-center">
           <Label className="font-semibold">Deslocamento</Label>
-          <Button type="button" size="sm" variant="outline" onClick={() =>
-            setTravelItems([...travelItems, { vehicleId: '', distanceKm: 1, trips: 1, fuelPrice: 6 }])
-          }><Plus size={14} className="mr-1" />Adicionar</Button>
+          <Button type="button" size="sm" variant="outline" onClick={addTravelItem}>
+            <Plus size={14} className="mr-1" />Adicionar
+          </Button>
         </div>
         {travelItems.length === 0 && (
           <p className="text-sm text-gray-400">Nenhum deslocamento adicionado.</p>

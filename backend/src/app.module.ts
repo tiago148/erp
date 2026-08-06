@@ -10,6 +10,7 @@ import { LaborRolesModule } from './labor-roles/labor-roles.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { WorkSitesModule } from './work-sites/work-sites.module';
+import { ProjectsModule } from './projects/projects.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { WorkSitesModule } from './work-sites/work-sites.module';
     VehiclesModule,
     BudgetsModule,
     WorkSitesModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

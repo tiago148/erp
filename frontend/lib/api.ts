@@ -115,11 +115,44 @@ export interface WorkSite {
   address: string;
   city?: string;
   state?: string;
+  distanceKm?: number;
   notes?: string;
   createdAt: string;
   updatedAt: string;
 }
 export type WorkSiteInput = Omit<WorkSite, 'id' | 'client' | 'createdAt' | 'updatedAt'>;
+
+export type ProjectStatus = 'PLANNING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
+
+export interface Project {
+  id: string;
+  number: string;
+  name: string;
+  clientId: string;
+  client: Client;
+  workSiteId?: string;
+  workSite?: WorkSite;
+  budgetId?: string;
+  budget?: Budget;
+  status: ProjectStatus;
+  budgetAmount: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface ProjectInput {
+  name: string;
+  clientId: string;
+  workSiteId?: string;
+  budgetId?: string;
+  status?: ProjectStatus;
+  budgetAmount?: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+}
 
 export const api = {
   login: (email: string, password: string) =>
@@ -183,4 +216,13 @@ export const api = {
     request<WorkSite>(`/work-sites/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteWorkSite: (token: string, id: string) =>
     request<void>(`/work-sites/${id}`, { method: 'DELETE', token }),
+
+  listProjects: (token: string, search?: string) =>
+    request<Project[]>(`/projects${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createProject: (token: string, data: ProjectInput) =>
+    request<Project>('/projects', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateProject: (token: string, id: string, data: Partial<ProjectInput>) =>
+    request<Project>(`/projects/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteProject: (token: string, id: string) =>
+    request<void>(`/projects/${id}`, { method: 'DELETE', token }),
 };
