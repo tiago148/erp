@@ -27,55 +27,27 @@ export interface AuthResponse {
 }
 
 export interface Client {
-  id: string;
-  type: 'INDIVIDUAL' | 'COMPANY';
-  name: string;
-  document: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; type: 'INDIVIDUAL' | 'COMPANY'; name: string; document: string;
+  email?: string; phone?: string; address?: string; city?: string; state?: string;
+  zipCode?: string; notes?: string; createdAt: string; updatedAt: string;
 }
 export type ClientInput = Omit<Client, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface Material {
-  id: string;
-  code?: string;
-  name: string;
-  category: string;
-  unit: string;
-  unitCost: number;
-  supplier?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; code?: string; name: string; category: string; unit: string;
+  unitCost: number; supplier?: string; createdAt: string; updatedAt: string;
 }
 export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface LaborRole {
-  id: string;
-  name: string;
-  hourlyRate: number;
-  chargesPct: number;
-  effectiveHourlyRate: number;
-  createdAt: string;
-  updatedAt: string;
+  id: string; name: string; hourlyRate: number; chargesPct: number;
+  effectiveHourlyRate: number; createdAt: string; updatedAt: string;
 }
 export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 'effectiveHourlyRate'>;
 
 export interface Vehicle {
-  id: string;
-  name: string;
-  plate: string;
-  type: string;
-  fuelType: string;
-  avgConsumption: number;
-  createdAt: string;
-  updatedAt: string;
+  id: string; name: string; plate: string; type: string; fuelType: string;
+  avgConsumption: number; createdAt: string; updatedAt: string;
 }
 export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -108,49 +80,39 @@ export interface BudgetInput {
 }
 
 export interface WorkSite {
-  id: string;
-  name: string;
-  clientId: string;
-  client: Client;
-  address: string;
-  city?: string;
-  state?: string;
-  distanceKm?: number;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; name: string; clientId: string; client: Client; address: string;
+  city?: string; state?: string; distanceKm?: number; notes?: string;
+  createdAt: string; updatedAt: string;
 }
 export type WorkSiteInput = Omit<WorkSite, 'id' | 'client' | 'createdAt' | 'updatedAt'>;
 
 export type ProjectStatus = 'PLANNING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
-
 export interface Project {
-  id: string;
-  number: string;
-  name: string;
-  clientId: string;
-  client: Client;
-  workSiteId?: string;
-  workSite?: WorkSite;
-  budgetId?: string;
-  budget?: Budget;
-  status: ProjectStatus;
-  budgetAmount: number;
-  startDate?: string;
-  endDate?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; number: string; name: string; clientId: string; client: Client;
+  workSiteId?: string; workSite?: WorkSite; budgetId?: string; budget?: Budget;
+  status: ProjectStatus; budgetAmount: number; startDate?: string; endDate?: string;
+  notes?: string; createdAt: string; updatedAt: string;
 }
 export interface ProjectInput {
-  name: string;
-  clientId: string;
-  workSiteId?: string;
-  budgetId?: string;
-  status?: ProjectStatus;
-  budgetAmount?: number;
-  startDate?: string;
-  endDate?: string;
+  name: string; clientId: string; workSiteId?: string; budgetId?: string;
+  status?: ProjectStatus; budgetAmount?: number; startDate?: string; endDate?: string; notes?: string;
+}
+
+export type ToolLocation = 'COMPANY' | 'PROJECT';
+export interface ToolMovement {
+  id: string; toolId: string; fromLocation: ToolLocation; toLocation: ToolLocation;
+  projectId?: string; project?: Project; responsible?: string; notes?: string; movedAt: string;
+}
+export interface Tool {
+  id: string; code?: string; name: string; category: string;
+  currentLocation: ToolLocation; currentProjectId?: string; currentProject?: Project;
+  notes?: string; movements: ToolMovement[]; createdAt: string; updatedAt: string;
+}
+export type ToolInput = Omit<Tool, 'id' | 'currentLocation' | 'currentProjectId' | 'currentProject' | 'movements' | 'createdAt' | 'updatedAt'>;
+export interface MoveToolInput {
+  toLocation: ToolLocation;
+  projectId?: string;
+  responsible?: string;
   notes?: string;
 }
 
@@ -225,4 +187,15 @@ export const api = {
     request<Project>(`/projects/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteProject: (token: string, id: string) =>
     request<void>(`/projects/${id}`, { method: 'DELETE', token }),
+
+  listTools: (token: string, search?: string) =>
+    request<Tool[]>(`/tools${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createTool: (token: string, data: ToolInput) =>
+    request<Tool>('/tools', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateTool: (token: string, id: string, data: Partial<ToolInput>) =>
+    request<Tool>(`/tools/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  moveTool: (token: string, id: string, data: MoveToolInput) =>
+    request<Tool>(`/tools/${id}/move`, { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteTool: (token: string, id: string) =>
+    request<void>(`/tools/${id}`, { method: 'DELETE', token }),
 };

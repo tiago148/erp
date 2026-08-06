@@ -202,22 +202,60 @@ enum ProjectStatus {
 }
 
 model Project {
-  id           String        @id @default(uuid())
-  number       String        @unique
-  name         String
-  clientId     String
-  client       Client        @relation(fields: [clientId], references: [id])
-  workSiteId   String?
-  workSite     WorkSite?     @relation(fields: [workSiteId], references: [id])
-  budgetId     String?       @unique
-  budget       Budget?       @relation(fields: [budgetId], references: [id])
-  status       ProjectStatus @default(PLANNING)
-  budgetAmount Decimal       @db.Decimal(12, 2) @default(0)
-  startDate    DateTime?
-  endDate      DateTime?
-  notes        String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                 String         @id @default(uuid())
+  number             String         @unique
+  name               String
+  clientId           String
+  client             Client         @relation(fields: [clientId], references: [id])
+  workSiteId         String?
+  workSite           WorkSite?      @relation(fields: [workSiteId], references: [id])
+  budgetId           String?        @unique
+  budget             Budget?        @relation(fields: [budgetId], references: [id])
+  status             ProjectStatus  @default(PLANNING)
+  budgetAmount       Decimal        @db.Decimal(12, 2) @default(0)
+  startDate          DateTime?
+  endDate            DateTime?
+  notes              String?
+  toolsCurrentlyHere Tool[]
+  toolMovements      ToolMovement[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@map("projects")
+}
+
+enum ToolLocation {
+  COMPANY
+  PROJECT
+}
+
+model Tool {
+  id               String         @id @default(uuid())
+  code             String?        @unique
+  name             String
+  category         String
+  currentLocation  ToolLocation   @default(COMPANY)
+  currentProjectId String?
+  currentProject   Project?       @relation(fields: [currentProjectId], references: [id])
+  notes            String?
+  movements        ToolMovement[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("tools")
+}
+
+model ToolMovement {
+  id           String       @id @default(uuid())
+  toolId       String
+  tool         Tool         @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  fromLocation ToolLocation
+  toLocation   ToolLocation
+  projectId    String?
+  project      Project?     @relation(fields: [projectId], references: [id])
+  responsible  String?
+  notes        String?
+  movedAt      DateTime     @default(now())
+
+  @@map("tool_movements")
 }

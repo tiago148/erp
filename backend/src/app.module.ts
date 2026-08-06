@@ -11,6 +11,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { WorkSitesModule } from './work-sites/work-sites.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ToolsModule } from './tools/tools.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ProjectsModule } from './projects/projects.module';
     BudgetsModule,
     WorkSitesModule,
     ProjectsModule,
+    ToolsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
