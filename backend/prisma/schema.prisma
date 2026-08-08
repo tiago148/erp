@@ -52,17 +52,18 @@ enum ClientType {
 }
 
 model Material {
-  id          String               @id @default(uuid())
-  code        String?              @unique
-  name        String
-  category    String
-  unit        String
-  unitCost    Decimal              @db.Decimal(12, 2)
-  supplier    String?
-  budgetItems BudgetMaterialItem[]
-  stockItem   StockItem?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id             String               @id @default(uuid())
+  code           String?              @unique
+  name           String
+  category       String
+  unit           String
+  unitCost       Decimal              @db.Decimal(12, 2)
+  supplier       String?
+  budgetItems    BudgetMaterialItem[]
+  stockItem      StockItem?
+  purchaseItems  PurchaseOrderItem[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@map("materials")
 }
@@ -296,16 +297,64 @@ model StockMovement {
 }
 
 model WorkLog {
-  id              String   @id @default(uuid())
-  projectId       String
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  date            DateTime
-  weather         String?
-  workersPresent  Int?
-  description     String
-  occurrences     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date           DateTime
+  weather        String?
+  workersPresent Int?
+  description    String
+  occurrences    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("work_logs")
+}
+
+model Supplier {
+  id             String          @id @default(uuid())
+  name           String
+  document       String?         @unique
+  phone          String?
+  email          String?
+  address        String?
+  notes          String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("suppliers")
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id         String              @id @default(uuid())
+  number     String              @unique
+  supplierId String
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  status     PurchaseOrderStatus @default(PENDING)
+  notes      String?
+  items      PurchaseOrderItem[]
+  receivedAt DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  materialId      String
+  material        Material      @relation(fields: [materialId], references: [id])
+  quantity        Decimal       @db.Decimal(12, 2)
+  unitCost        Decimal       @db.Decimal(12, 2)
+
+  @@map("purchase_order_items")
 }

@@ -11,6 +11,7 @@ import {
   HardHat,
   Boxes,
   Package,
+  ShoppingCart,
   Wallet,
   Wrench,
   ShieldCheck,
@@ -39,7 +40,10 @@ const menuGroups = [
   },
   {
     label: 'Suprimentos',
-    items: [{ label: 'Estoque', href: '/dashboard/estoque', icon: Package }],
+    items: [
+      { label: 'Estoque', href: '/dashboard/estoque', icon: Package },
+      { label: 'Compras', href: '/dashboard/compras', icon: ShoppingCart },
+    ],
   },
   {
     label: 'Equipamentos & Logística',

@@ -129,24 +129,34 @@ export interface StockItemInput { materialId: string; quantity: number; minQuant
 export interface StockMovementInput { type: StockMovementType; quantity: number; projectId?: string; notes?: string; }
 
 export interface WorkLog {
-  id: string;
-  projectId: string;
-  project: Project;
-  date: string;
-  weather?: string;
-  workersPresent?: number;
-  description: string;
-  occurrences?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string; projectId: string; project: Project; date: string; weather?: string;
+  workersPresent?: number; description: string; occurrences?: string;
+  createdAt: string; updatedAt: string;
 }
 export interface WorkLogInput {
-  projectId: string;
-  date: string;
-  weather?: string;
-  workersPresent?: number;
-  description: string;
-  occurrences?: string;
+  projectId: string; date: string; weather?: string; workersPresent?: number;
+  description: string; occurrences?: string;
+}
+
+export interface Supplier {
+  id: string; name: string; document?: string; phone?: string; email?: string;
+  address?: string; notes?: string; createdAt: string; updatedAt: string;
+}
+export type SupplierInput = Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>;
+
+export type PurchaseOrderStatus = 'PENDING' | 'RECEIVED' | 'CANCELLED';
+export interface PurchaseOrderItem {
+  id: string; materialId: string; material: Material; quantity: number; unitCost: number;
+}
+export interface PurchaseOrder {
+  id: string; number: string; supplierId: string; supplier: Supplier;
+  status: PurchaseOrderStatus; notes?: string; items: PurchaseOrderItem[];
+  receivedAt?: string; createdAt: string; updatedAt: string;
+}
+export interface PurchaseOrderInput {
+  supplierId: string;
+  notes?: string;
+  items: { materialId: string; quantity: number; unitCost: number }[];
 }
 
 export const api = {
@@ -251,4 +261,24 @@ export const api = {
     request<WorkLog>(`/work-logs/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteWorkLog: (token: string, id: string) =>
     request<void>(`/work-logs/${id}`, { method: 'DELETE', token }),
+
+  listSuppliers: (token: string, search?: string) =>
+    request<Supplier[]>(`/suppliers${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createSupplier: (token: string, data: SupplierInput) =>
+    request<Supplier>('/suppliers', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateSupplier: (token: string, id: string, data: Partial<SupplierInput>) =>
+    request<Supplier>(`/suppliers/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteSupplier: (token: string, id: string) =>
+    request<void>(`/suppliers/${id}`, { method: 'DELETE', token }),
+
+  listPurchaseOrders: (token: string, search?: string) =>
+    request<PurchaseOrder[]>(`/purchase-orders${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createPurchaseOrder: (token: string, data: PurchaseOrderInput) =>
+    request<PurchaseOrder>('/purchase-orders', { method: 'POST', token, body: JSON.stringify(data) }),
+  receivePurchaseOrder: (token: string, id: string) =>
+    request<PurchaseOrder>(`/purchase-orders/${id}/receive`, { method: 'POST', token }),
+  cancelPurchaseOrder: (token: string, id: string) =>
+    request<PurchaseOrder>(`/purchase-orders/${id}/cancel`, { method: 'POST', token }),
+  deletePurchaseOrder: (token: string, id: string) =>
+    request<void>(`/purchase-orders/${id}`, { method: 'DELETE', token }),
 };
