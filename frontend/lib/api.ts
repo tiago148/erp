@@ -128,6 +128,27 @@ export interface StockItem {
 export interface StockItemInput { materialId: string; quantity: number; minQuantity: number; }
 export interface StockMovementInput { type: StockMovementType; quantity: number; projectId?: string; notes?: string; }
 
+export interface WorkLog {
+  id: string;
+  projectId: string;
+  project: Project;
+  date: string;
+  weather?: string;
+  workersPresent?: number;
+  description: string;
+  occurrences?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface WorkLogInput {
+  projectId: string;
+  date: string;
+  weather?: string;
+  workersPresent?: number;
+  description: string;
+  occurrences?: string;
+}
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -221,4 +242,13 @@ export const api = {
     request<StockItem>(`/stock/${id}/movements`, { method: 'POST', token, body: JSON.stringify(data) }),
   deleteStockItem: (token: string, id: string) =>
     request<void>(`/stock/${id}`, { method: 'DELETE', token }),
+
+  listWorkLogs: (token: string, projectId?: string) =>
+    request<WorkLog[]>(`/work-logs${projectId ? `?projectId=${projectId}` : ''}`, { method: 'GET', token }),
+  createWorkLog: (token: string, data: WorkLogInput) =>
+    request<WorkLog>('/work-logs', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateWorkLog: (token: string, id: string, data: Partial<WorkLogInput>) =>
+    request<WorkLog>(`/work-logs/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteWorkLog: (token: string, id: string) =>
+    request<void>(`/work-logs/${id}`, { method: 'DELETE', token }),
 };

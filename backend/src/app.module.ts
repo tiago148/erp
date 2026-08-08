@@ -13,6 +13,7 @@ import { WorkSitesModule } from './work-sites/work-sites.module';
 import { ProjectsModule } from './projects/projects.module';
 import { ToolsModule } from './tools/tools.module';
 import { StockModule } from './stock/stock.module';
+import { WorkLogsModule } from './work-logs/work-logs.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { StockModule } from './stock/stock.module';
     ProjectsModule,
     ToolsModule,
     StockModule,
+    WorkLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
