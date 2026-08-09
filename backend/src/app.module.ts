@@ -16,6 +16,7 @@ import { StockModule } from './stock/stock.module';
 import { WorkLogsModule } from './work-logs/work-logs.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
     WorkLogsModule,
     SuppliersModule,
     PurchaseOrdersModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

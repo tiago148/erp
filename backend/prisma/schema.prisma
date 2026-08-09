@@ -358,3 +358,21 @@ model PurchaseOrderItem {
 
   @@map("purchase_order_items")
 }
+model Settings {
+  id                String   @id @default(uuid())
+  companyName       String   @default("")
+  companyDocument   String?
+  companyIe         String?
+  companyAddress    String?
+  companyPhone      String?
+  companyEmail      String?
+  defaultRegime     TaxRegime @default(SIMPLES)
+  defaultBdiPct     Decimal  @db.Decimal(5, 2) @default(20)
+  defaultChargesPct Decimal  @db.Decimal(5, 2) @default(0)
+  defaultFuelPrice  Decimal  @db.Decimal(8, 2) @default(6)
+  budgetPrefix      String   @default("ORC")
+  projectPrefix     String   @default("PRJ")
+  updatedAt         DateTime @updatedAt
+
+  @@map("settings")
+}

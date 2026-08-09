@@ -159,6 +159,24 @@ export interface PurchaseOrderInput {
   items: { materialId: string; quantity: number; unitCost: number }[];
 }
 
+export interface Settings {
+  id: string;
+  companyName: string;
+  companyDocument?: string;
+  companyIe?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  defaultRegime: TaxRegime;
+  defaultBdiPct: number;
+  defaultChargesPct: number;
+  defaultFuelPrice: number;
+  budgetPrefix: string;
+  projectPrefix: string;
+  updatedAt: string;
+}
+export type SettingsInput = Partial<Omit<Settings, 'id' | 'updatedAt'>>;
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -281,4 +299,10 @@ export const api = {
     request<PurchaseOrder>(`/purchase-orders/${id}/cancel`, { method: 'POST', token }),
   deletePurchaseOrder: (token: string, id: string) =>
     request<void>(`/purchase-orders/${id}`, { method: 'DELETE', token }),
+
+  getSettings: (token: string) =>
+    request<Settings>('/settings', { method: 'GET', token }),
+  updateSettings: (token: string, data: SettingsInput) =>
+    request<Settings>('/settings', { method: 'PATCH', token, body: JSON.stringify(data) }),
+  getBackupUrl: () => `${API_URL}/settings/backup`,
 };
