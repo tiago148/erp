@@ -17,6 +17,7 @@ import { WorkLogsModule } from './work-logs/work-logs.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { SettingsModule } from './settings/settings.module';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SettingsModule } from './settings/settings.module';
     SuppliersModule,
     PurchaseOrdersModule,
     SettingsModule,
+    EmployeesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

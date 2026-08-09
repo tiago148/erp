@@ -18,6 +18,7 @@ import {
   BarChart3,
   Zap,
   Settings,
+  UserCog,
 } from 'lucide-react';
 
 const menuGroups = [
@@ -34,6 +35,7 @@ const menuGroups = [
   {
     label: 'Equipe',
     items: [
+      { label: 'Funcionários', href: '/dashboard/funcionarios', icon: UserCog },
       { label: 'Mão de Obra', href: '/dashboard/mao-de-obra', icon: HardHat },
       { label: 'Materiais', href: '/dashboard/materiais', icon: Boxes },
     ],

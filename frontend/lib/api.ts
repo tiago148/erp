@@ -177,6 +177,21 @@ export interface Settings {
 }
 export type SettingsInput = Partial<Omit<Settings, 'id' | 'updatedAt'>>;
 
+export type CnhType = 'A' | 'B' | 'C' | 'D' | 'E';
+export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  dailyRate: number;
+  hourlyRate: number;
+  cnhTypes: CnhType[];
+  phone?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export type EmployeeInput = Omit<Employee, 'id' | 'hourlyRate' | 'createdAt' | 'updatedAt'>;
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -305,4 +320,13 @@ export const api = {
   updateSettings: (token: string, data: SettingsInput) =>
     request<Settings>('/settings', { method: 'PATCH', token, body: JSON.stringify(data) }),
   getBackupUrl: () => `${API_URL}/settings/backup`,
+
+  listEmployees: (token: string, search?: string) =>
+    request<Employee[]>(`/employees${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createEmployee: (token: string, data: EmployeeInput) =>
+    request<Employee>('/employees', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateEmployee: (token: string, id: string, data: Partial<EmployeeInput>) =>
+    request<Employee>(`/employees/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteEmployee: (token: string, id: string) =>
+    request<void>(`/employees/${id}`, { method: 'DELETE', token }),
 };
