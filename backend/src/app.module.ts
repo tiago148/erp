@@ -18,6 +18,9 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { SettingsModule } from './settings/settings.module';
 import { EmployeesModule } from './employees/employees.module';
+import { EppModule } from './epp/epp.module';
+import { DdsModule } from './dds/dds.module';
+import { TrainingsModule } from './trainings/trainings.module';
 
 @Module({
   imports: [
@@ -38,6 +41,9 @@ import { EmployeesModule } from './employees/employees.module';
     PurchaseOrdersModule,
     SettingsModule,
     EmployeesModule,
+    EppModule,
+    DdsModule,
+    TrainingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

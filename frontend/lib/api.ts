@@ -192,6 +192,60 @@ export interface Employee {
 }
 export type EmployeeInput = Omit<Employee, 'id' | 'hourlyRate' | 'createdAt' | 'updatedAt'>;
 
+export interface EppDelivery {
+  id: string;
+  employeeId: string;
+  employee: Employee;
+  itemName: string;
+  deliveredAt: string;
+  signed: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface EppInput {
+  employeeId: string;
+  itemName: string;
+  deliveredAt?: string;
+  signed?: boolean;
+  notes?: string;
+}
+
+export interface DdsRecord {
+  id: string;
+  date: string;
+  topic: string;
+  participants: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface DdsInput {
+  date: string;
+  topic: string;
+  participants?: string[];
+  notes?: string;
+}
+
+export interface Training {
+  id: string;
+  employeeId: string;
+  employee: Employee;
+  nrType: string;
+  completedAt: string;
+  expiresAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface TrainingInput {
+  employeeId: string;
+  nrType: string;
+  completedAt: string;
+  expiresAt?: string;
+  notes?: string;
+}
+
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -329,4 +383,25 @@ export const api = {
     request<Employee>(`/employees/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteEmployee: (token: string, id: string) =>
     request<void>(`/employees/${id}`, { method: 'DELETE', token }),
+
+  listEpp: (token: string, employeeId?: string) =>
+    request<EppDelivery[]>(`/epp${employeeId ? `?employeeId=${employeeId}` : ''}`, { method: 'GET', token }),
+  createEpp: (token: string, data: EppInput) =>
+    request<EppDelivery>('/epp', { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteEpp: (token: string, id: string) =>
+    request<void>(`/epp/${id}`, { method: 'DELETE', token }),
+
+  listDds: (token: string) =>
+    request<DdsRecord[]>('/dds', { method: 'GET', token }),
+  createDds: (token: string, data: DdsInput) =>
+    request<DdsRecord>('/dds', { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteDds: (token: string, id: string) =>
+    request<void>(`/dds/${id}`, { method: 'DELETE', token }),
+
+  listTrainings: (token: string, employeeId?: string) =>
+    request<Training[]>(`/trainings${employeeId ? `?employeeId=${employeeId}` : ''}`, { method: 'GET', token }),
+  createTraining: (token: string, data: TrainingInput) =>
+    request<Training>('/trainings', { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteTraining: (token: string, id: string) =>
+    request<void>(`/trainings/${id}`, { method: 'DELETE', token }),
 };

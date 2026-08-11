@@ -52,18 +52,18 @@ enum ClientType {
 }
 
 model Material {
-  id             String               @id @default(uuid())
-  code           String?              @unique
-  name           String
-  category       String
-  unit           String
-  unitCost       Decimal              @db.Decimal(12, 2)
-  supplier       String?
-  budgetItems    BudgetMaterialItem[]
-  stockItem      StockItem?
-  purchaseItems  PurchaseOrderItem[]
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  id            String               @id @default(uuid())
+  code          String?              @unique
+  name          String
+  category      String
+  unit          String
+  unitCost      Decimal              @db.Decimal(12, 2)
+  supplier      String?
+  budgetItems   BudgetMaterialItem[]
+  stockItem     StockItem?
+  purchaseItems PurchaseOrderItem[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@map("materials")
 }
@@ -358,24 +358,26 @@ model PurchaseOrderItem {
 
   @@map("purchase_order_items")
 }
+
 model Settings {
-  id                String   @id @default(uuid())
-  companyName       String   @default("")
+  id                String    @id @default(uuid())
+  companyName       String    @default("")
   companyDocument   String?
   companyIe         String?
   companyAddress    String?
   companyPhone      String?
   companyEmail      String?
   defaultRegime     TaxRegime @default(SIMPLES)
-  defaultBdiPct     Decimal  @db.Decimal(5, 2) @default(20)
-  defaultChargesPct Decimal  @db.Decimal(5, 2) @default(0)
-  defaultFuelPrice  Decimal  @db.Decimal(8, 2) @default(6)
-  budgetPrefix      String   @default("ORC")
-  projectPrefix     String   @default("PRJ")
-  updatedAt         DateTime @updatedAt
+  defaultBdiPct     Decimal   @db.Decimal(5, 2) @default(20)
+  defaultChargesPct Decimal   @db.Decimal(5, 2) @default(0)
+  defaultFuelPrice  Decimal   @db.Decimal(8, 2) @default(6)
+  budgetPrefix      String    @default("ORC")
+  projectPrefix     String    @default("PRJ")
+  updatedAt         DateTime  @updatedAt
 
   @@map("settings")
 }
+
 enum CnhType {
   A
   B
@@ -385,15 +387,57 @@ enum CnhType {
 }
 
 model Employee {
-  id        String    @id @default(uuid())
-  name      String
-  role      String
-  dailyRate Decimal   @db.Decimal(12, 2)
-  cnhTypes  CnhType[] @default([])
-  phone     String?
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String        @id @default(uuid())
+  name          String
+  role          String
+  dailyRate     Decimal       @db.Decimal(12, 2)
+  cnhTypes      CnhType[]     @default([])
+  phone         String?
+  active        Boolean       @default(true)
+  eppDeliveries EppDelivery[]
+  trainings     Training[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@map("employees")
+}
+
+model EppDelivery {
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  itemName    String
+  deliveredAt DateTime @default(now())
+  signed      Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("epp_deliveries")
+}
+
+model DdsRecord {
+  id           String   @id @default(uuid())
+  date         DateTime
+  topic        String
+  participants String[]
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("dds_records")
+}
+
+model Training {
+  id          String    @id @default(uuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  nrType      String
+  completedAt DateTime
+  expiresAt   DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("trainings")
 }
