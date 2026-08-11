@@ -21,6 +21,9 @@ import { EmployeesModule } from './employees/employees.module';
 import { EppModule } from './epp/epp.module';
 import { DdsModule } from './dds/dds.module';
 import { TrainingsModule } from './trainings/trainings.module';
+import { TasksModule } from './tasks/tasks.module';
+import { CalendarEventsModule } from './calendar-events/calendar-events.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -44,6 +47,9 @@ import { TrainingsModule } from './trainings/trainings.module';
     EppModule,
     DdsModule,
     TrainingsModule,
+    TasksModule,
+    CalendarEventsModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

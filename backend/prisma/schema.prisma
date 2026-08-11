@@ -88,6 +88,7 @@ model Vehicle {
   fuelType       String
   avgConsumption Decimal            @db.Decimal(6, 2)
   budgetItems    BudgetTravelItem[]
+  workLogUsages  WorkLogVehicle[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -222,6 +223,7 @@ model Project {
   toolMovements      ToolMovement[]
   stockMovements     StockMovement[]
   workLogs           WorkLog[]
+  tasks              Task[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
@@ -243,6 +245,7 @@ model Tool {
   currentProject   Project?       @relation(fields: [currentProjectId], references: [id])
   notes            String?
   movements        ToolMovement[]
+  workLogUsages    WorkLogTool[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -297,18 +300,52 @@ model StockMovement {
 }
 
 model WorkLog {
-  id             String   @id @default(uuid())
-  projectId      String
-  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  date           DateTime
-  weather        String?
-  workersPresent Int?
-  description    String
-  occurrences    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String            @id @default(uuid())
+  projectId     String
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date          DateTime
+  weather       String?
+  description   String
+  occurrences   String?
+  employees     WorkLogEmployee[]
+  vehicleUsages WorkLogVehicle[]
+  toolsUsed     WorkLogTool[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@map("work_logs")
+}
+
+model WorkLogEmployee {
+  id         String   @id @default(uuid())
+  workLogId  String
+  workLog    WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("work_log_employees")
+}
+
+model WorkLogVehicle {
+  id        String    @id @default(uuid())
+  workLogId String
+  workLog   WorkLog   @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  vehicleId String
+  vehicle   Vehicle   @relation(fields: [vehicleId], references: [id])
+  driverId  String?
+  driver    Employee? @relation(fields: [driverId], references: [id])
+
+  @@map("work_log_vehicles")
+}
+
+model WorkLogTool {
+  id        String  @id @default(uuid())
+  workLogId String
+  workLog   WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  toolId    String
+  tool      Tool    @relation(fields: [toolId], references: [id])
+
+  @@map("work_log_tools")
 }
 
 model Supplier {
@@ -387,17 +424,19 @@ enum CnhType {
 }
 
 model Employee {
-  id            String        @id @default(uuid())
-  name          String
-  role          String
-  dailyRate     Decimal       @db.Decimal(12, 2)
-  cnhTypes      CnhType[]     @default([])
-  phone         String?
-  active        Boolean       @default(true)
-  eppDeliveries EppDelivery[]
-  trainings     Training[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String            @id @default(uuid())
+  name           String
+  role           String
+  dailyRate      Decimal           @db.Decimal(12, 2)
+  cnhTypes       CnhType[]         @default([])
+  phone          String?
+  active         Boolean           @default(true)
+  eppDeliveries  EppDelivery[]
+  trainings      Training[]
+  workLogEntries WorkLogEmployee[]
+  drivenLogs     WorkLogVehicle[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@map("employees")
 }
@@ -440,4 +479,43 @@ model Training {
   updatedAt   DateTime  @updatedAt
 
   @@map("trainings")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("tasks")
+}
+
+model CalendarEvent {
+  id          String   @id @default(uuid())
+  title       String
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("calendar_events")
 }

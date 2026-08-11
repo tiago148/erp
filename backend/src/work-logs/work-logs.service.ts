@@ -8,14 +8,36 @@ export class WorkLogsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private include() {
-    return { project: true };
+    return {
+      project: true,
+      employees: { include: { employee: true } },
+      vehicleUsages: { include: { vehicle: true, driver: true } },
+      toolsUsed: { include: { tool: true } },
+    };
   }
 
-  create(dto: CreateWorkLogDto) {
-    return this.prisma.client.workLog.create({
-      data: { ...dto, date: new Date(dto.date) },
+  async create(dto: CreateWorkLogDto) {
+    const workLog = await this.prisma.client.workLog.create({
+      data: {
+        projectId: dto.projectId,
+        date: new Date(dto.date),
+        weather: dto.weather,
+        description: dto.description,
+        occurrences: dto.occurrences,
+        employees: {
+          create: (dto.employeeIds || []).map((employeeId) => ({ employeeId })),
+        },
+        vehicleUsages: {
+          create: (dto.vehicles || []).map((v) => ({ vehicleId: v.vehicleId, driverId: v.driverId })),
+        },
+        toolsUsed: {
+          create: (dto.toolIds || []).map((toolId) => ({ toolId })),
+        },
+      },
       include: this.include(),
     });
+
+    return workLog;
   }
 
   findAll(projectId?: string) {
@@ -34,9 +56,33 @@ export class WorkLogsService {
 
   async update(id: string, dto: UpdateWorkLogDto) {
     await this.findOne(id);
-    const data: any = { ...dto };
-    if (dto.date) data.date = new Date(dto.date);
-    return this.prisma.client.workLog.update({ where: { id }, data, include: this.include() });
+
+    const updateData: any = {
+      weather: dto.weather,
+      description: dto.description,
+      occurrences: dto.occurrences,
+    };
+    if (dto.projectId) updateData.projectId = dto.projectId;
+    if (dto.date) updateData.date = new Date(dto.date);
+
+    if (dto.employeeIds) {
+      await this.prisma.client.workLogEmployee.deleteMany({ where: { workLogId: id } });
+      updateData.employees = { create: dto.employeeIds.map((employeeId) => ({ employeeId })) };
+    }
+
+    if (dto.vehicles) {
+      await this.prisma.client.workLogVehicle.deleteMany({ where: { workLogId: id } });
+      updateData.vehicleUsages = {
+        create: dto.vehicles.map((v) => ({ vehicleId: v.vehicleId, driverId: v.driverId })),
+      };
+    }
+
+    if (dto.toolIds) {
+      await this.prisma.client.workLogTool.deleteMany({ where: { workLogId: id } });
+      updateData.toolsUsed = { create: dto.toolIds.map((toolId) => ({ toolId })) };
+    }
+
+    return this.prisma.client.workLog.update({ where: { id }, data: updateData, include: this.include() });
   }
 
   async remove(id: string) {

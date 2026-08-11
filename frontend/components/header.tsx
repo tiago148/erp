@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
+import { GlobalSearch } from '@/components/global-search';
 import { LogOut } from 'lucide-react';
 
 export function Header() {
@@ -9,7 +10,7 @@ export function Header() {
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6">
-      <div />
+      <GlobalSearch />
 
       <div className="flex items-center gap-4">
         <div className="text-right">

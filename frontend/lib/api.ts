@@ -128,14 +128,24 @@ export interface StockItem {
 export interface StockItemInput { materialId: string; quantity: number; minQuantity: number; }
 export interface StockMovementInput { type: StockMovementType; quantity: number; projectId?: string; notes?: string; }
 
+export interface WorkLogEmployeeEntry { id: string; employeeId: string; employee: Employee; }
+export interface WorkLogVehicleEntry { id: string; vehicleId: string; vehicle: Vehicle; driverId?: string; driver?: Employee; }
+export interface WorkLogToolEntry { id: string; toolId: string; tool: Tool; }
+
 export interface WorkLog {
   id: string; projectId: string; project: Project; date: string; weather?: string;
-  workersPresent?: number; description: string; occurrences?: string;
+  description: string; occurrences?: string;
+  employees: WorkLogEmployeeEntry[];
+  vehicleUsages: WorkLogVehicleEntry[];
+  toolsUsed: WorkLogToolEntry[];
   createdAt: string; updatedAt: string;
 }
 export interface WorkLogInput {
-  projectId: string; date: string; weather?: string; workersPresent?: number;
+  projectId: string; date: string; weather?: string;
   description: string; occurrences?: string;
+  employeeIds?: string[];
+  vehicles?: { vehicleId: string; driverId?: string }[];
+  toolIds?: string[];
 }
 
 export interface Supplier {
@@ -244,6 +254,52 @@ export interface TrainingInput {
   completedAt: string;
   expiresAt?: string;
   notes?: string;
+}
+
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string;
+  projectId?: string;
+  project?: Project;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface TaskInput {
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  dueDate?: string;
+  projectId?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CalendarEventInput {
+  title: string;
+  date: string;
+  description?: string;
+}
+
+export interface SearchResults {
+  clients: Client[];
+  materials: Material[];
+  employees: Employee[];
+  projects: Project[];
+  budgets: Budget[];
+  tools: Tool[];
 }
 
 export const api = {
@@ -404,4 +460,23 @@ export const api = {
     request<Training>('/trainings', { method: 'POST', token, body: JSON.stringify(data) }),
   deleteTraining: (token: string, id: string) =>
     request<void>(`/trainings/${id}`, { method: 'DELETE', token }),
+
+  listTasks: (token: string) =>
+    request<Task[]>('/tasks', { method: 'GET', token }),
+  createTask: (token: string, data: TaskInput) =>
+    request<Task>('/tasks', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateTask: (token: string, id: string, data: Partial<TaskInput>) =>
+    request<Task>(`/tasks/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteTask: (token: string, id: string) =>
+    request<void>(`/tasks/${id}`, { method: 'DELETE', token }),
+
+  listCalendarEvents: (token: string) =>
+    request<CalendarEvent[]>('/calendar-events', { method: 'GET', token }),
+  createCalendarEvent: (token: string, data: CalendarEventInput) =>
+    request<CalendarEvent>('/calendar-events', { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteCalendarEvent: (token: string, id: string) =>
+    request<void>(`/calendar-events/${id}`, { method: 'DELETE', token }),
+
+  search: (token: string, q: string) =>
+    request<SearchResults>(`/search?q=${encodeURIComponent(q)}`, { method: 'GET', token }),
 };

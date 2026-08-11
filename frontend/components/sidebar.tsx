@@ -19,6 +19,8 @@ import {
   Zap,
   Settings,
   UserCog,
+  KanbanSquare,
+  Calendar,
 } from 'lucide-react';
 
 const menuGroups = [
@@ -30,6 +32,13 @@ const menuGroups = [
       { label: 'Projetos', href: '/dashboard/projetos', icon: Briefcase },
       { label: 'Orçamentos', href: '/dashboard/orcamentos', icon: FileText },
       { label: 'Diário de Obra', href: '/dashboard/diario', icon: BookOpen },
+    ],
+  },
+  {
+    label: 'Organização',
+    items: [
+      { label: 'Tarefas', href: '/dashboard/tarefas', icon: KanbanSquare },
+      { label: 'Calendário', href: '/dashboard/calendario', icon: Calendar },
     ],
   },
   {

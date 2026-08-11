@@ -6,7 +6,7 @@ import { api, WorkLog, WorkLogInput } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { WorkLogForm } from '@/components/work-log-form';
-import { Plus, Pencil, Trash2, Cloud, Users, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Cloud, Users, AlertTriangle, Car, Wrench } from 'lucide-react';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
@@ -60,7 +60,7 @@ export default function DiarioPage() {
       ) : (
         <div className="space-y-4">
           {logs.map((log) => (
-            <div key={log.id} className="border rounded-md bg-white p-4 space-y-2">
+            <div key={log.id} className="border rounded-md bg-white p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-semibold">{log.project.number} - {log.project.name}</p>
@@ -72,16 +72,45 @@ export default function DiarioPage() {
                 </div>
               </div>
 
-              <div className="flex gap-4 text-sm text-gray-500">
+              <div className="flex gap-4 text-sm text-gray-500 flex-wrap">
                 {log.weather && (
                   <span className="flex items-center gap-1"><Cloud size={14} />{log.weather}</span>
                 )}
-                {log.workersPresent !== undefined && log.workersPresent !== null && (
-                  <span className="flex items-center gap-1"><Users size={14} />{log.workersPresent} trabalhador(es)</span>
+                {log.employees.length > 0 && (
+                  <span className="flex items-center gap-1"><Users size={14} />{log.employees.length} trabalhador(es)</span>
                 )}
               </div>
 
               <p className="text-sm">{log.description}</p>
+
+              {log.employees.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {log.employees.map((e) => (
+                    <span key={e.id} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{e.employee.name}</span>
+                  ))}
+                </div>
+              )}
+
+              {log.vehicleUsages.length > 0 && (
+                <div className="space-y-1">
+                  {log.vehicleUsages.map((v) => (
+                    <div key={v.id} className="flex items-center gap-2 text-xs text-blue-700">
+                      <Car size={14} />
+                      <span>{v.vehicle.name}</span>
+                      {v.driver && <span className="text-gray-400">— motorista: {v.driver.name}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {log.toolsUsed.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap text-xs text-purple-700">
+                  <Wrench size={14} />
+                  {log.toolsUsed.map((t) => (
+                    <span key={t.id} className="px-2 py-0.5 rounded-full bg-purple-50">{t.tool.name}</span>
+                  ))}
+                </div>
+              )}
 
               {log.occurrences && (
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-md p-2 text-sm text-amber-800">
