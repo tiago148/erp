@@ -1,5 +1,6 @@
 ﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { round2 } from '../common/money';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 
@@ -27,22 +28,20 @@ const TAX_TABLE: Record<string, { name: string; rate: number }[]> = {
   MEI: [],
 };
 
-function round2(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
 @Injectable()
 export class BudgetsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private calculateTotals(budget: any) {
     const materialsTotal = budget.materialItems.reduce(
-      (sum: number, item: any) => sum + Number(item.quantity) * Number(item.unitCost),
+      (sum: number, item: any) =>
+        sum + Number(item.quantity) * Number(item.unitCost),
       0,
     );
 
     const laborTotal = budget.laborItems.reduce(
-      (sum: number, item: any) => sum + Number(item.hours) * Number(item.hourlyRate),
+      (sum: number, item: any) =>
+        sum + Number(item.hours) * Number(item.hourlyRate),
       0,
     );
 
@@ -73,6 +72,10 @@ export class BudgetsService {
     const discountValue = (base + taxTotal) * (discountPct / 100);
     const total = base + taxTotal - discountValue;
 
+    const estimatedCost = subtotal;
+    const estimatedMargin = total - estimatedCost;
+    const estimatedMarginPct = total > 0 ? (estimatedMargin / total) * 100 : 0;
+
     return {
       materialsTotal: round2(materialsTotal),
       laborTotal: round2(laborTotal),
@@ -85,12 +88,16 @@ export class BudgetsService {
       taxTotal: round2(taxTotal),
       discountValue: round2(discountValue),
       total: round2(total),
+      estimatedCost: round2(estimatedCost),
+      estimatedMargin: round2(estimatedMargin),
+      estimatedMarginPct: round2(estimatedMarginPct),
     };
   }
 
   private include() {
     return {
       client: true,
+      employee: true,
       materialItems: { include: { material: true } },
       laborItems: { include: { laborRole: true } },
       travelItems: { include: { vehicle: true } },
@@ -111,7 +118,10 @@ export class BudgetsService {
         const material = await this.prisma.client.material.findUnique({
           where: { id: item.materialId },
         });
-        if (!material) throw new NotFoundException('Material nao encontrado: ' + item.materialId);
+        if (!material)
+          throw new NotFoundException(
+            'Material nao encontrado: ' + item.materialId,
+          );
         return {
           materialId: item.materialId,
           quantity: item.quantity,
@@ -125,7 +135,10 @@ export class BudgetsService {
         const role = await this.prisma.client.laborRole.findUnique({
           where: { id: item.laborRoleId },
         });
-        if (!role) throw new NotFoundException('Funcao nao encontrada: ' + item.laborRoleId);
+        if (!role)
+          throw new NotFoundException(
+            'Funcao nao encontrada: ' + item.laborRoleId,
+          );
         const effectiveRate = round2(
           Number(role.hourlyRate) * (1 + Number(role.chargesPct) / 100),
         );
@@ -159,6 +172,7 @@ export class BudgetsService {
         bdiPct: dto.bdiPct,
         discountPct: dto.discountPct,
         notes: dto.notes,
+        employeeId: dto.employeeId,
         materialItems: { create: materialItemsData },
         laborItems: { create: laborItemsData },
         travelItems: { create: travelItemsData },
@@ -184,7 +198,10 @@ export class BudgetsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return budgets.map((budget) => ({ ...budget, totals: this.calculateTotals(budget) }));
+    return budgets.map((budget) => ({
+      ...budget,
+      totals: this.calculateTotals(budget),
+    }));
   }
 
   async findOne(id: string) {
@@ -210,6 +227,7 @@ export class BudgetsService {
       bdiPct: dto.bdiPct,
       discountPct: dto.discountPct,
       notes: dto.notes,
+      employeeId: dto.employeeId,
     };
 
     if (dto.clientId) updateData.clientId = dto.clientId;
@@ -220,7 +238,10 @@ export class BudgetsService {
           const material = await this.prisma.client.material.findUnique({
             where: { id: item.materialId },
           });
-          if (!material) throw new NotFoundException('Material nao encontrado: ' + item.materialId);
+          if (!material)
+            throw new NotFoundException(
+              'Material nao encontrado: ' + item.materialId,
+            );
           return {
             materialId: item.materialId,
             quantity: item.quantity,
@@ -228,7 +249,9 @@ export class BudgetsService {
           };
         }),
       );
-      await this.prisma.client.budgetMaterialItem.deleteMany({ where: { budgetId: id } });
+      await this.prisma.client.budgetMaterialItem.deleteMany({
+        where: { budgetId: id },
+      });
       updateData.materialItems = { create: materialItemsData };
     }
 
@@ -238,7 +261,10 @@ export class BudgetsService {
           const role = await this.prisma.client.laborRole.findUnique({
             where: { id: item.laborRoleId },
           });
-          if (!role) throw new NotFoundException('Funcao nao encontrada: ' + item.laborRoleId);
+          if (!role)
+            throw new NotFoundException(
+              'Funcao nao encontrada: ' + item.laborRoleId,
+            );
           const effectiveRate = round2(
             Number(role.hourlyRate) * (1 + Number(role.chargesPct) / 100),
           );
@@ -249,12 +275,16 @@ export class BudgetsService {
           };
         }),
       );
-      await this.prisma.client.budgetLaborItem.deleteMany({ where: { budgetId: id } });
+      await this.prisma.client.budgetLaborItem.deleteMany({
+        where: { budgetId: id },
+      });
       updateData.laborItems = { create: laborItemsData };
     }
 
     if (dto.travelItems) {
-      await this.prisma.client.budgetTravelItem.deleteMany({ where: { budgetId: id } });
+      await this.prisma.client.budgetTravelItem.deleteMany({
+        where: { budgetId: id },
+      });
       updateData.travelItems = {
         create: dto.travelItems.map((item) => ({
           vehicleId: item.vehicleId,
@@ -266,7 +296,9 @@ export class BudgetsService {
     }
 
     if (dto.otherItems) {
-      await this.prisma.client.budgetOtherItem.deleteMany({ where: { budgetId: id } });
+      await this.prisma.client.budgetOtherItem.deleteMany({
+        where: { budgetId: id },
+      });
       updateData.otherItems = {
         create: dto.otherItems.map((item) => ({
           description: item.description,

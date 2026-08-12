@@ -1,4 +1,10 @@
-﻿import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+﻿import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateVehicleDto {
   @IsString()
@@ -20,4 +26,14 @@ export class CreateVehicleDto {
   @IsNumber()
   @Min(0.1)
   avgConsumption: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  initialKm?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  reviewIntervalKm?: number;
 }

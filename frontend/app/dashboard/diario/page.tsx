@@ -91,7 +91,9 @@ export default function DiarioPage() {
                 </div>
               )}
 
-              {log.vehicleUsages.length > 0 && (
+              {log.noTravel ? (
+                <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 w-fit">Barracão (sem deslocamento)</span>
+              ) : log.vehicleUsages.length > 0 && (
                 <div className="space-y-1">
                   {log.vehicleUsages.map((v) => (
                     <div key={v.id} className="flex items-center gap-2 text-xs text-blue-700">

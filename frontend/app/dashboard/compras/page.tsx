@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Supplier, SupplierInput, PurchaseOrder, PurchaseOrderInput, PurchaseOrderStatus } from '@/lib/api';
+import { api, Supplier, SupplierInput, PurchaseOrder, PurchaseOrderInput, PurchaseOrderStatus, Quotation, QuotationInput } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SupplierForm } from '@/components/supplier-form';
 import { PurchaseOrderForm } from '@/components/purchase-order-form';
+import { QuotationForm } from '@/components/quotation-form';
+import { QuotationDetail } from '@/components/quotation-detail';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 
 function fmt(v: number) {
@@ -118,7 +120,7 @@ function PurchaseOrdersTab() {
   }
 
   async function handleReceive(order: PurchaseOrder) {
-    if (!token || !confirm(`Confirmar recebimento do pedido ${order.number}? Isso vai atualizar o estoque.`)) return;
+    if (!token || !confirm(`Confirmar recebimento do pedido ${order.number}? Isso vai atualizar o estoque e gerar uma conta a pagar no Financeiro.`)) return;
     await api.receivePurchaseOrder(token, order.id);
     load();
   }
@@ -148,19 +150,20 @@ function PurchaseOrdersTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número</TableHead><TableHead>Fornecedor</TableHead><TableHead>Status</TableHead>
+              <TableHead>Número</TableHead><TableHead>Fornecedor</TableHead><TableHead>Destino</TableHead><TableHead>Status</TableHead>
               <TableHead>Total</TableHead><TableHead className="w-32">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhum pedido de compra.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Nenhum pedido de compra.</TableCell></TableRow>
             ) : items.map((order) => (
               <TableRow key={order.id}>
                 <TableCell className="font-medium">{order.number}</TableCell>
                 <TableCell>{order.supplier.name}</TableCell>
+                <TableCell>{order.destinationProject ? order.destinationProject.name : 'Estoque Geral'}</TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>{statusLabels[order.status]}</span>
                 </TableCell>
@@ -191,6 +194,97 @@ function PurchaseOrdersTab() {
   );
 }
 
+const quotationStatusLabels: Record<string, string> = { OPEN: 'Aberta', CLOSED: 'Fechada' };
+const quotationStatusColors: Record<string, string> = {
+  OPEN: 'bg-yellow-100 text-yellow-700',
+  CLOSED: 'bg-green-100 text-green-700',
+};
+
+function QuotationsTab() {
+  const { token } = useAuth();
+  const [items, setItems] = useState<Quotation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setItems(await api.listQuotations(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleSubmit(data: QuotationInput) {
+    if (!token) return;
+    await api.createQuotation(token, data);
+    setOpen(false);
+    load();
+  }
+
+  async function handleDelete(q: Quotation) {
+    if (!token || !confirm(`Excluir a cotação ${q.number}?`)) return;
+    await api.deleteQuotation(token, q.id);
+    load();
+  }
+
+  const detailQuotation = items.find((q) => q.id === detailId);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Nova Cotação</Button>
+      </div>
+      <div className="border rounded-md bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Número</TableHead><TableHead>Descrição</TableHead><TableHead>Itens</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-32">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhuma cotação criada.</TableCell></TableRow>
+            ) : items.map((q) => (
+              <TableRow key={q.id}>
+                <TableCell className="font-medium">{q.number}</TableCell>
+                <TableCell>{q.description || '-'}</TableCell>
+                <TableCell>{q.items.length}</TableCell>
+                <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${quotationStatusColors[q.status]}`}>{quotationStatusLabels[q.status]}</span></TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => setDetailId(q.id)}>Gerenciar</Button>
+                    {q.status === 'OPEN' && (
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q)}><Trash2 size={16} /></Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Nova Cotação</DialogTitle></DialogHeader>
+          <QuotationForm onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Cotação {detailQuotation?.number}</DialogTitle></DialogHeader>
+          {detailId && <QuotationDetail quotationId={detailId} onChanged={load} />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function ComprasPage() {
   return (
     <div className="space-y-6">
@@ -201,9 +295,11 @@ export default function ComprasPage() {
       <Tabs defaultValue="pedidos">
         <TabsList>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
+          <TabsTrigger value="cotacoes">Cotações</TabsTrigger>
           <TabsTrigger value="fornecedores">Fornecedores</TabsTrigger>
         </TabsList>
         <TabsContent value="pedidos"><PurchaseOrdersTab /></TabsContent>
+        <TabsContent value="cotacoes"><QuotationsTab /></TabsContent>
         <TabsContent value="fornecedores"><SuppliersTab /></TabsContent>
       </Tabs>
     </div>

@@ -1,5 +1,13 @@
 ﻿import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreatePurchaseOrderItemDto {
   @IsString() @IsNotEmpty() materialId: string;
@@ -10,6 +18,10 @@ export class CreatePurchaseOrderItemDto {
 export class CreatePurchaseOrderDto {
   @IsString() @IsNotEmpty() supplierId: string;
   @IsOptional() @IsString() notes?: string;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => CreatePurchaseOrderItemDto)
+  @IsOptional() @IsString() requestedBy?: string;
+  @IsOptional() @IsString() destinationProjectId?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePurchaseOrderItemDto)
   items: CreatePurchaseOrderItemDto[];
 }

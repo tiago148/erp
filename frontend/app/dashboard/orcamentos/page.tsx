@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Budget, BudgetStatus } from '@/lib/api';
+import { api, Budget, BudgetStatus, Settings } from '@/lib/api';
+import { marginBadgeClass, marginLabel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -43,6 +44,7 @@ const statusColors: Record<BudgetStatus, string> = {
 export default function OrcamentosPage() {
   const { token } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -63,6 +65,10 @@ export default function OrcamentosPage() {
   useEffect(() => {
     loadBudgets();
   }, [loadBudgets]);
+
+  useEffect(() => {
+    if (token) api.getSettings(token).then(setSettings);
+  }, [token]);
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,19 +118,20 @@ export default function OrcamentosPage() {
               <TableHead>Data</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Total</TableHead>
+              <TableHead>Margem</TableHead>
               <TableHead className="w-24">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500">
+                <TableCell colSpan={7} className="text-center text-gray-500">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : budgets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500">
+                <TableCell colSpan={7} className="text-center text-gray-500">
                   Nenhum orçamento cadastrado.
                 </TableCell>
               </TableRow>
@@ -143,6 +150,21 @@ export default function OrcamentosPage() {
                   </TableCell>
                   <TableCell className="font-semibold">
                     {formatCurrency(budget.totals.total)}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${marginBadgeClass(
+                        budget.totals.estimatedMarginPct,
+                        settings?.marginHealthyPct ?? 20,
+                        settings?.marginWarningPct ?? 10,
+                      )}`}
+                    >
+                      {budget.totals.estimatedMarginPct.toFixed(1)}% · {marginLabel(
+                        budget.totals.estimatedMarginPct,
+                        settings?.marginHealthyPct ?? 20,
+                        settings?.marginWarningPct ?? 10,
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">

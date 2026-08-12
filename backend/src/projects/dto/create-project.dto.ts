@@ -1,4 +1,12 @@
-﻿import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+﻿import {
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export enum ProjectStatus {
   PLANNING = 'PLANNING',
@@ -18,4 +26,5 @@ export class CreateProjectDto {
   @IsOptional() @IsDateString() startDate?: string;
   @IsOptional() @IsDateString() endDate?: string;
   @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsString() responsibleEmployeeId?: string;
 }

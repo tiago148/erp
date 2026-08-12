@@ -33,7 +33,12 @@ const priorityBadge: Record<TaskPriority, string> = {
 };
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  const d = new Date(value);
+  const datePart = d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  const hasTime = d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0;
+  if (!hasTime) return datePart;
+  const timePart = d.toLocaleTimeString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' });
+  return `${datePart} ${timePart}`;
 }
 
 export default function TarefasPage() {

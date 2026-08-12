@@ -1,18 +1,24 @@
-﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+﻿import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { round2 } from '../common/money';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-
-function round2(value: number) {
-  return Math.round(value * 100) / 100;
-}
 
 @Injectable()
 export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private include() {
-    return { client: true, workSite: true, budget: true };
+    return {
+      client: true,
+      workSite: true,
+      budget: true,
+      responsibleEmployee: true,
+    };
   }
 
   private async generateNumber() {
@@ -27,6 +33,7 @@ export class ProjectsService {
     const number = await this.generateNumber();
     let budgetAmount = dto.budgetAmount || 0;
     let clientId = dto.clientId;
+    let responsibleEmployeeId = dto.responsibleEmployeeId;
 
     if (dto.budgetId) {
       const budget = await this.prisma.client.budget.findUnique({
@@ -44,20 +51,36 @@ export class ProjectsService {
       const existingProject = await this.prisma.client.project.findUnique({
         where: { budgetId: dto.budgetId },
       });
-      if (existingProject) throw new BadRequestException('Este orcamento ja possui um projeto vinculado.');
+      if (existingProject)
+        throw new BadRequestException(
+          'Este orcamento ja possui um projeto vinculado.',
+        );
 
-      const materialsTotal = budget.materialItems.reduce((s, i) => s + Number(i.quantity) * Number(i.unitCost), 0);
-      const laborTotal = budget.laborItems.reduce((s, i) => s + Number(i.hours) * Number(i.hourlyRate), 0);
+      const materialsTotal = budget.materialItems.reduce(
+        (s, i) => s + Number(i.quantity) * Number(i.unitCost),
+        0,
+      );
+      const laborTotal = budget.laborItems.reduce(
+        (s, i) => s + Number(i.hours) * Number(i.hourlyRate),
+        0,
+      );
       const travelTotal = budget.travelItems.reduce((s, i) => {
-        const liters = (Number(i.distanceKm) * 2 * i.trips) / Number(i.vehicle.avgConsumption);
+        const liters =
+          (Number(i.distanceKm) * 2 * i.trips) /
+          Number(i.vehicle.avgConsumption);
         return s + liters * Number(i.fuelPrice);
       }, 0);
-      const otherTotal = budget.otherItems.reduce((s, i) => s + Number(i.amount), 0);
+      const otherTotal = budget.otherItems.reduce(
+        (s, i) => s + Number(i.amount),
+        0,
+      );
       const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal;
       const base = subtotal * (1 + Number(budget.bdiPct) / 100);
 
       budgetAmount = round2(base);
       clientId = budget.clientId;
+      if (!responsibleEmployeeId)
+        responsibleEmployeeId = budget.employeeId ?? undefined;
     }
 
     return this.prisma.client.project.create({
@@ -72,6 +95,7 @@ export class ProjectsService {
         startDate,
         endDate,
         notes: dto.notes,
+        responsibleEmployeeId,
       },
       include: this.include(),
     });
@@ -94,7 +118,10 @@ export class ProjectsService {
   }
 
   async findOne(id: string) {
-    const project = await this.prisma.client.project.findUnique({ where: { id }, include: this.include() });
+    const project = await this.prisma.client.project.findUnique({
+      where: { id },
+      include: this.include(),
+    });
     if (!project) throw new NotFoundException('Projeto nao encontrado.');
     return project;
   }
@@ -106,7 +133,11 @@ export class ProjectsService {
     if (dto.startDate) data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
 
-    return this.prisma.client.project.update({ where: { id }, data, include: this.include() });
+    return this.prisma.client.project.update({
+      where: { id },
+      data,
+      include: this.include(),
+    });
   }
 
   async remove(id: string) {

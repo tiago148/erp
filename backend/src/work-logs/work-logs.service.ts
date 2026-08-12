@@ -24,11 +24,17 @@ export class WorkLogsService {
         weather: dto.weather,
         description: dto.description,
         occurrences: dto.occurrences,
+        noTravel: dto.noTravel ?? false,
         employees: {
           create: (dto.employeeIds || []).map((employeeId) => ({ employeeId })),
         },
         vehicleUsages: {
-          create: (dto.vehicles || []).map((v) => ({ vehicleId: v.vehicleId, driverId: v.driverId })),
+          create: dto.noTravel
+            ? []
+            : (dto.vehicles || []).map((v) => ({
+                vehicleId: v.vehicleId,
+                driverId: v.driverId,
+              })),
         },
         toolsUsed: {
           create: (dto.toolIds || []).map((toolId) => ({ toolId })),
@@ -49,7 +55,10 @@ export class WorkLogsService {
   }
 
   async findOne(id: string) {
-    const log = await this.prisma.client.workLog.findUnique({ where: { id }, include: this.include() });
+    const log = await this.prisma.client.workLog.findUnique({
+      where: { id },
+      include: this.include(),
+    });
     if (!log) throw new NotFoundException('Registro de diario nao encontrado.');
     return log;
   }
@@ -61,28 +70,51 @@ export class WorkLogsService {
       weather: dto.weather,
       description: dto.description,
       occurrences: dto.occurrences,
+      noTravel: dto.noTravel,
     };
     if (dto.projectId) updateData.projectId = dto.projectId;
     if (dto.date) updateData.date = new Date(dto.date);
 
     if (dto.employeeIds) {
-      await this.prisma.client.workLogEmployee.deleteMany({ where: { workLogId: id } });
-      updateData.employees = { create: dto.employeeIds.map((employeeId) => ({ employeeId })) };
+      await this.prisma.client.workLogEmployee.deleteMany({
+        where: { workLogId: id },
+      });
+      updateData.employees = {
+        create: dto.employeeIds.map((employeeId) => ({ employeeId })),
+      };
     }
 
-    if (dto.vehicles) {
-      await this.prisma.client.workLogVehicle.deleteMany({ where: { workLogId: id } });
+    if (dto.noTravel) {
+      await this.prisma.client.workLogVehicle.deleteMany({
+        where: { workLogId: id },
+      });
+      updateData.vehicleUsages = { create: [] };
+    } else if (dto.vehicles) {
+      await this.prisma.client.workLogVehicle.deleteMany({
+        where: { workLogId: id },
+      });
       updateData.vehicleUsages = {
-        create: dto.vehicles.map((v) => ({ vehicleId: v.vehicleId, driverId: v.driverId })),
+        create: dto.vehicles.map((v) => ({
+          vehicleId: v.vehicleId,
+          driverId: v.driverId,
+        })),
       };
     }
 
     if (dto.toolIds) {
-      await this.prisma.client.workLogTool.deleteMany({ where: { workLogId: id } });
-      updateData.toolsUsed = { create: dto.toolIds.map((toolId) => ({ toolId })) };
+      await this.prisma.client.workLogTool.deleteMany({
+        where: { workLogId: id },
+      });
+      updateData.toolsUsed = {
+        create: dto.toolIds.map((toolId) => ({ toolId })),
+      };
     }
 
-    return this.prisma.client.workLog.update({ where: { id }, data: updateData, include: this.include() });
+    return this.prisma.client.workLog.update({
+      where: { id },
+      data: updateData,
+      include: this.include(),
+    });
   }
 
   async remove(id: string) {

@@ -20,4 +20,6 @@ export class UpdateSettingsDto {
   @IsOptional() @IsNumber() @Min(0) defaultFuelPrice?: number;
   @IsOptional() @IsString() budgetPrefix?: string;
   @IsOptional() @IsString() projectPrefix?: string;
+  @IsOptional() @IsNumber() @Min(0) marginHealthyPct?: number;
+  @IsOptional() @IsNumber() @Min(0) marginWarningPct?: number;
 }

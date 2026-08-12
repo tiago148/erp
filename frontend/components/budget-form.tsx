@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite } from '@/lib/api';
+import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite, Settings, Employee } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { marginBadgeClass, marginLabel } from '@/lib/utils';
 import { Trash2, Plus } from 'lucide-react';
 
 function fmt(v: number) {
@@ -40,11 +41,14 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [laborRoles, setLaborRoles] = useState<LaborRole[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [workSites, setWorkSites] = useState<WorkSite[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [selectedWorkSiteId, setSelectedWorkSiteId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const [clientId, setClientId] = useState(initialData?.clientId || '');
+  const [employeeId, setEmployeeId] = useState(initialData?.employeeId || '');
   const [status, setStatus] = useState(initialData?.status || 'DRAFT');
   const [regime, setRegime] = useState(initialData?.regime || 'SIMPLES');
   const [bdiPct, setBdiPct] = useState(initialData?.bdiPct ?? 20);
@@ -76,6 +80,8 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     api.listLaborRoles(token).then(setLaborRoles);
     api.listVehicles(token).then(setVehicles);
     api.listWorkSites(token).then(setWorkSites);
+    api.listEmployees(token).then(setEmployees);
+    api.getSettings(token).then(setSettings);
   }, [token]);
 
 function applyWorkSiteDistance(workSiteId: string) {
@@ -122,6 +128,10 @@ function applyWorkSiteDistance(workSiteId: string) {
   const base = subtotal + bdiValue;
   const discountValue = base * (discountPct / 100);
   const total = base - discountValue;
+  const estimatedMargin = total - subtotal;
+  const estimatedMarginPct = total > 0 ? (estimatedMargin / total) * 100 : 0;
+  const marginHealthyPct = settings?.marginHealthyPct ?? 20;
+  const marginWarningPct = settings?.marginWarningPct ?? 10;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -134,6 +144,7 @@ function applyWorkSiteDistance(workSiteId: string) {
 
     const data: BudgetInput = {
       clientId,
+      employeeId: employeeId || undefined,
       status,
       regime,
       bdiPct,
@@ -195,6 +206,22 @@ function applyWorkSiteDistance(workSiteId: string) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Funcionário Responsável (opcional)</Label>
+        <Select value={employeeId} onValueChange={setEmployeeId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Nenhum">
+              {employees.find((e) => e.id === employeeId)?.name}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {employees.map((e) => (
+              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
@@ -439,12 +466,21 @@ function applyWorkSiteDistance(workSiteId: string) {
 
       {/* RESUMO */}
       <div className="bg-gray-50 rounded-md p-4 space-y-1 text-sm">
-        <div className="flex justify-between"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+        <div className="flex justify-between"><span>Custo estimado (materiais + mão de obra + deslocamento + outros)</span><span>{fmt(subtotal)}</span></div>
         <div className="flex justify-between"><span>BDI ({bdiPct}%)</span><span>{fmt(bdiValue)}</span></div>
         <div className="flex justify-between font-medium"><span>Base</span><span>{fmt(base)}</span></div>
         <div className="flex justify-between text-red-600"><span>Desconto ({discountPct}%)</span><span>- {fmt(discountValue)}</span></div>
-        <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span>Total (estimado)</span><span>{fmt(total)}</span></div>
-        <p className="text-xs text-gray-400 mt-1">*Impostos do regime tributário são calculados e aplicados após salvar.</p>
+        <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span>Preço de Venda (estimado)</span><span>{fmt(total)}</span></div>
+        <div className="flex justify-between items-center pt-2">
+          <span>Margem Estimada</span>
+          <span className="flex items-center gap-2">
+            <span className="font-semibold">{fmt(estimatedMargin)} ({estimatedMarginPct.toFixed(1)}%)</span>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${marginBadgeClass(estimatedMarginPct, marginHealthyPct, marginWarningPct)}`}>
+              {marginLabel(estimatedMarginPct, marginHealthyPct, marginWarningPct)}
+            </span>
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">*Impostos do regime tributário são calculados e aplicados após salvar (não incluídos nesta prévia de margem). Ajuste o desconto acima para simular o efeito na margem final.</p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Client, WorkSite, Budget, Project, ProjectInput } from '@/lib/api';
+import { api, Client, WorkSite, Budget, Project, ProjectInput, Employee } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
   const { token } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [workSites, setWorkSites] = useState<WorkSite[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [approvedBudgets, setApprovedBudgets] = useState<Budget[]>([]);
   const [origin, setOrigin] = useState<'direct' | 'budget'>(initialData?.budgetId ? 'budget' : 'direct');
   const [saving, setSaving] = useState(false);
@@ -38,6 +39,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
   const [name, setName] = useState(initialData?.name || '');
   const [clientId, setClientId] = useState(initialData?.clientId || '');
   const [workSiteId, setWorkSiteId] = useState(initialData?.workSiteId || '');
+  const [responsibleEmployeeId, setResponsibleEmployeeId] = useState(initialData?.responsibleEmployeeId || '');
   const [budgetId, setBudgetId] = useState(initialData?.budgetId || '');
   const [status, setStatus] = useState(initialData?.status || 'PLANNING');
   const [budgetAmount, setBudgetAmount] = useState(initialData?.budgetAmount ?? 0);
@@ -49,6 +51,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
     if (!token) return;
     api.listClients(token).then(setClients);
     api.listWorkSites(token).then(setWorkSites);
+    api.listEmployees(token).then(setEmployees);
     api.listBudgets(token).then((all) => setApprovedBudgets(all.filter((b) => b.status === 'APPROVED')));
   }, [token]);
 
@@ -59,6 +62,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
       setClientId(b.clientId);
       setBudgetAmount(b.totals.total);
       if (!name) setName(`Projeto - Orçamento ${b.number}`);
+      if (b.employeeId) setResponsibleEmployeeId(b.employeeId);
     }
   }
 
@@ -78,6 +82,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       notes,
+      responsibleEmployeeId: responsibleEmployeeId || undefined,
     };
 
     try {
@@ -92,6 +97,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
   const selectedClient = clients.find((c) => c.id === clientId);
   const selectedSite = workSites.find((w) => w.id === workSiteId);
   const selectedBudget = approvedBudgets.find((b) => b.id === budgetId);
+  const selectedEmployee = employees.find((e) => e.id === responsibleEmployeeId);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -147,6 +153,16 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Funcionário Responsável (opcional)</Label>
+        <Select value={responsibleEmployeeId} onValueChange={setResponsibleEmployeeId}>
+          <SelectTrigger><SelectValue placeholder="Nenhum">{selectedEmployee?.name}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

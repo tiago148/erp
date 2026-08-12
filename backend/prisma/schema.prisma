@@ -26,22 +26,23 @@ enum Role {
 }
 
 model Client {
-  id        String      @id @default(uuid())
-  type      ClientType  @default(INDIVIDUAL)
-  name      String
-  document  String      @unique
-  email     String?
-  phone     String?
-  address   String?
-  city      String?
-  state     String?
-  zipCode   String?
-  notes     String?
-  budgets   Budget[]
-  workSites WorkSite[]
-  projects  Project[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id             String         @id @default(uuid())
+  type           ClientType     @default(INDIVIDUAL)
+  name           String
+  document       String         @unique
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  notes          String?
+  budgets        Budget[]
+  workSites      WorkSite[]
+  projects       Project[]
+  financeEntries FinanceEntry[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@map("clients")
 }
@@ -52,18 +53,20 @@ enum ClientType {
 }
 
 model Material {
-  id            String               @id @default(uuid())
-  code          String?              @unique
-  name          String
-  category      String
-  unit          String
-  unitCost      Decimal              @db.Decimal(12, 2)
-  supplier      String?
-  budgetItems   BudgetMaterialItem[]
-  stockItem     StockItem?
-  purchaseItems PurchaseOrderItem[]
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id             String               @id @default(uuid())
+  code           String?              @unique
+  name           String
+  category       String
+  unit           String
+  unitCost       Decimal              @db.Decimal(12, 2)
+  supplier       String?
+  budgetItems    BudgetMaterialItem[]
+  stockItem      StockItem?
+  purchaseItems  PurchaseOrderItem[]
+  surpluses      MaterialSurplus[]
+  quotationItems QuotationItem[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@map("materials")
 }
@@ -72,7 +75,7 @@ model LaborRole {
   id          String            @id @default(uuid())
   name        String            @unique
   hourlyRate  Decimal           @db.Decimal(12, 2)
-  chargesPct  Decimal           @db.Decimal(5, 2) @default(0)
+  chargesPct  Decimal           @default(0) @db.Decimal(5, 2)
   budgetItems BudgetLaborItem[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -81,18 +84,61 @@ model LaborRole {
 }
 
 model Vehicle {
-  id             String             @id @default(uuid())
-  name           String
-  plate          String             @unique
-  type           String
-  fuelType       String
-  avgConsumption Decimal            @db.Decimal(6, 2)
-  budgetItems    BudgetTravelItem[]
-  workLogUsages  WorkLogVehicle[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id               String               @id @default(uuid())
+  name             String
+  plate            String               @unique
+  type             String
+  fuelType         String
+  avgConsumption   Decimal              @db.Decimal(6, 2)
+  initialKm        Decimal              @default(0) @db.Decimal(10, 2)
+  currentKm        Decimal              @default(0) @db.Decimal(10, 2)
+  reviewIntervalKm Decimal?             @db.Decimal(10, 2)
+  budgetItems      BudgetTravelItem[]
+  workLogUsages    WorkLogVehicle[]
+  trips            VehicleTrip[]
+  maintenances     VehicleMaintenance[]
+  financeEntries   FinanceEntry[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@map("vehicles")
+}
+
+model VehicleTrip {
+  id          String    @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId    String?
+  driver      Employee? @relation(fields: [driverId], references: [id])
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  origin      String
+  destination String
+  purpose     String?
+  distanceKm  Decimal   @db.Decimal(10, 2)
+  date        DateTime  @default(now())
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@map("vehicle_trips")
+}
+
+model VehicleMaintenance {
+  id             String        @id @default(uuid())
+  vehicleId      String
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date           DateTime
+  km             Decimal       @db.Decimal(10, 2)
+  type           String
+  cost           Decimal       @db.Decimal(12, 2)
+  description    String?
+  supplierName   String?
+  financeEntryId String?       @unique
+  financeEntry   FinanceEntry? @relation(fields: [financeEntryId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("vehicle_maintenances")
 }
 
 enum BudgetStatus {
@@ -111,23 +157,26 @@ enum TaxRegime {
 }
 
 model Budget {
-  id            String               @id @default(uuid())
-  number        String               @unique
-  clientId      String
-  client        Client               @relation(fields: [clientId], references: [id])
-  description   String?
-  status        BudgetStatus         @default(DRAFT)
-  regime        TaxRegime            @default(SIMPLES)
-  bdiPct        Decimal              @db.Decimal(5, 2) @default(20)
-  discountPct   Decimal              @db.Decimal(5, 2) @default(0)
-  notes         String?
-  materialItems BudgetMaterialItem[]
-  laborItems    BudgetLaborItem[]
-  travelItems   BudgetTravelItem[]
-  otherItems    BudgetOtherItem[]
-  project       Project?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id             String               @id @default(uuid())
+  number         String               @unique
+  clientId       String
+  client         Client               @relation(fields: [clientId], references: [id])
+  description    String?
+  status         BudgetStatus         @default(DRAFT)
+  regime         TaxRegime            @default(SIMPLES)
+  bdiPct         Decimal              @default(20) @db.Decimal(5, 2)
+  discountPct    Decimal              @default(0) @db.Decimal(5, 2)
+  notes          String?
+  employeeId     String?
+  employee       Employee?            @relation(fields: [employeeId], references: [id])
+  materialItems  BudgetMaterialItem[]
+  laborItems     BudgetLaborItem[]
+  travelItems    BudgetTravelItem[]
+  otherItems     BudgetOtherItem[]
+  project        Project?
+  financeEntries FinanceEntry[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@map("budgets")
 }
@@ -205,27 +254,34 @@ enum ProjectStatus {
 }
 
 model Project {
-  id                 String          @id @default(uuid())
-  number             String          @unique
-  name               String
-  clientId           String
-  client             Client          @relation(fields: [clientId], references: [id])
-  workSiteId         String?
-  workSite           WorkSite?       @relation(fields: [workSiteId], references: [id])
-  budgetId           String?         @unique
-  budget             Budget?         @relation(fields: [budgetId], references: [id])
-  status             ProjectStatus   @default(PLANNING)
-  budgetAmount       Decimal         @db.Decimal(12, 2) @default(0)
-  startDate          DateTime?
-  endDate            DateTime?
-  notes              String?
-  toolsCurrentlyHere Tool[]
-  toolMovements      ToolMovement[]
-  stockMovements     StockMovement[]
-  workLogs           WorkLog[]
-  tasks              Task[]
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id                     String               @id @default(uuid())
+  number                 String               @unique
+  name                   String
+  clientId               String
+  client                 Client               @relation(fields: [clientId], references: [id])
+  workSiteId             String?
+  workSite               WorkSite?            @relation(fields: [workSiteId], references: [id])
+  budgetId               String?              @unique
+  budget                 Budget?              @relation(fields: [budgetId], references: [id])
+  status                 ProjectStatus        @default(PLANNING)
+  budgetAmount           Decimal              @default(0) @db.Decimal(12, 2)
+  startDate              DateTime?
+  endDate                DateTime?
+  notes                  String?
+  responsibleEmployeeId  String?
+  responsibleEmployee    Employee?            @relation(fields: [responsibleEmployeeId], references: [id])
+  toolsCurrentlyHere     Tool[]
+  toolMovements          ToolMovement[]
+  stockMovements         StockMovement[]
+  workLogs               WorkLog[]
+  tasks                  Task[]
+  financeEntries         FinanceEntry[]
+  billingItems           ProjectBillingItem[]
+  vehicleTrips           VehicleTrip[]
+  materialSurpluses      MaterialSurplus[]
+  directedPurchaseOrders PurchaseOrder[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
   @@map("projects")
 }
@@ -236,20 +292,39 @@ enum ToolLocation {
 }
 
 model Tool {
-  id               String         @id @default(uuid())
-  code             String?        @unique
+  id               String            @id @default(uuid())
+  code             String?           @unique
   name             String
   category         String
-  currentLocation  ToolLocation   @default(COMPANY)
+  currentLocation  ToolLocation      @default(COMPANY)
   currentProjectId String?
-  currentProject   Project?       @relation(fields: [currentProjectId], references: [id])
+  currentProject   Project?          @relation(fields: [currentProjectId], references: [id])
   notes            String?
   movements        ToolMovement[]
   workLogUsages    WorkLogTool[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  maintenances     ToolMaintenance[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  financeEntries   FinanceEntry[]
 
   @@map("tools")
+}
+
+model ToolMaintenance {
+  id             String        @id @default(uuid())
+  toolId         String
+  tool           Tool          @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  date           DateTime
+  type           String
+  cost           Decimal       @db.Decimal(12, 2)
+  description    String?
+  supplierName   String?
+  financeEntryId String?       @unique
+  financeEntry   FinanceEntry? @relation(fields: [financeEntryId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("tool_maintenances")
 }
 
 model ToolMovement {
@@ -276,8 +351,8 @@ model StockItem {
   id          String          @id @default(uuid())
   materialId  String          @unique
   material    Material        @relation(fields: [materialId], references: [id])
-  quantity    Decimal         @db.Decimal(12, 2) @default(0)
-  minQuantity Decimal         @db.Decimal(12, 2) @default(0)
+  quantity    Decimal         @default(0) @db.Decimal(12, 2)
+  minQuantity Decimal         @default(0) @db.Decimal(12, 2)
   movements   StockMovement[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -307,6 +382,7 @@ model WorkLog {
   weather       String?
   description   String
   occurrences   String?
+  noTravel      Boolean           @default(false)
   employees     WorkLogEmployee[]
   vehicleUsages WorkLogVehicle[]
   toolsUsed     WorkLogTool[]
@@ -349,16 +425,18 @@ model WorkLogTool {
 }
 
 model Supplier {
-  id             String          @id @default(uuid())
-  name           String
-  document       String?         @unique
-  phone          String?
-  email          String?
-  address        String?
-  notes          String?
-  purchaseOrders PurchaseOrder[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                 String              @id @default(uuid())
+  name               String
+  document           String?             @unique
+  phone              String?
+  email              String?
+  address            String?
+  notes              String?
+  purchaseOrders     PurchaseOrder[]
+  financeEntries     FinanceEntry[]
+  quotationProposals QuotationProposal[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@map("suppliers")
 }
@@ -370,16 +448,20 @@ enum PurchaseOrderStatus {
 }
 
 model PurchaseOrder {
-  id         String              @id @default(uuid())
-  number     String              @unique
-  supplierId String
-  supplier   Supplier            @relation(fields: [supplierId], references: [id])
-  status     PurchaseOrderStatus @default(PENDING)
-  notes      String?
-  items      PurchaseOrderItem[]
-  receivedAt DateTime?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  id                   String              @id @default(uuid())
+  number               String              @unique
+  supplierId           String
+  supplier             Supplier            @relation(fields: [supplierId], references: [id])
+  status               PurchaseOrderStatus @default(PENDING)
+  notes                String?
+  requestedBy          String?
+  destinationProjectId String?
+  destinationProject   Project?            @relation(fields: [destinationProjectId], references: [id])
+  items                PurchaseOrderItem[]
+  financeEntries       FinanceEntry[]
+  receivedAt           DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@map("purchase_orders")
 }
@@ -396,6 +478,71 @@ model PurchaseOrderItem {
   @@map("purchase_order_items")
 }
 
+enum SurplusStatus {
+  PENDING
+  RETURNED_TO_STOCK
+  KEPT_AT_PROJECT
+}
+
+model MaterialSurplus {
+  id         String        @id @default(uuid())
+  projectId  String
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material      @relation(fields: [materialId], references: [id])
+  quantity   Decimal       @db.Decimal(12, 2)
+  status     SurplusStatus @default(PENDING)
+  notes      String?
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@map("material_surpluses")
+}
+
+enum QuotationStatus {
+  OPEN
+  CLOSED
+}
+
+model Quotation {
+  id          String          @id @default(uuid())
+  number      String          @unique
+  description String?
+  status      QuotationStatus @default(OPEN)
+  items       QuotationItem[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String              @id @default(uuid())
+  quotationId String
+  quotation   Quotation           @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  materialId  String
+  material    Material            @relation(fields: [materialId], references: [id])
+  quantity    Decimal             @db.Decimal(12, 2)
+  proposals   QuotationProposal[]
+
+  @@map("quotation_items")
+}
+
+model QuotationProposal {
+  id              String        @id @default(uuid())
+  quotationItemId String
+  quotationItem   QuotationItem @relation(fields: [quotationItemId], references: [id], onDelete: Cascade)
+  supplierId      String
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  unitCost        Decimal       @db.Decimal(12, 2)
+  isWinner        Boolean       @default(false)
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  @@map("quotation_proposals")
+}
+
 model Settings {
   id                String    @id @default(uuid())
   companyName       String    @default("")
@@ -405,11 +552,13 @@ model Settings {
   companyPhone      String?
   companyEmail      String?
   defaultRegime     TaxRegime @default(SIMPLES)
-  defaultBdiPct     Decimal   @db.Decimal(5, 2) @default(20)
-  defaultChargesPct Decimal   @db.Decimal(5, 2) @default(0)
-  defaultFuelPrice  Decimal   @db.Decimal(8, 2) @default(6)
+  defaultBdiPct     Decimal   @default(20) @db.Decimal(5, 2)
+  defaultChargesPct Decimal   @default(0) @db.Decimal(5, 2)
+  defaultFuelPrice  Decimal   @default(6) @db.Decimal(8, 2)
   budgetPrefix      String    @default("ORC")
   projectPrefix     String    @default("PRJ")
+  marginHealthyPct  Decimal   @default(20) @db.Decimal(5, 2)
+  marginWarningPct  Decimal   @default(10) @db.Decimal(5, 2)
   updatedAt         DateTime  @updatedAt
 
   @@map("settings")
@@ -424,19 +573,22 @@ enum CnhType {
 }
 
 model Employee {
-  id             String            @id @default(uuid())
-  name           String
-  role           String
-  dailyRate      Decimal           @db.Decimal(12, 2)
-  cnhTypes       CnhType[]         @default([])
-  phone          String?
-  active         Boolean           @default(true)
-  eppDeliveries  EppDelivery[]
-  trainings      Training[]
-  workLogEntries WorkLogEmployee[]
-  drivenLogs     WorkLogVehicle[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id                  String            @id @default(uuid())
+  name                String
+  role                String
+  dailyRate           Decimal           @db.Decimal(12, 2)
+  cnhTypes            CnhType[]         @default([])
+  phone               String?
+  active              Boolean           @default(true)
+  eppDeliveries       EppDelivery[]
+  trainings           Training[]
+  workLogEntries      WorkLogEmployee[]
+  drivenLogs          WorkLogVehicle[]
+  vehicleTrips        VehicleTrip[]
+  budgets             Budget[]
+  responsibleProjects Project[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@map("employees")
 }
@@ -507,6 +659,87 @@ model Task {
   updatedAt   DateTime     @updatedAt
 
   @@map("tasks")
+}
+
+enum FinanceEntryType {
+  INCOME
+  EXPENSE
+}
+
+enum FinanceEntryStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model FinanceCategory {
+  id        String           @id @default(uuid())
+  name      String
+  type      FinanceEntryType
+  entries   FinanceEntry[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([name, type])
+  @@map("finance_categories")
+}
+
+model FinanceEntry {
+  id              String              @id @default(uuid())
+  type            FinanceEntryType
+  description     String
+  categoryId      String
+  category        FinanceCategory     @relation(fields: [categoryId], references: [id])
+  amount          Decimal             @db.Decimal(12, 2)
+  dueDate         DateTime
+  paidAt          DateTime?
+  paidAmount      Decimal?            @db.Decimal(12, 2)
+  status          FinanceEntryStatus  @default(PENDING)
+  projectId       String?
+  project         Project?            @relation(fields: [projectId], references: [id])
+  supplierId      String?
+  supplier        Supplier?           @relation(fields: [supplierId], references: [id])
+  clientId        String?
+  client          Client?             @relation(fields: [clientId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id])
+  budgetId        String?
+  budget          Budget?             @relation(fields: [budgetId], references: [id])
+  vehicleId       String?
+  vehicle         Vehicle?            @relation(fields: [vehicleId], references: [id])
+  toolId          String?
+  tool            Tool?               @relation(fields: [toolId], references: [id])
+  billingItem     ProjectBillingItem?
+  maintenance     VehicleMaintenance?
+  toolMaintenance ToolMaintenance?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("finance_entries")
+}
+
+enum ProjectBillingStatus {
+  PLANNED
+  INVOICED
+  CANCELLED
+}
+
+model ProjectBillingItem {
+  id             String               @id @default(uuid())
+  projectId      String
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  description    String
+  amount         Decimal              @db.Decimal(12, 2)
+  plannedDate    DateTime
+  status         ProjectBillingStatus @default(PLANNED)
+  financeEntryId String?              @unique
+  financeEntry   FinanceEntry?        @relation(fields: [financeEntryId], references: [id])
+  notes          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@map("project_billing_items")
 }
 
 model CalendarEvent {

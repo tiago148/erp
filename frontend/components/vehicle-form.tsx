@@ -18,6 +18,8 @@ const emptyForm: VehicleInput = {
   type: '',
   fuelType: '',
   avgConsumption: 0,
+  initialKm: 0,
+  reviewIntervalKm: undefined,
 };
 
 export function VehicleForm({ initialData, onSubmit, onCancel }: VehicleFormProps) {
@@ -33,6 +35,8 @@ export function VehicleForm({ initialData, onSubmit, onCancel }: VehicleFormProp
         type: initialData.type,
         fuelType: initialData.fuelType,
         avgConsumption: initialData.avgConsumption,
+        initialKm: initialData.initialKm,
+        reviewIntervalKm: initialData.reviewIntervalKm,
       });
     }
   }, [initialData]);
@@ -100,16 +104,49 @@ export function VehicleForm({ initialData, onSubmit, onCancel }: VehicleFormProp
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Consumo Médio (km/l)</Label>
-        <Input
-          type="number"
-          step="0.1"
-          min="0.1"
-          value={form.avgConsumption}
-          onChange={(e) => updateField('avgConsumption', parseFloat(e.target.value) || 0)}
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Consumo Médio (km/l)</Label>
+          <Input
+            type="number"
+            step="0.1"
+            min="0.1"
+            value={form.avgConsumption}
+            onChange={(e) => updateField('avgConsumption', parseFloat(e.target.value) || 0)}
+            required
+          />
+        </div>
+        {initialData && (
+          <div className="space-y-2">
+            <Label>KM Atual</Label>
+            <Input type="number" value={initialData.currentKm} disabled />
+            <p className="text-xs text-gray-400">Atualizado automaticamente pelas movimentações registradas.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>KM Inicial (odômetro no cadastro)</Label>
+          <Input
+            type="number"
+            step="1"
+            min="0"
+            value={form.initialKm ?? 0}
+            onChange={(e) => updateField('initialKm', parseFloat(e.target.value) || 0)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Revisão a cada (km, opcional)</Label>
+          <Input
+            type="number"
+            step="100"
+            min="0"
+            placeholder="Ex: 10000"
+            value={form.reviewIntervalKm ?? ''}
+            onChange={(e) => updateField('reviewIntervalKm', e.target.value ? parseFloat(e.target.value) : undefined)}
+          />
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

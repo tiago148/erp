@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, StockItem, Training, Tool, Budget, Project } from '@/lib/api';
+import { api, StockItem, Training, Tool, Budget, Project, Vehicle, VehicleMaintenance } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Package, ShieldAlert, Wrench, FileCheck } from 'lucide-react';
+import { Package, ShieldAlert, Wrench, FileCheck, Truck } from 'lucide-react';
 
 function daysBetween(date: string) {
   return Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -23,6 +23,8 @@ export default function AutomacoesPage() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicleMaintenances, setVehicleMaintenances] = useState<VehicleMaintenance[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,12 +35,16 @@ export default function AutomacoesPage() {
       api.listTools(token),
       api.listBudgets(token),
       api.listProjects(token),
-    ]).then(([s, t, tl, b, p]) => {
+      api.listVehicles(token),
+      api.listVehicleMaintenances(token),
+    ]).then(([s, t, tl, b, p, v, vm]) => {
       setStockItems(s);
       setTrainings(t);
       setTools(tl);
       setBudgets(b);
       setProjects(p);
+      setVehicles(v);
+      setVehicleMaintenances(vm);
       setLoading(false);
     });
   }, [token]);
@@ -59,7 +65,18 @@ export default function AutomacoesPage() {
     (b) => b.status === 'APPROVED' && !projects.some((p) => p.budgetId === b.id),
   );
 
-  const totalAlerts = lowStock.length + trainingAlerts.length + toolsOutTooLong.length + approvedWithoutProject.length;
+  const vehiclesDueForReview = vehicles
+    .filter((v) => v.reviewIntervalKm)
+    .map((v) => {
+      const lastMaintenanceKm = vehicleMaintenances
+        .filter((m) => m.vehicleId === v.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.km ?? v.initialKm;
+      const kmSinceLastMaintenance = v.currentKm - lastMaintenanceKm;
+      return { vehicle: v, kmSinceLastMaintenance };
+    })
+    .filter(({ vehicle, kmSinceLastMaintenance }) => kmSinceLastMaintenance >= (vehicle.reviewIntervalKm as number));
+
+  const totalAlerts = lowStock.length + trainingAlerts.length + toolsOutTooLong.length + approvedWithoutProject.length + vehiclesDueForReview.length;
 
   return (
     <div className="space-y-6">
@@ -165,6 +182,30 @@ export default function AutomacoesPage() {
                 ))}
                 <Link href="/dashboard/projetos">
                   <Button variant="outline" size="sm" className="mt-2">Criar Projeto</Button>
+                </Link>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <Truck size={18} className="text-purple-500" />
+            <CardTitle className="text-base">Veículos com Revisão Pendente</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {vehiclesDueForReview.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhum veículo precisa de revisão no momento.</p>
+            ) : (
+              <>
+                {vehiclesDueForReview.map(({ vehicle, kmSinceLastMaintenance }) => (
+                  <div key={vehicle.id} className="flex justify-between text-sm py-1 border-b last:border-0">
+                    <span>{vehicle.name} ({vehicle.plate})</span>
+                    <span className="text-purple-600 font-medium">{kmSinceLastMaintenance.toLocaleString('pt-BR')} km desde a última manutenção</span>
+                  </div>
+                ))}
+                <Link href="/dashboard/equipamentos">
+                  <Button variant="outline" size="sm" className="mt-2">Ver Veículos</Button>
                 </Link>
               </>
             )}

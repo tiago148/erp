@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Supplier, Material, PurchaseOrderInput } from '@/lib/api';
+import { api, Supplier, Material, Project, PurchaseOrderInput } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +22,10 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
   const { token } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [supplierId, setSupplierId] = useState('');
+  const [requestedBy, setRequestedBy] = useState('');
+  const [destinationProjectId, setDestinationProjectId] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<{ materialId: string; quantity: string; unitCost: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -32,6 +35,7 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
     if (!token) return;
     api.listSuppliers(token).then(setSuppliers);
     api.listMaterials(token).then(setMaterials);
+    api.listProjects(token).then(setProjects);
   }, [token]);
 
   function addItem() {
@@ -60,6 +64,8 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
       await onSubmit({
         supplierId,
         notes,
+        requestedBy: requestedBy || undefined,
+        destinationProjectId: destinationProjectId || undefined,
         items: items.map((i) => ({
           materialId: i.materialId,
           quantity: parseFloat(i.quantity) || 0,
@@ -86,6 +92,23 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
           </SelectContent>
         </Select>
         {suppliers.length === 0 && <p className="text-xs text-amber-600">Nenhum fornecedor cadastrado ainda.</p>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Destino</Label>
+          <Select value={destinationProjectId} onValueChange={setDestinationProjectId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Estoque Geral">{projects.find((p) => p.id === destinationProjectId)?.name}</SelectValue></SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.number} - {p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-400">Deixe em branco para o pedido entrar no estoque geral.</p>
+        </div>
+        <div className="space-y-2">
+          <Label>Responsável (opcional)</Label>
+          <Input value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} placeholder="Quem está solicitando" />
+        </div>
       </div>
 
       <div className="border rounded-md p-4 space-y-3 bg-white">

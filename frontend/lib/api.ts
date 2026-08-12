@@ -6,10 +6,11 @@ interface RequestOptions extends RequestInit {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options;
+  const isFormData = typeof FormData !== 'undefined' && rest.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     ...rest,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
@@ -47,9 +48,46 @@ export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 
 
 export interface Vehicle {
   id: string; name: string; plate: string; type: string; fuelType: string;
-  avgConsumption: number; createdAt: string; updatedAt: string;
+  avgConsumption: number; initialKm: number; currentKm: number; reviewIntervalKm?: number;
+  createdAt: string; updatedAt: string;
 }
-export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
+export type VehicleInput = Omit<Vehicle, 'id' | 'currentKm' | 'createdAt' | 'updatedAt'>;
+
+export interface VehicleTrip {
+  id: string; vehicleId: string; vehicle: Vehicle;
+  driverId?: string; driver?: Employee; projectId?: string; project?: Project;
+  origin: string; destination: string; purpose?: string; distanceKm: number;
+  date: string; notes?: string; createdAt: string;
+}
+export interface VehicleTripInput {
+  vehicleId: string; driverId?: string; projectId?: string;
+  origin: string; destination: string; purpose?: string; distanceKm: number;
+  date?: string; notes?: string;
+}
+
+export interface VehicleMaintenance {
+  id: string; vehicleId: string; vehicle: Vehicle;
+  date: string; km: number; type: string; cost: number;
+  description?: string; supplierName?: string;
+  financeEntryId?: string; financeEntry?: FinanceEntry;
+  createdAt: string; updatedAt: string;
+}
+export interface VehicleMaintenanceInput {
+  vehicleId: string; date: string; km: number; type: string; cost: number;
+  description?: string; supplierName?: string;
+}
+
+export interface ToolMaintenance {
+  id: string; toolId: string; tool: Tool;
+  date: string; type: string; cost: number;
+  description?: string; supplierName?: string;
+  financeEntryId?: string; financeEntry?: FinanceEntry;
+  createdAt: string; updatedAt: string;
+}
+export interface ToolMaintenanceInput {
+  toolId: string; date: string; type: string; cost: number;
+  description?: string; supplierName?: string;
+}
 
 export type BudgetStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'NEGOTIATING';
 export type TaxRegime = 'SIMPLES' | 'LUCRO_PRESUMIDO' | 'LUCRO_REAL' | 'MEI';
@@ -63,16 +101,18 @@ export interface BudgetTotals {
   materialsTotal: number; laborTotal: number; travelTotal: number; otherTotal: number;
   subtotal: number; bdiValue: number; base: number; taxes: BudgetTax[]; taxTotal: number;
   discountValue: number; total: number;
+  estimatedCost: number; estimatedMargin: number; estimatedMarginPct: number;
 }
 export interface Budget {
   id: string; number: string; clientId: string; client: Client; description?: string;
   status: BudgetStatus; regime: TaxRegime; bdiPct: number; discountPct: number; notes?: string;
+  employeeId?: string; employee?: Employee;
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
   otherItems: BudgetOtherItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
 }
 export interface BudgetInput {
   clientId: string; description?: string; status?: BudgetStatus; regime?: TaxRegime;
-  bdiPct?: number; discountPct?: number; notes?: string;
+  bdiPct?: number; discountPct?: number; notes?: string; employeeId?: string;
   materialItems?: { materialId: string; quantity: number }[];
   laborItems?: { laborRoleId: string; hours: number }[];
   travelItems?: { vehicleId: string; distanceKm: number; trips: number; fuelPrice: number }[];
@@ -91,11 +131,13 @@ export interface Project {
   id: string; number: string; name: string; clientId: string; client: Client;
   workSiteId?: string; workSite?: WorkSite; budgetId?: string; budget?: Budget;
   status: ProjectStatus; budgetAmount: number; startDate?: string; endDate?: string;
-  notes?: string; createdAt: string; updatedAt: string;
+  notes?: string; responsibleEmployeeId?: string; responsibleEmployee?: Employee;
+  createdAt: string; updatedAt: string;
 }
 export interface ProjectInput {
   name: string; clientId: string; workSiteId?: string; budgetId?: string;
   status?: ProjectStatus; budgetAmount?: number; startDate?: string; endDate?: string; notes?: string;
+  responsibleEmployeeId?: string;
 }
 
 export type ToolLocation = 'COMPANY' | 'PROJECT';
@@ -134,7 +176,7 @@ export interface WorkLogToolEntry { id: string; toolId: string; tool: Tool; }
 
 export interface WorkLog {
   id: string; projectId: string; project: Project; date: string; weather?: string;
-  description: string; occurrences?: string;
+  description: string; occurrences?: string; noTravel: boolean;
   employees: WorkLogEmployeeEntry[];
   vehicleUsages: WorkLogVehicleEntry[];
   toolsUsed: WorkLogToolEntry[];
@@ -142,7 +184,7 @@ export interface WorkLog {
 }
 export interface WorkLogInput {
   projectId: string; date: string; weather?: string;
-  description: string; occurrences?: string;
+  description: string; occurrences?: string; noTravel?: boolean;
   employeeIds?: string[];
   vehicles?: { vehicleId: string; driverId?: string }[];
   toolIds?: string[];
@@ -160,14 +202,48 @@ export interface PurchaseOrderItem {
 }
 export interface PurchaseOrder {
   id: string; number: string; supplierId: string; supplier: Supplier;
-  status: PurchaseOrderStatus; notes?: string; items: PurchaseOrderItem[];
+  status: PurchaseOrderStatus; notes?: string; requestedBy?: string;
+  destinationProjectId?: string; destinationProject?: Project;
+  items: PurchaseOrderItem[];
   receivedAt?: string; createdAt: string; updatedAt: string;
 }
 export interface PurchaseOrderInput {
   supplierId: string;
   notes?: string;
+  requestedBy?: string;
+  destinationProjectId?: string;
   items: { materialId: string; quantity: number; unitCost: number }[];
 }
+
+export type SurplusStatus = 'PENDING' | 'RETURNED_TO_STOCK' | 'KEPT_AT_PROJECT';
+export interface MaterialSurplus {
+  id: string; projectId: string; project: Project; materialId: string; material: Material;
+  quantity: number; status: SurplusStatus; notes?: string; resolvedAt?: string; createdAt: string; updatedAt: string;
+}
+export interface MaterialSurplusInput {
+  projectId: string; materialId: string; quantity: number; notes?: string;
+}
+
+export type QuotationStatus = 'OPEN' | 'CLOSED';
+export interface QuotationProposal {
+  id: string; quotationItemId: string; supplierId: string; supplier: Supplier;
+  unitCost: number; isWinner: boolean; notes?: string; createdAt: string;
+}
+export interface QuotationItem {
+  id: string; quotationId: string; materialId: string; material: Material;
+  quantity: number; proposals: QuotationProposal[];
+}
+export interface Quotation {
+  id: string; number: string; description?: string; status: QuotationStatus;
+  items: QuotationItem[]; createdAt: string; updatedAt: string;
+}
+export interface QuotationInput {
+  description?: string;
+  items: { materialId: string; quantity: number }[];
+}
+export interface QuotationItemInput { materialId: string; quantity: number }
+export interface QuotationProposalInput { supplierId: string; unitCost: number; notes?: string }
+export interface GenerateOrdersResult { orders: PurchaseOrder[]; skippedItems: string[] }
 
 export interface Settings {
   id: string;
@@ -183,6 +259,8 @@ export interface Settings {
   defaultFuelPrice: number;
   budgetPrefix: string;
   projectPrefix: string;
+  marginHealthyPct: number;
+  marginWarningPct: number;
   updatedAt: string;
 }
 export type SettingsInput = Partial<Omit<Settings, 'id' | 'updatedAt'>>;
@@ -293,6 +371,110 @@ export interface CalendarEventInput {
   description?: string;
 }
 
+export type FinanceEntryType = 'INCOME' | 'EXPENSE';
+export type FinanceEntryStatus = 'PENDING' | 'PAID' | 'CANCELLED';
+
+export interface FinanceCategory {
+  id: string;
+  name: string;
+  type: FinanceEntryType;
+  createdAt: string;
+  updatedAt: string;
+}
+export type FinanceCategoryInput = { name: string; type: FinanceEntryType };
+
+export interface FinanceEntry {
+  id: string;
+  type: FinanceEntryType;
+  description: string;
+  categoryId: string;
+  category: FinanceCategory;
+  amount: number;
+  dueDate: string;
+  paidAt?: string;
+  paidAmount?: number;
+  status: FinanceEntryStatus;
+  projectId?: string;
+  project?: Project;
+  supplierId?: string;
+  supplier?: Supplier;
+  clientId?: string;
+  client?: Client;
+  purchaseOrderId?: string;
+  purchaseOrder?: PurchaseOrder;
+  budgetId?: string;
+  budget?: Budget;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface FinanceEntryInput {
+  type: FinanceEntryType;
+  description: string;
+  categoryId: string;
+  amount: number;
+  dueDate: string;
+  projectId?: string;
+  supplierId?: string;
+  clientId?: string;
+  purchaseOrderId?: string;
+  budgetId?: string;
+  notes?: string;
+}
+export interface PayFinanceEntryInput {
+  paidAt?: string;
+  paidAmount?: number;
+}
+export interface FinanceImportPreview {
+  totalRows: number;
+  columnCount: number;
+  rows: string[][];
+}
+export interface FinanceImportMapping {
+  hasHeaderRow: boolean;
+  dateColumnIndex: number;
+  descriptionColumnIndex: number;
+  amountColumnIndex: number;
+  incomeCategoryId: string;
+  expenseCategoryId: string;
+}
+export interface FinanceImportResult {
+  imported: number;
+  skipped: { row: number; reason: string }[];
+}
+
+export interface FinanceEntryFilters {
+  type?: FinanceEntryType;
+  status?: FinanceEntryStatus;
+  projectId?: string;
+  categoryId?: string;
+  search?: string;
+}
+
+export type ProjectBillingStatus = 'PLANNED' | 'INVOICED' | 'CANCELLED';
+export interface ProjectBillingItem {
+  id: string;
+  projectId: string;
+  project: Project;
+  description: string;
+  amount: number;
+  plannedDate: string;
+  status: ProjectBillingStatus;
+  financeEntryId?: string;
+  financeEntry?: FinanceEntry;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface ProjectBillingItemInput {
+  projectId: string;
+  description: string;
+  amount: number;
+  plannedDate: string;
+  notes?: string;
+}
+export type UpdateProjectBillingItemInput = Omit<Partial<ProjectBillingItemInput>, 'projectId'>;
+
 export interface SearchResults {
   clients: Client[];
   materials: Material[];
@@ -326,6 +508,8 @@ export const api = {
     request<Material>(`/materials/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteMaterial: (token: string, id: string) =>
     request<void>(`/materials/${id}`, { method: 'DELETE', token }),
+  bulkAdjustMaterialPrices: (token: string, data: { percentage: number; category?: string }) =>
+    request<{ adjusted: number }>('/materials/bulk-adjust-price', { method: 'POST', token, body: JSON.stringify(data) }),
 
   listLaborRoles: (token: string, search?: string) =>
     request<LaborRole[]>(`/labor-roles${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -335,15 +519,40 @@ export const api = {
     request<LaborRole>(`/labor-roles/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteLaborRole: (token: string, id: string) =>
     request<void>(`/labor-roles/${id}`, { method: 'DELETE', token }),
+  bulkAdjustLaborRolePrices: (token: string, data: { percentage: number }) =>
+    request<{ adjusted: number }>('/labor-roles/bulk-adjust-price', { method: 'POST', token, body: JSON.stringify(data) }),
 
   listVehicles: (token: string, search?: string) =>
     request<Vehicle[]>(`/vehicles${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
   createVehicle: (token: string, data: VehicleInput) =>
     request<Vehicle>('/vehicles', { method: 'POST', token, body: JSON.stringify(data) }),
-  updateVehicle: (token: string, id: string, data: Partial<VehicleInput>) =>
+  updateVehicle: (token: string, id: string, data: Partial<VehicleInput> & { currentKm?: number }) =>
     request<Vehicle>(`/vehicles/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteVehicle: (token: string, id: string) =>
     request<void>(`/vehicles/${id}`, { method: 'DELETE', token }),
+
+  listVehicleTrips: (token: string, vehicleId?: string) =>
+    request<VehicleTrip[]>(`/vehicle-trips${vehicleId ? `?vehicleId=${vehicleId}` : ''}`, { method: 'GET', token }),
+  createVehicleTrip: (token: string, data: VehicleTripInput) =>
+    request<VehicleTrip>('/vehicle-trips', { method: 'POST', token, body: JSON.stringify(data) }),
+
+  listVehicleMaintenances: (token: string, vehicleId?: string) =>
+    request<VehicleMaintenance[]>(`/vehicle-maintenances${vehicleId ? `?vehicleId=${vehicleId}` : ''}`, { method: 'GET', token }),
+  createVehicleMaintenance: (token: string, data: VehicleMaintenanceInput) =>
+    request<VehicleMaintenance>('/vehicle-maintenances', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateVehicleMaintenance: (token: string, id: string, data: Partial<VehicleMaintenanceInput>) =>
+    request<VehicleMaintenance>(`/vehicle-maintenances/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteVehicleMaintenance: (token: string, id: string) =>
+    request<void>(`/vehicle-maintenances/${id}`, { method: 'DELETE', token }),
+
+  listToolMaintenances: (token: string, toolId?: string) =>
+    request<ToolMaintenance[]>(`/tool-maintenances${toolId ? `?toolId=${toolId}` : ''}`, { method: 'GET', token }),
+  createToolMaintenance: (token: string, data: ToolMaintenanceInput) =>
+    request<ToolMaintenance>('/tool-maintenances', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateToolMaintenance: (token: string, id: string, data: Partial<ToolMaintenanceInput>) =>
+    request<ToolMaintenance>(`/tool-maintenances/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteToolMaintenance: (token: string, id: string) =>
+    request<void>(`/tool-maintenances/${id}`, { method: 'DELETE', token }),
 
   listBudgets: (token: string, search?: string) =>
     request<Budget[]>(`/budgets${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -425,6 +634,41 @@ export const api = {
   deletePurchaseOrder: (token: string, id: string) =>
     request<void>(`/purchase-orders/${id}`, { method: 'DELETE', token }),
 
+  listMaterialSurpluses: (token: string, filters?: { projectId?: string; status?: SurplusStatus }) => {
+    const params = new URLSearchParams();
+    if (filters?.projectId) params.set('projectId', filters.projectId);
+    if (filters?.status) params.set('status', filters.status);
+    const qs = params.toString();
+    return request<MaterialSurplus[]>(`/material-surpluses${qs ? `?${qs}` : ''}`, { method: 'GET', token });
+  },
+  createMaterialSurplus: (token: string, data: MaterialSurplusInput) =>
+    request<MaterialSurplus>('/material-surpluses', { method: 'POST', token, body: JSON.stringify(data) }),
+  returnMaterialSurplusToStock: (token: string, id: string) =>
+    request<MaterialSurplus>(`/material-surpluses/${id}/return-to-stock`, { method: 'POST', token }),
+  keepMaterialSurplusAtProject: (token: string, id: string) =>
+    request<MaterialSurplus>(`/material-surpluses/${id}/keep-at-project`, { method: 'POST', token }),
+  deleteMaterialSurplus: (token: string, id: string) =>
+    request<void>(`/material-surpluses/${id}`, { method: 'DELETE', token }),
+
+  listQuotations: (token: string, search?: string) =>
+    request<Quotation[]>(`/quotations${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  getQuotation: (token: string, id: string) =>
+    request<Quotation>(`/quotations/${id}`, { method: 'GET', token }),
+  createQuotation: (token: string, data: QuotationInput) =>
+    request<Quotation>('/quotations', { method: 'POST', token, body: JSON.stringify(data) }),
+  addQuotationItem: (token: string, quotationId: string, data: QuotationItemInput) =>
+    request<Quotation>(`/quotations/${quotationId}/items`, { method: 'POST', token, body: JSON.stringify(data) }),
+  removeQuotationItem: (token: string, itemId: string) =>
+    request<Quotation>(`/quotations/items/${itemId}`, { method: 'DELETE', token }),
+  addQuotationProposal: (token: string, itemId: string, data: QuotationProposalInput) =>
+    request<Quotation>(`/quotations/items/${itemId}/proposals`, { method: 'POST', token, body: JSON.stringify(data) }),
+  selectQuotationWinner: (token: string, proposalId: string) =>
+    request<Quotation>(`/quotations/proposals/${proposalId}/winner`, { method: 'POST', token }),
+  generateOrdersFromQuotation: (token: string, quotationId: string) =>
+    request<GenerateOrdersResult>(`/quotations/${quotationId}/generate-orders`, { method: 'POST', token }),
+  deleteQuotation: (token: string, id: string) =>
+    request<void>(`/quotations/${id}`, { method: 'DELETE', token }),
+
   getSettings: (token: string) =>
     request<Settings>('/settings', { method: 'GET', token }),
   updateSettings: (token: string, data: SettingsInput) =>
@@ -479,4 +723,59 @@ export const api = {
 
   search: (token: string, q: string) =>
     request<SearchResults>(`/search?q=${encodeURIComponent(q)}`, { method: 'GET', token }),
+
+  listFinanceCategories: (token: string, type?: FinanceEntryType) =>
+    request<FinanceCategory[]>(`/finance/categories${type ? `?type=${type}` : ''}`, { method: 'GET', token }),
+  createFinanceCategory: (token: string, data: FinanceCategoryInput) =>
+    request<FinanceCategory>('/finance/categories', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateFinanceCategory: (token: string, id: string, data: Partial<FinanceCategoryInput>) =>
+    request<FinanceCategory>(`/finance/categories/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteFinanceCategory: (token: string, id: string) =>
+    request<void>(`/finance/categories/${id}`, { method: 'DELETE', token }),
+
+  listFinanceEntries: (token: string, filters?: FinanceEntryFilters) => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.set('type', filters.type);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.projectId) params.set('projectId', filters.projectId);
+    if (filters?.categoryId) params.set('categoryId', filters.categoryId);
+    if (filters?.search) params.set('search', filters.search);
+    const qs = params.toString();
+    return request<FinanceEntry[]>(`/finance/entries${qs ? `?${qs}` : ''}`, { method: 'GET', token });
+  },
+  createFinanceEntry: (token: string, data: FinanceEntryInput) =>
+    request<FinanceEntry>('/finance/entries', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateFinanceEntry: (token: string, id: string, data: Partial<FinanceEntryInput>) =>
+    request<FinanceEntry>(`/finance/entries/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  payFinanceEntry: (token: string, id: string, data?: PayFinanceEntryInput) =>
+    request<FinanceEntry>(`/finance/entries/${id}/pay`, { method: 'POST', token, body: JSON.stringify(data || {}) }),
+  cancelFinanceEntry: (token: string, id: string) =>
+    request<FinanceEntry>(`/finance/entries/${id}/cancel`, { method: 'POST', token }),
+  deleteFinanceEntry: (token: string, id: string) =>
+    request<void>(`/finance/entries/${id}`, { method: 'DELETE', token }),
+
+  previewFinanceImport: (token: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<FinanceImportPreview>('/finance/import/preview', { method: 'POST', token, body: formData });
+  },
+  importFinanceCsv: (token: string, file: File, mapping: FinanceImportMapping) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mapping', JSON.stringify(mapping));
+    return request<FinanceImportResult>('/finance/import', { method: 'POST', token, body: formData });
+  },
+
+  listProjectBillingItems: (token: string, projectId?: string) =>
+    request<ProjectBillingItem[]>(`/project-billing${projectId ? `?projectId=${projectId}` : ''}`, { method: 'GET', token }),
+  createProjectBillingItem: (token: string, data: ProjectBillingItemInput) =>
+    request<ProjectBillingItem>('/project-billing', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateProjectBillingItem: (token: string, id: string, data: UpdateProjectBillingItemInput) =>
+    request<ProjectBillingItem>(`/project-billing/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  invoiceProjectBillingItem: (token: string, id: string) =>
+    request<ProjectBillingItem>(`/project-billing/${id}/invoice`, { method: 'POST', token }),
+  cancelProjectBillingItem: (token: string, id: string) =>
+    request<ProjectBillingItem>(`/project-billing/${id}/cancel`, { method: 'POST', token }),
+  deleteProjectBillingItem: (token: string, id: string) =>
+    request<void>(`/project-billing/${id}`, { method: 'DELETE', token }),
 };

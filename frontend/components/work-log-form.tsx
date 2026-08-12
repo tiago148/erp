@@ -29,6 +29,7 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
   const [description, setDescription] = useState(initialData?.description || '');
   const [occurrences, setOccurrences] = useState(initialData?.occurrences || '');
   const [employeeIds, setEmployeeIds] = useState<string[]>(initialData?.employees.map((e) => e.employeeId) || []);
+  const [noTravel, setNoTravel] = useState(initialData?.noTravel || false);
   const [vehicleEntries, setVehicleEntries] = useState<{ vehicleId: string; driverId: string }[]>(
     initialData?.vehicleUsages.map((v) => ({ vehicleId: v.vehicleId, driverId: v.driverId || '' })) || [],
   );
@@ -75,8 +76,9 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
         weather: weather || undefined,
         description,
         occurrences: occurrences || undefined,
+        noTravel,
         employeeIds,
-        vehicles: vehicleEntries
+        vehicles: noTravel ? [] : vehicleEntries
           .filter((v) => v.vehicleId)
           .map((v) => ({ vehicleId: v.vehicleId, driverId: v.driverId || undefined })),
         toolIds,
@@ -133,40 +135,49 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
 
       {/* VEÍCULOS + MOTORISTA */}
       <div className="border rounded-md p-4 space-y-3 bg-white">
-        <div className="flex justify-between items-center">
-          <Label className="font-semibold">Veículos Utilizados</Label>
-          <Button type="button" size="sm" variant="outline" onClick={addVehicleEntry}>
-            <Plus size={14} className="mr-1" />Adicionar
-          </Button>
-        </div>
-        {vehicleEntries.length === 0 && <p className="text-sm text-gray-400">Nenhum veículo adicionado.</p>}
-        {vehicleEntries.map((entry, idx) => {
-          const vehicle = vehicles.find((v) => v.id === entry.vehicleId);
-          const driver = employees.find((e) => e.id === entry.driverId);
-          return (
-            <div key={idx} className="flex gap-2 items-center flex-wrap">
-              <Select value={entry.vehicleId} onValueChange={(v) => updateVehicleEntry(idx, 'vehicleId', v)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Veículo">{vehicle?.name}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={entry.driverId} onValueChange={(v) => updateVehicleEntry(idx, 'driverId', v)}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="Motorista (opcional)">{driver?.name}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button type="button" size="icon" variant="ghost" onClick={() => setVehicleEntries(vehicleEntries.filter((_, i) => i !== idx))}>
-                <Trash2 size={16} />
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={noTravel} onChange={(e) => setNoTravel(e.target.checked)} />
+          Barracão (sem deslocamento)
+        </label>
+
+        {!noTravel && (
+          <>
+            <div className="flex justify-between items-center">
+              <Label className="font-semibold">Veículos Utilizados</Label>
+              <Button type="button" size="sm" variant="outline" onClick={addVehicleEntry}>
+                <Plus size={14} className="mr-1" />Adicionar
               </Button>
             </div>
-          );
-        })}
+            {vehicleEntries.length === 0 && <p className="text-sm text-gray-400">Nenhum veículo adicionado.</p>}
+            {vehicleEntries.map((entry, idx) => {
+              const vehicle = vehicles.find((v) => v.id === entry.vehicleId);
+              const driver = employees.find((e) => e.id === entry.driverId);
+              return (
+                <div key={idx} className="flex gap-2 items-center flex-wrap">
+                  <Select value={entry.vehicleId} onValueChange={(v) => updateVehicleEntry(idx, 'vehicleId', v)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Veículo">{vehicle?.name}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={entry.driverId} onValueChange={(v) => updateVehicleEntry(idx, 'driverId', v)}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Motorista (opcional)">{driver?.name}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" size="icon" variant="ghost" onClick={() => setVehicleEntries(vehicleEntries.filter((_, i) => i !== idx))}>
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       {/* FERRAMENTAS */}

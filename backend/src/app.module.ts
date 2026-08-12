@@ -24,6 +24,15 @@ import { TrainingsModule } from './trainings/trainings.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CalendarEventsModule } from './calendar-events/calendar-events.module';
 import { SearchModule } from './search/search.module';
+import { FinanceCategoriesModule } from './finance-categories/finance-categories.module';
+import { FinanceEntriesModule } from './finance-entries/finance-entries.module';
+import { ProjectBillingModule } from './project-billing/project-billing.module';
+import { FinanceImportModule } from './finance-import/finance-import.module';
+import { VehicleTripsModule } from './vehicle-trips/vehicle-trips.module';
+import { VehicleMaintenancesModule } from './vehicle-maintenances/vehicle-maintenances.module';
+import { MaterialSurplusModule } from './material-surplus/material-surplus.module';
+import { QuotationsModule } from './quotations/quotations.module';
+import { ToolMaintenancesModule } from './tool-maintenances/tool-maintenances.module';
 
 @Module({
   imports: [
@@ -50,6 +59,15 @@ import { SearchModule } from './search/search.module';
     TasksModule,
     CalendarEventsModule,
     SearchModule,
+    FinanceCategoriesModule,
+    FinanceEntriesModule,
+    ProjectBillingModule,
+    FinanceImportModule,
+    VehicleTripsModule,
+    VehicleMaintenancesModule,
+    MaterialSurplusModule,
+    QuotationsModule,
+    ToolMaintenancesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

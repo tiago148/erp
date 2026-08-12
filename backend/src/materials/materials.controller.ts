@@ -15,6 +15,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { MaterialsService } from './materials.service';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
+import { BulkAdjustPriceDto } from './dto/bulk-adjust-price.dto';
 
 @Controller('materials')
 @UseGuards(JwtAuthGuard)
@@ -24,6 +25,13 @@ export class MaterialsController {
   @Post()
   create(@Body() dto: CreateMaterialDto) {
     return this.materialsService.create(dto);
+  }
+
+  @Post('bulk-adjust-price')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  bulkAdjustPrice(@Body() dto: BulkAdjustPriceDto) {
+    return this.materialsService.bulkAdjustPrice(dto);
   }
 
   @Get()

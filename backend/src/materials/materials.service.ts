@@ -1,7 +1,13 @@
-﻿import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+﻿import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { round2 } from '../common/money';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
+import { BulkAdjustPriceDto } from './dto/bulk-adjust-price.dto';
 
 @Injectable()
 export class MaterialsService {
@@ -37,7 +43,9 @@ export class MaterialsService {
   }
 
   async findOne(id: string) {
-    const material = await this.prisma.client.material.findUnique({ where: { id } });
+    const material = await this.prisma.client.material.findUnique({
+      where: { id },
+    });
 
     if (!material) {
       throw new NotFoundException('Material nao encontrado.');
@@ -54,5 +62,25 @@ export class MaterialsService {
   async remove(id: string) {
     await this.findOne(id);
     return this.prisma.client.material.delete({ where: { id } });
+  }
+
+  async bulkAdjustPrice(dto: BulkAdjustPriceDto) {
+    const materials = await this.prisma.client.material.findMany({
+      where: dto.category ? { category: dto.category } : undefined,
+    });
+    if (materials.length === 0) return { adjusted: 0 };
+
+    await this.prisma.client.$transaction(
+      materials.map((m) =>
+        this.prisma.client.material.update({
+          where: { id: m.id },
+          data: {
+            unitCost: round2(Number(m.unitCost) * (1 + dto.percentage / 100)),
+          },
+        }),
+      ),
+    );
+
+    return { adjusted: materials.length };
   }
 }

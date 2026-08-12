@@ -56,6 +56,8 @@ export default function ConfigPage() {
         defaultFuelPrice: settings.defaultFuelPrice,
         budgetPrefix: settings.budgetPrefix,
         projectPrefix: settings.projectPrefix,
+        marginHealthyPct: settings.marginHealthyPct,
+        marginWarningPct: settings.marginWarningPct,
       });
       setSettings(updated);
       setMessage('Configurações salvas com sucesso.');
@@ -169,6 +171,24 @@ export default function ConfigPage() {
                 <Input type="number" step="0.01" disabled={!isAdmin} value={settings.defaultFuelPrice} onChange={(e) => set('defaultFuelPrice', parseFloat(e.target.value) || 0)} />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Margem de Orçamento</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-gray-400">Limites usados para colorir o indicador de margem nos orçamentos (verde = saudável, amarelo = reduzida, vermelho = crítica).</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Margem Saudável a partir de (%)</Label>
+                <Input type="number" step="1" disabled={!isAdmin} value={settings.marginHealthyPct} onChange={(e) => set('marginHealthyPct', parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Margem Reduzida a partir de (%)</Label>
+                <Input type="number" step="1" disabled={!isAdmin} value={settings.marginWarningPct} onChange={(e) => set('marginWarningPct', parseFloat(e.target.value) || 0)} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">Abaixo do limite de margem reduzida, o indicador fica vermelho (crítica).</p>
           </CardContent>
         </Card>
 

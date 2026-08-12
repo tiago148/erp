@@ -1,0 +1,172 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { api, FinanceCategory, FinanceEntry, FinanceEntryInput, FinanceEntryType, Project, Supplier, Client } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface Props {
+  initialData?: FinanceEntry;
+  onSubmit: (data: FinanceEntryInput) => Promise<void>;
+  onCancel: () => void;
+}
+
+const typeLabels: Record<FinanceEntryType, string> = { INCOME: 'Receita', EXPENSE: 'Despesa' };
+
+export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
+  const { token } = useAuth();
+  const [categories, setCategories] = useState<FinanceCategory[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  const [type, setType] = useState<FinanceEntryType>(initialData?.type || 'EXPENSE');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
+  const [amount, setAmount] = useState(initialData ? String(initialData.amount) : '');
+  const [dueDate, setDueDate] = useState(initialData?.dueDate?.slice(0, 10) || '');
+  const [projectId, setProjectId] = useState(initialData?.projectId || '');
+  const [supplierId, setSupplierId] = useState(initialData?.supplierId || '');
+  const [clientId, setClientId] = useState(initialData?.clientId || '');
+  const [notes, setNotes] = useState(initialData?.notes || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!token) return;
+    api.listProjects(token).then(setProjects);
+    api.listSuppliers(token).then(setSuppliers);
+    api.listClients(token).then(setClients);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    api.listFinanceCategories(token, type).then((list) => {
+      setCategories(list);
+      setCategoryId((prev) => (list.some((c) => c.id === prev) ? prev : ''));
+    });
+  }, [token, type]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!categoryId) { setError('Selecione uma categoria.'); return; }
+    setError('');
+    setSaving(true);
+    try {
+      await onSubmit({
+        type,
+        description,
+        categoryId,
+        amount: parseFloat(amount) || 0,
+        dueDate,
+        projectId: projectId || undefined,
+        supplierId: supplierId || undefined,
+        clientId: clientId || undefined,
+        notes: notes || undefined,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar lançamento');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const selectedProject = projects.find((p) => p.id === projectId);
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId);
+  const selectedClient = clients.find((c) => c.id === clientId);
+  const locked = !!initialData && initialData.status !== 'PENDING';
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {locked && (
+        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-2">
+          Este lançamento já foi {initialData?.status === 'PAID' ? 'pago/recebido' : 'cancelado'} — tipo, valor e vencimento ficam travados para preservar o histórico. Descrição, categoria, vínculos e observações ainda podem ser corrigidos.
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Tipo</Label>
+          <Select value={type} onValueChange={(v) => setType(v as FinanceEntryType)} disabled={locked}>
+            <SelectTrigger className="w-full"><SelectValue>{typeLabels[type]}</SelectValue></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="INCOME">Receita</SelectItem>
+              <SelectItem value="EXPENSE">Despesa</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Categoria</Label>
+          <Select value={categoryId} onValueChange={setCategoryId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Selecione...">{selectedCategory?.name}</SelectValue></SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {categories.length === 0 && <p className="text-xs text-amber-600">Nenhuma categoria de {typeLabels[type].toLowerCase()} cadastrada.</p>}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Descrição</Label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} required />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Valor</Label>
+          <Input type="number" step="0.01" min="0.01" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={locked} required />
+        </div>
+        <div className="space-y-2">
+          <Label>Vencimento</Label>
+          <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={locked} required />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Projeto (opcional)</Label>
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Nenhum">{selectedProject?.name}</SelectValue></SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.number} - {p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Fornecedor (opcional)</Label>
+          <Select value={supplierId} onValueChange={setSupplierId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Nenhum">{selectedSupplier?.name}</SelectValue></SelectTrigger>
+            <SelectContent>
+              {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Cliente (opcional)</Label>
+          <Select value={clientId} onValueChange={setClientId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Nenhum">{selectedClient?.name}</SelectValue></SelectTrigger>
+            <SelectContent>
+              {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Observações</Label>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+      </div>
+    </form>
+  );
+}

@@ -63,6 +63,10 @@ export class CreateBudgetDto {
   notes?: string;
 
   @IsOptional()
+  @IsString()
+  employeeId?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateBudgetMaterialItemDto)

@@ -26,6 +26,12 @@ export function TaskForm({ initialData, onSubmit, onCancel }: Props) {
   const [description, setDescription] = useState(initialData?.description || '');
   const [priority, setPriority] = useState<TaskPriority>(initialData?.priority || 'MEDIUM');
   const [dueDate, setDueDate] = useState(initialData?.dueDate?.slice(0, 10) || '');
+  const [dueTime, setDueTime] = useState(() => {
+    if (!initialData?.dueDate) return '';
+    const d = new Date(initialData.dueDate);
+    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0) return '';
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  });
   const [projectId, setProjectId] = useState(initialData?.projectId || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -37,11 +43,14 @@ export function TaskForm({ initialData, onSubmit, onCancel }: Props) {
     setError('');
     setSaving(true);
     try {
+      const dueDateTime = dueDate
+        ? (dueTime ? `${dueDate}T${dueTime}:00.000Z` : dueDate)
+        : undefined;
       await onSubmit({
         title,
         description: description || undefined,
         priority,
-        dueDate: dueDate || undefined,
+        dueDate: dueDateTime,
         projectId: projectId || undefined,
       });
     } catch (err) {
@@ -65,7 +74,7 @@ export function TaskForm({ initialData, onSubmit, onCancel }: Props) {
         <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>Prioridade</Label>
           <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
@@ -81,6 +90,10 @@ export function TaskForm({ initialData, onSubmit, onCancel }: Props) {
         <div className="space-y-2">
           <Label>Prazo (opcional)</Label>
           <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Horário (opcional)</Label>
+          <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} disabled={!dueDate} />
         </div>
       </div>
 
