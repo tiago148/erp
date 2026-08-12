@@ -1,8 +1,22 @@
-import { Body, Controller, Post, Get, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
+import { ConfirmAccountDto } from './dto/confirm-account.dto';
+import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -23,5 +37,32 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() req: any) {
     return req.user;
+  }
+
+  @Post('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  createUser(@Body() dto: CreateUserByAdminDto) {
+    return this.authService.createUserByAdmin(dto);
+  }
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  listUsers() {
+    return this.authService.listUsers();
+  }
+
+  @Post('resend-confirmation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  resendConfirmation(@Body() dto: ResendConfirmationDto) {
+    return this.authService.resendConfirmation(dto.email);
+  }
+
+  @Post('confirm')
+  @HttpCode(HttpStatus.OK)
+  confirmAccount(@Body() dto: ConfirmAccountDto) {
+    return this.authService.confirmAccount(dto);
   }
 }

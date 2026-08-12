@@ -8,7 +8,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { AlertTriangle, Package, Wrench, ShoppingCart, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { downloadCsv } from '@/lib/export-csv';
+import { AlertTriangle, Package, Wrench, ShoppingCart, TrendingUp, Download } from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -99,11 +101,40 @@ export default function RelatoriosPage() {
     0,
   );
 
+  function handleExport() {
+    downloadCsv('relatorios.csv', [
+      ['Orçamentos por Status'],
+      ['Status', 'Quantidade', 'Valor'],
+      ...budgetsByStatus.map((b) => [b.status, b.quantidade, b.valor]),
+      [],
+      ['Projetos por Status'],
+      ['Status', 'Quantidade'],
+      ...projectsByStatus.map((p) => [p.name, p.value]),
+      [],
+      ['Top Clientes (por orçamento aprovado)'],
+      ['Cliente', 'Orçamentos Aprovados', 'Valor Total'],
+      ...clientRanking.map((c) => [c.name, c.count, c.total]),
+      [],
+      ['Estoque Baixo'],
+      ['Material', 'Quantidade', 'Mínimo'],
+      ...lowStock.map((s) => [s.material.name, s.quantity, s.minQuantity]),
+      [],
+      ['Ferramentas em Obra'],
+      ['Ferramenta', 'Projeto'],
+      ...toolsOut.map((t) => [t.name, t.currentProject?.name || '-']),
+    ]);
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Relatórios</h1>
-        <p className="text-gray-500">Indicadores consolidados do sistema.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Relatórios</h1>
+          <p className="text-gray-500">Indicadores consolidados do sistema.</p>
+        </div>
+        <Button variant="outline" onClick={handleExport}>
+          <Download size={16} className="mr-2" />Exportar CSV
+        </Button>
       </div>
 
       {/* KPIs rápidos */}

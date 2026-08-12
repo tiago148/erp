@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StockItemForm } from '@/components/stock-item-form';
 import { StockMovementForm } from '@/components/stock-movement-form';
 import { MaterialSurplusForm } from '@/components/material-surplus-form';
+import { downloadCsv } from '@/lib/export-csv';
 import { Plus, ArrowRightLeft, Trash2, Download, Undo2, PackageCheck } from 'lucide-react';
 
 function fmt(v: number) {
@@ -213,17 +214,6 @@ function SurplusTab() {
       </Dialog>
     </div>
   );
-}
-
-function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
-  const blob = new Blob([String.fromCharCode(0xfeff) + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function ReplenishmentTab() {

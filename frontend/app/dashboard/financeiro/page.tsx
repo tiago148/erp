@@ -20,7 +20,8 @@ import { FinanceCategoryForm } from '@/components/finance-category-form';
 import { FinanceEntryForm } from '@/components/finance-entry-form';
 import { ProjectBillingItemForm } from '@/components/project-billing-item-form';
 import { FinanceImportWizard } from '@/components/finance-import-wizard';
-import { Plus, Pencil, Trash2, Check, X, Receipt, AlertTriangle } from 'lucide-react';
+import { downloadCsv } from '@/lib/export-csv';
+import { Plus, Pencil, Trash2, Check, X, Receipt, AlertTriangle, Download } from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -100,6 +101,16 @@ function EntriesTab() {
     return entry.project?.name || entry.supplier?.name || entry.client?.name || '-';
   }
 
+  function handleExport() {
+    downloadCsv('lancamentos-financeiros.csv', [
+      ['Vencimento', 'Descrição', 'Tipo', 'Categoria', 'Vínculo', 'Valor', 'Status'],
+      ...items.map((entry) => [
+        fmtDate(entry.dueDate), entry.description, typeLabels[entry.type], entry.category?.name || '-',
+        vinculo(entry), entry.amount, statusLabels[entry.status],
+      ]),
+    ]);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-end gap-3">
@@ -123,7 +134,10 @@ function EntriesTab() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Novo Lançamento</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}><Download size={16} className="mr-2" />Exportar CSV</Button>
+          <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Novo Lançamento</Button>
+        </div>
       </div>
 
       <div className="border rounded-md bg-white overflow-x-auto">

@@ -21,6 +21,7 @@ import {
   UserCog,
   KanbanSquare,
   Calendar,
+  UsersRound,
 } from 'lucide-react';
 
 const menuGroups = [
@@ -66,6 +67,7 @@ const menuGroups = [
       { label: 'Segurança', href: '/dashboard/seguranca', icon: ShieldCheck },
       { label: 'Relatórios', href: '/dashboard/relatorios', icon: BarChart3 },
       { label: 'Automações', href: '/dashboard/automacoes', icon: Zap },
+      { label: 'Usuários', href: '/dashboard/usuarios', icon: UsersRound },
       { label: 'Configurações', href: '/dashboard/config', icon: Settings },
     ],
   },

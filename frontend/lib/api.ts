@@ -27,6 +27,14 @@ export interface AuthResponse {
   user: { id: string; name: string; email: string; role: string };
 }
 
+export type UserRole = 'ADMIN' | 'USER';
+export interface ManagedUser {
+  id: string; name: string; email: string; role: UserRole; active: boolean; createdAt: string;
+}
+export interface CreateUserByAdminInput {
+  name: string; email: string; role?: UserRole;
+}
+
 export interface Client {
   id: string; type: 'INDIVIDUAL' | 'COMPANY'; name: string; document: string;
   email?: string; phone?: string; address?: string; city?: string; state?: string;
@@ -490,6 +498,13 @@ export const api = {
   register: (name: string, email: string, password: string) =>
     request<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
   me: (token: string) => request<{ userId: string; email: string; role: string }>('/auth/me', { method: 'GET', token }),
+  listUsers: (token: string) => request<ManagedUser[]>('/auth/users', { method: 'GET', token }),
+  createUserByAdmin: (token: string, data: CreateUserByAdminInput) =>
+    request<ManagedUser>('/auth/users', { method: 'POST', token, body: JSON.stringify(data) }),
+  resendConfirmation: (token: string, email: string) =>
+    request<{ message: string }>('/auth/resend-confirmation', { method: 'POST', token, body: JSON.stringify({ email }) }),
+  confirmAccount: (tokenParam: string, password: string) =>
+    request<AuthResponse>('/auth/confirm', { method: 'POST', body: JSON.stringify({ token: tokenParam, password }) }),
 
   listClients: (token: string, search?: string) =>
     request<Client[]>(`/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),

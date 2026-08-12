@@ -16,6 +16,7 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  confirmAccount: (token: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -51,6 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/dashboard');
   }
 
+  async function confirmAccount(token: string, password: string) {
+    const response: AuthResponse = await api.confirmAccount(token, password);
+
+    localStorage.setItem('accessToken', response.accessToken);
+    localStorage.setItem('user', JSON.stringify(response.user));
+
+    setToken(response.accessToken);
+    setUser(response.user);
+
+    router.push('/dashboard');
+  }
+
   function logout() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
@@ -60,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, confirmAccount, logout }}>
       {children}
     </AuthContext.Provider>
   );
