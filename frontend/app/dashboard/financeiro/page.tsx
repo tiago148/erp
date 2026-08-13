@@ -482,10 +482,10 @@ function CashFlowTab() {
                 <YAxis fontSize={12} tickFormatter={(v) => fmt(v)} width={90} tick={{ fill: '#8b929e' }} />
                 <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ background: '#1e2026', border: '1px solid #2e3138', borderRadius: 8, color: '#d8dce6' }} />
                 <Legend wrapperStyle={{ color: '#8b929e' }} />
-                <Bar dataKey="Recebido" fill="#4caf82" />
-                <Bar dataKey="Pago" fill="#e05555" />
-                <Bar dataKey="Previsto (receita)" fill="#8fd4b0" />
-                <Bar dataKey="Previsto (despesa)" fill="#ea9494" />
+                <Bar dataKey="Recebido" stackId="entradas" fill="#4caf82" />
+                <Bar dataKey="Previsto (receita)" stackId="entradas" fill="#8fd4b0" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Pago" stackId="saidas" fill="#e05555" />
+                <Bar dataKey="Previsto (despesa)" stackId="saidas" fill="#ea9494" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
