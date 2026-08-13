@@ -68,19 +68,19 @@ export function QuotationDetail({ quotationId, onChanged }: Props) {
     }
   }
 
-  if (!quotation) return <p className="text-gray-500 text-sm">Carregando...</p>;
+  if (!quotation) return <p className="text-muted-foreground text-sm">Carregando...</p>;
 
   return (
     <div className="space-y-4">
       {quotation.status === 'CLOSED' && (
-        <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-md p-2">Esta cotação já foi fechada — os pedidos de compra correspondentes já foram gerados.</p>
+        <p className="text-xs text-info bg-info/10 border border-info/30 rounded-md p-2">Esta cotação já foi fechada — os pedidos de compra correspondentes já foram gerados.</p>
       )}
 
       {orderResult && (
-        <div className="text-sm bg-green-50 border border-green-200 rounded-md p-3 space-y-1">
-          <p className="text-green-700 font-medium">{orderResult.createdCount} pedido(s) de compra gerado(s).</p>
+        <div className="text-sm bg-success/10 border border-success/30 rounded-md p-3 space-y-1">
+          <p className="text-success font-medium">{orderResult.createdCount} pedido(s) de compra gerado(s).</p>
           {orderResult.skippedItems.length > 0 && (
-            <p className="text-amber-700 text-xs">Itens sem vencedor selecionado (não incluídos): {orderResult.skippedItems.join(', ')}</p>
+            <p className="text-warning text-xs">Itens sem vencedor selecionado (não incluídos): {orderResult.skippedItems.join(', ')}</p>
           )}
         </div>
       )}
@@ -90,18 +90,18 @@ export function QuotationDetail({ quotationId, onChanged }: Props) {
         return (
           <div key={item.id} className="border rounded-md p-3 space-y-2">
             <div className="flex justify-between items-center">
-              <p className="font-medium text-sm">{item.material.name} <span className="text-gray-400">({item.quantity} {item.material.unit})</span></p>
+              <p className="font-medium text-sm">{item.material.name} <span className="text-muted-foreground">({item.quantity} {item.material.unit})</span></p>
             </div>
 
             {item.proposals.length > 0 && (
               <div className="space-y-1">
                 {item.proposals.map((p) => (
-                  <div key={p.id} className={`flex justify-between items-center text-sm py-1 px-2 rounded ${p.isWinner ? 'bg-green-50' : ''}`}>
+                  <div key={p.id} className={`flex justify-between items-center text-sm py-1 px-2 rounded ${p.isWinner ? 'bg-success/10' : ''}`}>
                     <span>{p.supplier.name}</span>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{fmt(p.unitCost)}</span>
                       {p.isWinner ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 flex items-center gap-1"><Check size={12} />Vencedor</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success flex items-center gap-1"><Check size={12} />Vencedor</span>
                       ) : quotation.status === 'OPEN' ? (
                         <Button type="button" size="sm" variant="outline" onClick={() => handleSelectWinner(p.id)}>Marcar vencedor</Button>
                       ) : null}
@@ -128,7 +128,7 @@ export function QuotationDetail({ quotationId, onChanged }: Props) {
         );
       })}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {quotation.status === 'OPEN' && (
         <div className="flex justify-end pt-2">

@@ -58,12 +58,12 @@ export function QuotationForm({ onSubmit, onCancel }: Props) {
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Materiais para obra X" />
       </div>
 
-      <div className="border rounded-md p-4 space-y-3 bg-white">
+      <div className="border rounded-md p-4 space-y-3 bg-card">
         <div className="flex justify-between items-center">
           <Label className="font-semibold">Itens a Cotar</Label>
           <Button type="button" size="sm" variant="outline" onClick={addItem}><Plus size={14} className="mr-1" />Adicionar</Button>
         </div>
-        {items.length === 0 && <p className="text-sm text-gray-400">Nenhum item adicionado.</p>}
+        {items.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item adicionado.</p>}
         {items.map((item, idx) => {
           const material = materials.find((m) => m.id === item.materialId);
           return (
@@ -83,7 +83,7 @@ export function QuotationForm({ onSubmit, onCancel }: Props) {
         })}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Criando...' : 'Criar Cotação'}</Button>

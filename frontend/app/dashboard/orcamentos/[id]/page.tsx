@@ -16,7 +16,7 @@ export default function EditarOrcamentoPage() {
     if (token && id) api.getBudget(token, id).then(setBudget);
   }, [token, id]);
 
-  if (!budget) return <p className="text-gray-500">Carregando...</p>;
+  if (!budget) return <p className="text-muted-foreground">Carregando...</p>;
 
   return (
     <div className="max-w-3xl space-y-6">

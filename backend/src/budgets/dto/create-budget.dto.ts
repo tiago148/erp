@@ -67,6 +67,11 @@ export class CreateBudgetDto {
   employeeId?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  projectDays?: number;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateBudgetMaterialItemDto)

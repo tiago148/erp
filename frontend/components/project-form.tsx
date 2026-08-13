@@ -124,7 +124,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
             </SelectContent>
           </Select>
           {approvedBudgets.length === 0 && (
-            <p className="text-xs text-amber-600">Nenhum orçamento com status "Aprovado" encontrado.</p>
+            <p className="text-xs text-warning">Nenhum orçamento com status "Aprovado" encontrado.</p>
           )}
         </div>
       )}
@@ -199,7 +199,7 @@ export function ProjectForm({ initialData, onSubmit, onCancel }: Props) {
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>

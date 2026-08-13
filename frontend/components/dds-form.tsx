@@ -58,9 +58,9 @@ export function DdsForm({ onSubmit, onCancel }: Props) {
       <div className="space-y-2">
         <Label>Participantes</Label>
         <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto border rounded-md p-2">
-          {employees.length === 0 && <p className="text-xs text-gray-400">Nenhum funcionário cadastrado.</p>}
+          {employees.length === 0 && <p className="text-xs text-muted-foreground">Nenhum funcionário cadastrado.</p>}
           {employees.map((e) => (
-            <label key={e.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50">
+            <label key={e.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer hover:bg-muted">
               <input type="checkbox" checked={participants.includes(e.id)} onChange={() => toggleParticipant(e.id)} />
               {e.name}
             </label>
@@ -73,7 +73,7 @@ export function DdsForm({ onSubmit, onCancel }: Props) {
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>

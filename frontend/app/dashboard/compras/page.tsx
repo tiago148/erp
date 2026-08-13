@@ -23,9 +23,9 @@ const statusLabels: Record<PurchaseOrderStatus, string> = {
   CANCELLED: 'Cancelado',
 };
 const statusColors: Record<PurchaseOrderStatus, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
-  RECEIVED: 'bg-green-100 text-green-700',
-  CANCELLED: 'bg-red-100 text-red-700',
+  PENDING: 'bg-warning/15 text-warning',
+  RECEIVED: 'bg-success/15 text-success',
+  CANCELLED: 'bg-destructive/15 text-destructive',
 };
 
 function SuppliersTab() {
@@ -62,16 +62,16 @@ function SuppliersTab() {
       <div className="flex justify-end">
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Novo Fornecedor</Button>
       </div>
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow><TableHead>Nome</TableHead><TableHead>Documento</TableHead><TableHead>Telefone</TableHead><TableHead className="w-24">Ações</TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-gray-500">Nenhum fornecedor cadastrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhum fornecedor cadastrado.</TableCell></TableRow>
             ) : items.map((s) => (
               <TableRow key={s.id}>
                 <TableCell className="font-medium">{s.name}</TableCell>
@@ -146,7 +146,7 @@ function PurchaseOrdersTab() {
       <div className="flex justify-end">
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Novo Pedido</Button>
       </div>
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -156,9 +156,9 @@ function PurchaseOrdersTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Nenhum pedido de compra.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum pedido de compra.</TableCell></TableRow>
             ) : items.map((order) => (
               <TableRow key={order.id}>
                 <TableCell className="font-medium">{order.number}</TableCell>
@@ -196,8 +196,8 @@ function PurchaseOrdersTab() {
 
 const quotationStatusLabels: Record<string, string> = { OPEN: 'Aberta', CLOSED: 'Fechada' };
 const quotationStatusColors: Record<string, string> = {
-  OPEN: 'bg-yellow-100 text-yellow-700',
-  CLOSED: 'bg-green-100 text-green-700',
+  OPEN: 'bg-warning/15 text-warning',
+  CLOSED: 'bg-success/15 text-success',
 };
 
 function QuotationsTab() {
@@ -235,7 +235,7 @@ function QuotationsTab() {
       <div className="flex justify-end">
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Nova Cotação</Button>
       </div>
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -245,9 +245,9 @@ function QuotationsTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhuma cotação criada.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma cotação criada.</TableCell></TableRow>
             ) : items.map((q) => (
               <TableRow key={q.id}>
                 <TableCell className="font-medium">{q.number}</TableCell>
@@ -290,7 +290,7 @@ export default function ComprasPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Compras</h1>
-        <p className="text-gray-500">Fornecedores e pedidos de compra.</p>
+        <p className="text-muted-foreground">Fornecedores e pedidos de compra.</p>
       </div>
       <Tabs defaultValue="pedidos">
         <TabsList>

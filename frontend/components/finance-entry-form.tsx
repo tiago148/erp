@@ -84,7 +84,7 @@ export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {locked && (
-        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-2">
+        <p className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-md p-2">
           Este lançamento já foi {initialData?.status === 'PAID' ? 'pago/recebido' : 'cancelado'} — tipo, valor e vencimento ficam travados para preservar o histórico. Descrição, categoria, vínculos e observações ainda podem ser corrigidos.
         </p>
       )}
@@ -107,7 +107,7 @@ export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
               {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          {categories.length === 0 && <p className="text-xs text-amber-600">Nenhuma categoria de {typeLabels[type].toLowerCase()} cadastrada.</p>}
+          {categories.length === 0 && <p className="text-xs text-warning">Nenhuma categoria de {typeLabels[type].toLowerCase()} cadastrada.</p>}
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>

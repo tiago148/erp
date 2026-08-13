@@ -90,14 +90,14 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
         </div>
       </div>
 
-      <div className="rounded-md bg-gray-50 p-3 text-sm">
-        <span className="text-gray-500">Taxa/hora com encargos: </span>
+      <div className="rounded-md bg-muted p-3 text-sm">
+        <span className="text-muted-foreground">Taxa/hora com encargos: </span>
         <span className="font-semibold">
           {preview.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </span>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>

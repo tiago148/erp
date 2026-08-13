@@ -120,7 +120,7 @@ export function VehicleForm({ initialData, onSubmit, onCancel }: VehicleFormProp
           <div className="space-y-2">
             <Label>KM Atual</Label>
             <Input type="number" value={initialData.currentKm} disabled />
-            <p className="text-xs text-gray-400">Atualizado automaticamente pelas movimentações registradas.</p>
+            <p className="text-xs text-muted-foreground">Atualizado automaticamente pelas movimentações registradas.</p>
           </div>
         )}
       </div>
@@ -149,7 +149,7 @@ export function VehicleForm({ initialData, onSubmit, onCancel }: VehicleFormProp
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>

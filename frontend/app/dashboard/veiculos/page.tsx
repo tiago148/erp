@@ -89,7 +89,7 @@ export default function VeiculosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Veículos</h1>
-          <p className="text-gray-500">Frota da empresa e consumo médio.</p>
+          <p className="text-muted-foreground">Frota da empresa e consumo médio.</p>
         </div>
         <Button onClick={openCreateForm}>
           <Plus size={16} className="mr-2" />
@@ -108,7 +108,7 @@ export default function VeiculosPage() {
         </Button>
       </form>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -123,13 +123,13 @@ export default function VeiculosPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : vehicles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   Nenhum veículo cadastrado.
                 </TableCell>
               </TableRow>

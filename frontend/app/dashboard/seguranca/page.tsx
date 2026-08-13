@@ -59,23 +59,23 @@ function EppTab() {
       <div className="flex justify-end">
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Nova Entrega</Button>
       </div>
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow><TableHead>Funcionário</TableHead><TableHead>Item</TableHead><TableHead>Data</TableHead><TableHead>Assinado</TableHead><TableHead className="w-16">Ações</TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhuma entrega registrada.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma entrega registrada.</TableCell></TableRow>
             ) : items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.employee.name}</TableCell>
                 <TableCell>{item.itemName}</TableCell>
                 <TableCell>{formatDate(item.deliveredAt)}</TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.signed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.signed ? 'bg-success/15 text-success' : 'bg-secondary text-secondary-foreground'}`}>
                     {item.signed ? 'Sim' : 'Pendente'}
                   </span>
                 </TableCell>
@@ -137,22 +137,22 @@ function DdsTab() {
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Novo DDS</Button>
       </div>
       {loading ? (
-        <p className="text-gray-500">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       ) : items.length === 0 ? (
-        <p className="text-gray-500">Nenhum DDS registrado.</p>
+        <p className="text-muted-foreground">Nenhum DDS registrado.</p>
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <div key={item.id} className="border rounded-md bg-white p-4 space-y-1">
+            <div key={item.id} className="border rounded-md bg-card p-4 space-y-1">
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-semibold">{item.topic}</p>
-                  <p className="text-sm text-gray-500">{formatDate(item.date)}</p>
+                  <p className="text-sm text-muted-foreground">{formatDate(item.date)}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}><Trash2 size={16} /></Button>
               </div>
-              <p className="text-sm text-gray-600">Participantes: {item.participants.length > 0 ? participantNames(item.participants) : 'Nenhum registrado'}</p>
-              {item.notes && <p className="text-sm text-gray-500">{item.notes}</p>}
+              <p className="text-sm text-muted-foreground">Participantes: {item.participants.length > 0 ? participantNames(item.participants) : 'Nenhum registrado'}</p>
+              {item.notes && <p className="text-sm text-muted-foreground">{item.notes}</p>}
             </div>
           ))}
         </div>
@@ -199,16 +199,16 @@ function TrainingsTab() {
       <div className="flex justify-end">
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Novo Treinamento</Button>
       </div>
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow><TableHead>Funcionário</TableHead><TableHead>Norma</TableHead><TableHead>Conclusão</TableHead><TableHead>Validade</TableHead><TableHead className="w-16">Ações</TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhum treinamento registrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum treinamento registrado.</TableCell></TableRow>
             ) : items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.employee.name}</TableCell>
@@ -216,7 +216,7 @@ function TrainingsTab() {
                 <TableCell>{formatDate(item.completedAt)}</TableCell>
                 <TableCell>
                   {item.expiresAt ? (
-                    <span className={`flex items-center gap-1 text-sm ${isExpired(item.expiresAt) ? 'text-red-600' : isExpiringSoon(item.expiresAt) ? 'text-amber-600' : 'text-gray-600'}`}>
+                    <span className={`flex items-center gap-1 text-sm ${isExpired(item.expiresAt) ? 'text-destructive' : isExpiringSoon(item.expiresAt) ? 'text-warning' : 'text-muted-foreground'}`}>
                       {(isExpired(item.expiresAt) || isExpiringSoon(item.expiresAt)) && <AlertTriangle size={14} />}
                       {formatDate(item.expiresAt)}
                     </span>
@@ -243,7 +243,7 @@ export default function SegurancaPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Segurança do Trabalho</h1>
-        <p className="text-gray-500">EPI, DDS e treinamentos NR.</p>
+        <p className="text-muted-foreground">EPI, DDS e treinamentos NR.</p>
       </div>
       <Tabs defaultValue="epi">
         <TabsList>

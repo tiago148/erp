@@ -89,7 +89,7 @@ export default function ClientesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-gray-500">Gerencie os clientes do sistema.</p>
+          <p className="text-muted-foreground">Gerencie os clientes do sistema.</p>
         </div>
         <Button onClick={openCreateForm}>
           <Plus size={16} className="mr-2" />
@@ -108,7 +108,7 @@ export default function ClientesPage() {
         </Button>
       </form>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -122,13 +122,13 @@ export default function ClientesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : clients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   Nenhum cliente cadastrado.
                 </TableCell>
               </TableRow>

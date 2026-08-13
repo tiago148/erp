@@ -65,7 +65,7 @@ export function StockItemForm({ onSubmit, onCancel }: Props) {
           <Input type="number" step="0.01" min="0" placeholder="0" value={minQuantity} onChange={(e) => setMinQuantity(e.target.value)} />
         </div>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>

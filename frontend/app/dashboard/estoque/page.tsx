@@ -59,7 +59,7 @@ function StockPositionTab() {
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Novo Item</Button>
       </div>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -70,9 +70,9 @@ function StockPositionTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Nenhum item no estoque.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum item no estoque.</TableCell></TableRow>
             ) : items.map((item) => {
               const isLow = item.quantity <= item.minQuantity;
               return (
@@ -82,7 +82,7 @@ function StockPositionTab() {
                   <TableCell>{item.quantity} {item.material.unit}</TableCell>
                   <TableCell>{item.minQuantity} {item.material.unit}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${isLow ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${isLow ? 'bg-destructive/15 text-destructive' : 'bg-success/15 text-success'}`}>
                       {isLow ? 'Estoque Baixo' : 'OK'}
                     </span>
                   </TableCell>
@@ -122,9 +122,9 @@ const surplusStatusLabels: Record<string, string> = {
   PENDING: 'Pendente', RETURNED_TO_STOCK: 'Devolvida ao Estoque', KEPT_AT_PROJECT: 'Mantida no Projeto',
 };
 const surplusStatusColors: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
-  RETURNED_TO_STOCK: 'bg-green-100 text-green-700',
-  KEPT_AT_PROJECT: 'bg-blue-100 text-blue-700',
+  PENDING: 'bg-warning/15 text-warning',
+  RETURNED_TO_STOCK: 'bg-success/15 text-success',
+  KEPT_AT_PROJECT: 'bg-info/15 text-info',
 };
 
 function SurplusTab() {
@@ -168,11 +168,11 @@ function SurplusTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">Material comprado a mais do que foi usado em um projeto — devolva ao estoque geral ou mantenha registrado como sobra no local.</p>
+      <p className="text-sm text-muted-foreground">Material comprado a mais do que foi usado em um projeto — devolva ao estoque geral ou mantenha registrado como sobra no local.</p>
       <div className="flex justify-end">
         <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Registrar Sobra</Button>
       </div>
-      <div className="border rounded-md bg-white overflow-x-auto">
+      <div className="border rounded-md bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -182,9 +182,9 @@ function SurplusTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhuma sobra registrada.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma sobra registrada.</TableCell></TableRow>
             ) : items.map((s) => (
               <TableRow key={s.id}>
                 <TableCell>{s.project.name}</TableCell>
@@ -227,7 +227,7 @@ function ReplenishmentTab() {
     api.listStockItems(token).then((data) => { setItems(data); setLoading(false); });
   }, [token]);
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
+  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
 
   const belowMinimum = items
     .filter((i) => i.quantity <= i.minQuantity)
@@ -251,12 +251,12 @@ function ReplenishmentTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Materiais abaixo do mínimo, com quantidade sugerida para repor até o nível mínimo.</p>
+        <p className="text-sm text-muted-foreground">Materiais abaixo do mínimo, com quantidade sugerida para repor até o nível mínimo.</p>
         <Button variant="outline" disabled={belowMinimum.length === 0} onClick={handleExport}>
           <Download size={16} className="mr-2" />Exportar CSV
         </Button>
       </div>
-      <div className="border rounded-md bg-white overflow-x-auto">
+      <div className="border rounded-md bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -266,7 +266,7 @@ function ReplenishmentTab() {
           </TableHeader>
           <TableBody>
             {belowMinimum.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-500">Nenhum item abaixo do mínimo no momento.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum item abaixo do mínimo no momento.</TableCell></TableRow>
             ) : belowMinimum.map(({ item, suggestedQty, totalCost }) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.material.name}</TableCell>
@@ -291,7 +291,7 @@ export default function EstoquePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Estoque</h1>
-        <p className="text-gray-500">Posição de estoque, sobras de projeto e lista de reposição.</p>
+        <p className="text-muted-foreground">Posição de estoque, sobras de projeto e lista de reposição.</p>
       </div>
 
       <Tabs defaultValue="posicao">

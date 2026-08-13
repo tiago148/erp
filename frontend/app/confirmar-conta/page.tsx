@@ -41,17 +41,17 @@ function ConfirmarContaForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Confirmar Conta</CardTitle>
         </CardHeader>
         <CardContent>
           {!token ? (
-            <p className="text-sm text-red-600">Link de confirmação inválido ou incompleto. Peça um novo link ao administrador.</p>
+            <p className="text-sm text-destructive">Link de confirmação inválido ou incompleto. Peça um novo link ao administrador.</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <p className="text-sm text-gray-500">Defina uma senha para ativar sua conta.</p>
+              <p className="text-sm text-muted-foreground">Defina uma senha para ativar sua conta.</p>
 
               <div className="space-y-2">
                 <Label htmlFor="password">Nova Senha</Label>
@@ -77,7 +77,7 @@ function ConfirmarContaForm() {
                 />
               </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? 'Confirmando...' : 'Confirmar e Entrar'}
@@ -92,7 +92,7 @@ function ConfirmarContaForm() {
 
 export default function ConfirmarContaPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50"><p className="text-gray-500">Carregando...</p></div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-muted"><p className="text-muted-foreground">Carregando...</p></div>}>
       <ConfirmarContaForm />
     </Suspense>
   );

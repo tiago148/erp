@@ -49,7 +49,7 @@ export default function FuncionariosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Funcionários</h1>
-          <p className="text-gray-500">Equipe da empresa.</p>
+          <p className="text-muted-foreground">Equipe da empresa.</p>
         </div>
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
           <Plus size={16} className="mr-2" />Novo Funcionário
@@ -61,7 +61,7 @@ export default function FuncionariosPage() {
         <Button type="submit" variant="outline">Buscar</Button>
       </form>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -72,9 +72,9 @@ export default function FuncionariosPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : employees.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-500">Nenhum funcionário cadastrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum funcionário cadastrado.</TableCell></TableRow>
             ) : employees.map((e) => (
               <TableRow key={e.id}>
                 <TableCell className="font-medium">{e.name}</TableCell>
@@ -83,17 +83,17 @@ export default function FuncionariosPage() {
                 <TableCell>{fmt(e.hourlyRate)}</TableCell>
                 <TableCell>
                   {e.cnhTypes.length === 0 ? (
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Sem CNH</span>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">Sem CNH</span>
                   ) : (
                     <div className="flex gap-1">
                       {e.cnhTypes.map((type) => (
-                        <span key={type} className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{type}</span>
+                        <span key={type} className="px-2 py-1 rounded-full text-xs font-medium bg-info/15 text-info">{type}</span>
                       ))}
                     </div>
                   )}
                 </TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${e.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${e.active ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'}`}>
                     {e.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </TableCell>

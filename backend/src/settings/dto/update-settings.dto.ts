@@ -1,10 +1,25 @@
-﻿import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+﻿import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export enum TaxRegime {
   SIMPLES = 'SIMPLES',
   LUCRO_PRESUMIDO = 'LUCRO_PRESUMIDO',
   LUCRO_REAL = 'LUCRO_REAL',
   MEI = 'MEI',
+}
+
+export enum OverheadMethod {
+  DAY = 'DAY',
+  HOUR = 'HOUR',
+  PERCENT = 'PERCENT',
 }
 
 export class UpdateSettingsDto {
@@ -22,4 +37,11 @@ export class UpdateSettingsDto {
   @IsOptional() @IsString() projectPrefix?: string;
   @IsOptional() @IsNumber() @Min(0) marginHealthyPct?: number;
   @IsOptional() @IsNumber() @Min(0) marginWarningPct?: number;
+  @IsOptional() @IsEnum(OverheadMethod) overheadMethod?: OverheadMethod;
+  @IsOptional() @IsInt() @Min(1) overheadFuncCount?: number;
+  @IsOptional() @IsInt() @Min(1) overheadHoursPerMonth?: number;
+  @IsOptional() @IsNumber() @Min(1) @Max(100) overheadOccupancyPct?: number;
+  @IsOptional() @IsInt() @Min(1) overheadWorkDaysPerMonth?: number;
+  @IsOptional() @IsNumber() @Min(0) overheadAvgDirectCost?: number;
+  @IsOptional() @IsBoolean() overheadAutoApply?: boolean;
 }

@@ -107,20 +107,20 @@ export interface BudgetOtherItem { id: string; description: string; amount: numb
 export interface BudgetTax { name: string; rate: number; value: number; }
 export interface BudgetTotals {
   materialsTotal: number; laborTotal: number; travelTotal: number; otherTotal: number;
-  subtotal: number; bdiValue: number; base: number; taxes: BudgetTax[]; taxTotal: number;
+  subtotal: number; indirectCostValue: number; bdiValue: number; base: number; taxes: BudgetTax[]; taxTotal: number;
   discountValue: number; total: number;
   estimatedCost: number; estimatedMargin: number; estimatedMarginPct: number;
 }
 export interface Budget {
   id: string; number: string; clientId: string; client: Client; description?: string;
   status: BudgetStatus; regime: TaxRegime; bdiPct: number; discountPct: number; notes?: string;
-  employeeId?: string; employee?: Employee;
+  employeeId?: string; employee?: Employee; projectDays?: number;
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
   otherItems: BudgetOtherItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
 }
 export interface BudgetInput {
   clientId: string; description?: string; status?: BudgetStatus; regime?: TaxRegime;
-  bdiPct?: number; discountPct?: number; notes?: string; employeeId?: string;
+  bdiPct?: number; discountPct?: number; notes?: string; employeeId?: string; projectDays?: number;
   materialItems?: { materialId: string; quantity: number }[];
   laborItems?: { laborRoleId: string; hours: number }[];
   travelItems?: { vehicleId: string; distanceKm: number; trips: number; fuelPrice: number }[];
@@ -253,6 +253,7 @@ export interface QuotationItemInput { materialId: string; quantity: number }
 export interface QuotationProposalInput { supplierId: string; unitCost: number; notes?: string }
 export interface GenerateOrdersResult { orders: PurchaseOrder[]; skippedItems: string[] }
 
+export type OverheadMethod = 'DAY' | 'HOUR' | 'PERCENT';
 export interface Settings {
   id: string;
   companyName: string;
@@ -269,9 +270,33 @@ export interface Settings {
   projectPrefix: string;
   marginHealthyPct: number;
   marginWarningPct: number;
+  overheadMethod: OverheadMethod;
+  overheadFuncCount?: number;
+  overheadHoursPerMonth?: number;
+  overheadOccupancyPct: number;
+  overheadWorkDaysPerMonth?: number;
+  overheadAvgDirectCost?: number;
+  overheadAutoApply: boolean;
   updatedAt: string;
 }
 export type SettingsInput = Partial<Omit<Settings, 'id' | 'updatedAt'>>;
+
+export type FixedExpenseType = 'FIXED' | 'SEMI_VARIABLE';
+export interface FixedExpense {
+  id: string;
+  description: string;
+  category: string;
+  amount: number;
+  type: FixedExpenseType;
+  generatesBill: boolean;
+  billDay?: number;
+  supplierName?: string;
+  financeEntryId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export type FixedExpenseInput = Omit<FixedExpense, 'id' | 'financeEntryId' | 'createdAt' | 'updatedAt'>;
 
 export type CnhType = 'A' | 'B' | 'C' | 'D' | 'E';
 export interface Employee {
@@ -689,6 +714,15 @@ export const api = {
   updateSettings: (token: string, data: SettingsInput) =>
     request<Settings>('/settings', { method: 'PATCH', token, body: JSON.stringify(data) }),
   getBackupUrl: () => `${API_URL}/settings/backup`,
+
+  listFixedExpenses: (token: string) =>
+    request<FixedExpense[]>('/fixed-expenses', { method: 'GET', token }),
+  createFixedExpense: (token: string, data: FixedExpenseInput) =>
+    request<FixedExpense>('/fixed-expenses', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateFixedExpense: (token: string, id: string, data: Partial<FixedExpenseInput>) =>
+    request<FixedExpense>(`/fixed-expenses/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteFixedExpense: (token: string, id: string) =>
+    request<void>(`/fixed-expenses/${id}`, { method: 'DELETE', token }),
 
   listEmployees: (token: string, search?: string) =>
     request<Employee[]>(`/employees${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),

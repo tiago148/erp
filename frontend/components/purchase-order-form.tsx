@@ -91,7 +91,7 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
             {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {suppliers.length === 0 && <p className="text-xs text-amber-600">Nenhum fornecedor cadastrado ainda.</p>}
+        {suppliers.length === 0 && <p className="text-xs text-warning">Nenhum fornecedor cadastrado ainda.</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -103,7 +103,7 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
               {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.number} - {p.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-400">Deixe em branco para o pedido entrar no estoque geral.</p>
+          <p className="text-xs text-muted-foreground">Deixe em branco para o pedido entrar no estoque geral.</p>
         </div>
         <div className="space-y-2">
           <Label>Responsável (opcional)</Label>
@@ -111,16 +111,16 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
         </div>
       </div>
 
-      <div className="border rounded-md p-4 space-y-3 bg-white">
+      <div className="border rounded-md p-4 space-y-3 bg-card">
         <div className="flex justify-between items-center">
           <Label className="font-semibold">Itens do Pedido</Label>
           <Button type="button" size="sm" variant="outline" onClick={addItem}><Plus size={14} className="mr-1" />Adicionar</Button>
         </div>
 
-        {items.length === 0 && <p className="text-sm text-gray-400">Nenhum item adicionado.</p>}
+        {items.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item adicionado.</p>}
 
         {items.length > 0 && (
-          <div className="grid grid-cols-[1fr_90px_110px_100px_36px] gap-2 text-xs text-gray-500 font-medium px-1">
+          <div className="grid grid-cols-[1fr_90px_110px_100px_36px] gap-2 text-xs text-muted-foreground font-medium px-1">
             <span>Material</span>
             <span>Quantidade</span>
             <span>Custo Unit.</span>
@@ -144,7 +144,7 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
               </Select>
               <Input type="number" step="0.01" placeholder="0" value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} />
               <Input type="number" step="0.01" placeholder="0,00" value={item.unitCost} onChange={(e) => updateItem(idx, 'unitCost', e.target.value)} />
-              <span className="text-sm text-gray-500 text-right">{fmt(subtotal)}</span>
+              <span className="text-sm text-muted-foreground text-right">{fmt(subtotal)}</span>
               <Button type="button" size="icon" variant="ghost" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
                 <Trash2 size={16} />
               </Button>
@@ -157,7 +157,7 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
         )}
 
         {materials.length === 0 && (
-          <p className="text-xs text-amber-600">Nenhum material cadastrado ainda — cadastre em "Materiais" primeiro.</p>
+          <p className="text-xs text-warning">Nenhum material cadastrado ainda — cadastre em "Materiais" primeiro.</p>
         )}
       </div>
 
@@ -166,7 +166,7 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Criar Pedido'}</Button>

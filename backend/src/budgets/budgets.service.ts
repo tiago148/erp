@@ -28,11 +28,76 @@ const TAX_TABLE: Record<string, { name: string; rate: number }[]> = {
   MEI: [],
 };
 
+interface OverheadContext {
+  method: string;
+  totalFixed: number;
+  funcCount: number;
+  hoursPerMonth: number;
+  occupancyPct: number;
+  workDaysPerMonth: number;
+  avgDirectCost: number;
+}
+
 @Injectable()
 export class BudgetsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private calculateTotals(budget: any) {
+  private async getOverheadContext(): Promise<OverheadContext | null> {
+    const settings = await this.prisma.client.settings.findFirst();
+    if (!settings || !settings.overheadAutoApply) return null;
+
+    const fixedExpenses = await this.prisma.client.fixedExpense.findMany();
+    const totalFixed = fixedExpenses.reduce(
+      (sum, expense) => sum + Number(expense.amount),
+      0,
+    );
+
+    return {
+      method: settings.overheadMethod,
+      totalFixed,
+      funcCount: settings.overheadFuncCount ?? 5,
+      hoursPerMonth: settings.overheadHoursPerMonth ?? 176,
+      occupancyPct: Number(settings.overheadOccupancyPct),
+      workDaysPerMonth: settings.overheadWorkDaysPerMonth ?? 22,
+      avgDirectCost: settings.overheadAvgDirectCost
+        ? Number(settings.overheadAvgDirectCost)
+        : 0,
+    };
+  }
+
+  private calculateIndirectCost(
+    overheadCtx: OverheadContext | null,
+    directCost: number,
+    laborHours: number,
+    projectDays: number,
+  ) {
+    if (!overheadCtx || overheadCtx.totalFixed <= 0) return 0;
+    const occupancy = overheadCtx.occupancyPct / 100;
+
+    if (overheadCtx.method === 'DAY') {
+      const productiveDays = overheadCtx.workDaysPerMonth * occupancy;
+      const ratePerDay =
+        productiveDays > 0 ? overheadCtx.totalFixed / productiveDays : 0;
+      return ratePerDay * projectDays;
+    }
+    if (overheadCtx.method === 'HOUR') {
+      const productiveHours =
+        overheadCtx.funcCount * overheadCtx.hoursPerMonth * occupancy;
+      const ratePerHour =
+        productiveHours > 0 ? overheadCtx.totalFixed / productiveHours : 0;
+      return ratePerHour * laborHours;
+    }
+    const pct =
+      overheadCtx.avgDirectCost > 0
+        ? (overheadCtx.totalFixed / overheadCtx.avgDirectCost) * 100
+        : 0;
+    return directCost * (pct / 100);
+  }
+
+  private calculateTotals(
+    budget: any,
+    overheadCtx: OverheadContext | null = null,
+  ) {
     const materialsTotal = budget.materialItems.reduce(
       (sum: number, item: any) =>
         sum + Number(item.quantity) * Number(item.unitCost),
@@ -42,6 +107,10 @@ export class BudgetsService {
     const laborTotal = budget.laborItems.reduce(
       (sum: number, item: any) =>
         sum + Number(item.hours) * Number(item.hourlyRate),
+      0,
+    );
+    const laborHours = budget.laborItems.reduce(
+      (sum: number, item: any) => sum + Number(item.hours),
       0,
     );
 
@@ -57,9 +126,18 @@ export class BudgetsService {
     );
 
     const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal;
+    const projectDays = Number(budget.projectDays || 0);
+    const indirectCostValue = this.calculateIndirectCost(
+      overheadCtx,
+      subtotal,
+      laborHours,
+      projectDays,
+    );
+    const costWithIndirect = subtotal + indirectCostValue;
+
     const bdiPct = Number(budget.bdiPct);
-    const bdiValue = subtotal * (bdiPct / 100);
-    const base = subtotal + bdiValue;
+    const bdiValue = costWithIndirect * (bdiPct / 100);
+    const base = costWithIndirect + bdiValue;
 
     const taxes = (TAX_TABLE[budget.regime] || []).map((tax) => ({
       name: tax.name,
@@ -72,7 +150,7 @@ export class BudgetsService {
     const discountValue = (base + taxTotal) * (discountPct / 100);
     const total = base + taxTotal - discountValue;
 
-    const estimatedCost = subtotal;
+    const estimatedCost = costWithIndirect;
     const estimatedMargin = total - estimatedCost;
     const estimatedMarginPct = total > 0 ? (estimatedMargin / total) * 100 : 0;
 
@@ -82,6 +160,7 @@ export class BudgetsService {
       travelTotal: round2(travelTotal),
       otherTotal: round2(otherTotal),
       subtotal: round2(subtotal),
+      indirectCostValue: round2(indirectCostValue),
       bdiValue: round2(bdiValue),
       base: round2(base),
       taxes,
@@ -173,6 +252,7 @@ export class BudgetsService {
         discountPct: dto.discountPct,
         notes: dto.notes,
         employeeId: dto.employeeId,
+        projectDays: dto.projectDays,
         materialItems: { create: materialItemsData },
         laborItems: { create: laborItemsData },
         travelItems: { create: travelItemsData },
@@ -181,26 +261,30 @@ export class BudgetsService {
       include: this.include(),
     });
 
-    return { ...budget, totals: this.calculateTotals(budget) };
+    const overheadCtx = await this.getOverheadContext();
+    return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
   }
 
   async findAll(search?: string) {
-    const budgets = await this.prisma.client.budget.findMany({
-      where: search
-        ? {
-            OR: [
-              { number: { contains: search, mode: 'insensitive' } },
-              { client: { name: { contains: search, mode: 'insensitive' } } },
-            ],
-          }
-        : undefined,
-      include: this.include(),
-      orderBy: { createdAt: 'desc' },
-    });
+    const [budgets, overheadCtx] = await Promise.all([
+      this.prisma.client.budget.findMany({
+        where: search
+          ? {
+              OR: [
+                { number: { contains: search, mode: 'insensitive' } },
+                { client: { name: { contains: search, mode: 'insensitive' } } },
+              ],
+            }
+          : undefined,
+        include: this.include(),
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.getOverheadContext(),
+    ]);
 
     return budgets.map((budget) => ({
       ...budget,
-      totals: this.calculateTotals(budget),
+      totals: this.calculateTotals(budget, overheadCtx),
     }));
   }
 
@@ -214,7 +298,8 @@ export class BudgetsService {
       throw new NotFoundException('Orcamento nao encontrado.');
     }
 
-    return { ...budget, totals: this.calculateTotals(budget) };
+    const overheadCtx = await this.getOverheadContext();
+    return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
   }
 
   async update(id: string, dto: UpdateBudgetDto) {
@@ -228,6 +313,7 @@ export class BudgetsService {
       discountPct: dto.discountPct,
       notes: dto.notes,
       employeeId: dto.employeeId,
+      projectDays: dto.projectDays,
     };
 
     if (dto.clientId) updateData.clientId = dto.clientId;
@@ -313,7 +399,8 @@ export class BudgetsService {
       include: this.include(),
     });
 
-    return { ...budget, totals: this.calculateTotals(budget) };
+    const overheadCtx = await this.getOverheadContext();
+    return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
   }
 
   async remove(id: string) {

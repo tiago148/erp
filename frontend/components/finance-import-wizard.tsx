@@ -118,7 +118,7 @@ export function FinanceImportWizard() {
       <Card className="max-w-xl">
         <CardHeader><CardTitle className="text-base">Importar Extrato (CSV)</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Envie um arquivo CSV exportado do seu banco. Na próxima etapa você indica quais colunas são data, descrição e valor.
             Cada linha vira um lançamento já pago/recebido (histórico), conforme o sinal do valor.
           </p>
@@ -128,10 +128,10 @@ export function FinanceImportWizard() {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-input file:bg-white file:text-sm"
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-3 file:rounded-md file:border file:border-input file:bg-card file:text-sm"
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <Button onClick={handleAnalyze} disabled={!file || loading}>
             <Upload size={16} className="mr-2" />{loading ? 'Analisando...' : 'Analisar Arquivo'}
           </Button>
@@ -180,7 +180,7 @@ export function FinanceImportWizard() {
                 </Select>
               </div>
             </div>
-            <p className="text-xs text-gray-400">Valor positivo vira receita, valor negativo vira despesa (valor absoluto é usado no lançamento).</p>
+            <p className="text-xs text-muted-foreground">Valor positivo vira receita, valor negativo vira despesa (valor absoluto é usado no lançamento).</p>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -191,7 +191,7 @@ export function FinanceImportWizard() {
                     {incomeCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {incomeCategories.length === 0 && <p className="text-xs text-amber-600">Nenhuma categoria de receita cadastrada — crie uma na aba Categorias.</p>}
+                {incomeCategories.length === 0 && <p className="text-xs text-warning">Nenhuma categoria de receita cadastrada — crie uma na aba Categorias.</p>}
               </div>
               <div className="space-y-2">
                 <Label>Categoria para valores negativos (Despesa)</Label>
@@ -201,7 +201,7 @@ export function FinanceImportWizard() {
                     {expenseCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {expenseCategories.length === 0 && <p className="text-xs text-amber-600">Nenhuma categoria de despesa cadastrada — crie uma na aba Categorias.</p>}
+                {expenseCategories.length === 0 && <p className="text-xs text-warning">Nenhuma categoria de despesa cadastrada — crie uma na aba Categorias.</p>}
               </div>
             </div>
           </CardContent>
@@ -226,9 +226,9 @@ export function FinanceImportWizard() {
                         <TableCell>{descriptionColumnIndex >= 0 ? row[descriptionColumnIndex] : '-'}</TableCell>
                         <TableCell>{amountColumnIndex >= 0 ? row[amountColumnIndex] : '-'}</TableCell>
                         <TableCell>
-                          {sign === 'INCOME' && <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Receita</span>}
-                          {sign === 'EXPENSE' && <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Despesa</span>}
-                          {sign === null && <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Indefinido</span>}
+                          {sign === 'INCOME' && <span className="px-2 py-1 rounded-full text-xs font-medium bg-success/15 text-success">Receita</span>}
+                          {sign === 'EXPENSE' && <span className="px-2 py-1 rounded-full text-xs font-medium bg-destructive/15 text-destructive">Despesa</span>}
+                          {sign === null && <span className="px-2 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground">Indefinido</span>}
                         </TableCell>
                       </TableRow>
                     );
@@ -236,11 +236,11 @@ export function FinanceImportWizard() {
                 </TableBody>
               </Table>
             </div>
-            {dataRows.length > 10 && <p className="text-xs text-gray-400 mt-2">Mostrando as 10 primeiras de {dataRows.length} linhas.</p>}
+            {dataRows.length > 10 && <p className="text-xs text-muted-foreground mt-2">Mostrando as 10 primeiras de {dataRows.length} linhas.</p>}
           </CardContent>
         </Card>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">
           <Button variant="outline" onClick={reset}>Voltar</Button>
           <Button onClick={handleImport} disabled={loading}>{loading ? 'Importando...' : `Importar ${dataRows.length} lançamento(s)`}</Button>
@@ -254,17 +254,17 @@ export function FinanceImportWizard() {
       <Card className="max-w-xl">
         <CardHeader><CardTitle className="text-base">Resultado da Importação</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-2 text-green-700">
+          <div className="flex items-center gap-2 text-success">
             <CheckCircle2 size={18} />
             <span>{result.imported} lançamento(s) importado(s) com sucesso.</span>
           </div>
           {result.skipped.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-amber-700">
+              <div className="flex items-center gap-2 text-warning">
                 <AlertCircle size={18} />
                 <span>{result.skipped.length} linha(s) ignorada(s):</span>
               </div>
-              <ul className="text-xs text-gray-500 space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
+              <ul className="text-xs text-muted-foreground space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
                 {result.skipped.map((s, i) => <li key={i}>Linha {s.row}: {s.reason}</li>)}
               </ul>
             </div>

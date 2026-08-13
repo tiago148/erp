@@ -61,7 +61,7 @@ export function FinanceCategoryForm({ initialData, onSubmit, onCancel }: Props) 
           </SelectContent>
         </Select>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>

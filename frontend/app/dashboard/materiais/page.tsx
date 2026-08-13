@@ -123,7 +123,7 @@ export default function MateriaisPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Materiais</h1>
-          <p className="text-gray-500">Base de preços de materiais e insumos.</p>
+          <p className="text-muted-foreground">Base de preços de materiais e insumos.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
@@ -148,7 +148,7 @@ export default function MateriaisPage() {
         </Button>
       </form>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -164,13 +164,13 @@ export default function MateriaisPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : materials.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Nenhum material cadastrado.
                 </TableCell>
               </TableRow>
@@ -227,7 +227,7 @@ export default function MateriaisPage() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Reajustar Preços em Lote</DialogTitle></DialogHeader>
           <form onSubmit={handleBulkAdjust} className="space-y-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Aplica um percentual de aumento (ou redução, com valor negativo) sobre o custo unitário. Orçamentos e projetos já fechados não são afetados.
             </p>
             <div className="space-y-2">
@@ -243,7 +243,7 @@ export default function MateriaisPage() {
               <Label>Percentual de Reajuste (%)</Label>
               <Input type="number" step="0.1" placeholder="Ex: 5 ou -3" value={bulkPercentage} onChange={(e) => setBulkPercentage(e.target.value)} required />
             </div>
-            {bulkError && <p className="text-sm text-red-600">{bulkError}</p>}
+            {bulkError && <p className="text-sm text-destructive">{bulkError}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setIsBulkOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={bulkSaving}>{bulkSaving ? 'Aplicando...' : 'Aplicar Reajuste'}</Button>

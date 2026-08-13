@@ -78,23 +78,23 @@ export function EmployeeForm({ initialData, onSubmit, onCancel }: Props) {
         <Label>CNH (selecione todas as categorias que possui)</Label>
         <div className="flex gap-3 flex-wrap">
           {cnhOptions.map((type) => (
-            <label key={type} className="flex items-center gap-1.5 text-sm border rounded-md px-3 py-1.5 cursor-pointer hover:bg-gray-50">
+            <label key={type} className="flex items-center gap-1.5 text-sm border rounded-md px-3 py-1.5 cursor-pointer hover:bg-muted">
               <input type="checkbox" checked={cnhTypes.includes(type)} onChange={() => toggleCnh(type)} />
               {type}
             </label>
           ))}
         </div>
-        {cnhTypes.length === 0 && <p className="text-xs text-gray-400">Sem CNH</p>}
+        {cnhTypes.length === 0 && <p className="text-xs text-muted-foreground">Sem CNH</p>}
       </div>
 
-      <p className="text-xs text-gray-400">Taxa/hora estimada (jornada de 8h): {estimatedHourly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+      <p className="text-xs text-muted-foreground">Taxa/hora estimada (jornada de 8h): {estimatedHourly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
 
       <div className="flex items-center gap-2">
         <input type="checkbox" id="active" checked={active} onChange={(e) => setActive(e.target.checked)} />
         <Label htmlFor="active">Funcionário ativo</Label>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>

@@ -172,6 +172,7 @@ model Budget {
   notes          String?
   employeeId     String?
   employee       Employee?            @relation(fields: [employeeId], references: [id])
+  projectDays    Int?
   materialItems  BudgetMaterialItem[]
   laborItems     BudgetLaborItem[]
   travelItems    BudgetTravelItem[]
@@ -547,24 +548,60 @@ model QuotationProposal {
 }
 
 model Settings {
-  id                String    @id @default(uuid())
-  companyName       String    @default("")
-  companyDocument   String?
-  companyIe         String?
-  companyAddress    String?
-  companyPhone      String?
-  companyEmail      String?
-  defaultRegime     TaxRegime @default(SIMPLES)
-  defaultBdiPct     Decimal   @default(20) @db.Decimal(5, 2)
-  defaultChargesPct Decimal   @default(0) @db.Decimal(5, 2)
-  defaultFuelPrice  Decimal   @default(6) @db.Decimal(8, 2)
-  budgetPrefix      String    @default("ORC")
-  projectPrefix     String    @default("PRJ")
-  marginHealthyPct  Decimal   @default(20) @db.Decimal(5, 2)
-  marginWarningPct  Decimal   @default(10) @db.Decimal(5, 2)
-  updatedAt         DateTime  @updatedAt
+  id                       String         @id @default(uuid())
+  companyName              String         @default("")
+  companyDocument          String?
+  companyIe                String?
+  companyAddress           String?
+  companyPhone             String?
+  companyEmail             String?
+  defaultRegime            TaxRegime      @default(SIMPLES)
+  defaultBdiPct            Decimal        @default(20) @db.Decimal(5, 2)
+  defaultChargesPct        Decimal        @default(0) @db.Decimal(5, 2)
+  defaultFuelPrice         Decimal        @default(6) @db.Decimal(8, 2)
+  budgetPrefix             String         @default("ORC")
+  projectPrefix            String         @default("PRJ")
+  marginHealthyPct         Decimal        @default(20) @db.Decimal(5, 2)
+  marginWarningPct         Decimal        @default(10) @db.Decimal(5, 2)
+  overheadMethod           OverheadMethod @default(DAY)
+  overheadFuncCount        Int?           @default(5)
+  overheadHoursPerMonth    Int?           @default(176)
+  overheadOccupancyPct     Decimal        @default(72) @db.Decimal(5, 2)
+  overheadWorkDaysPerMonth Int?           @default(22)
+  overheadAvgDirectCost    Decimal?       @db.Decimal(12, 2)
+  overheadAutoApply        Boolean        @default(false)
+  updatedAt                DateTime       @updatedAt
 
   @@map("settings")
+}
+
+enum OverheadMethod {
+  DAY
+  HOUR
+  PERCENT
+}
+
+model FixedExpense {
+  id             String           @id @default(uuid())
+  description    String
+  category       String
+  amount         Decimal          @db.Decimal(12, 2)
+  type           FixedExpenseType @default(FIXED)
+  generatesBill  Boolean          @default(false)
+  billDay        Int?
+  supplierName   String?
+  financeEntryId String?          @unique
+  financeEntry   FinanceEntry?    @relation(fields: [financeEntryId], references: [id])
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("fixed_expenses")
+}
+
+enum FixedExpenseType {
+  FIXED
+  SEMI_VARIABLE
 }
 
 enum CnhType {
@@ -715,6 +752,7 @@ model FinanceEntry {
   billingItem     ProjectBillingItem?
   maintenance     VehicleMaintenance?
   toolMaintenance ToolMaintenance?
+  fixedExpense    FixedExpense?
   notes           String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt

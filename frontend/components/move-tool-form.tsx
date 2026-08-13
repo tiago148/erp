@@ -49,7 +49,7 @@ export function MoveToolForm({ tool, onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Local atual: <span className="font-medium">{tool.currentLocation === 'COMPANY' ? 'Empresa' : tool.currentProject?.name}</span>
       </p>
 
@@ -86,7 +86,7 @@ export function MoveToolForm({ tool, onSubmit, onCancel }: Props) {
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Movendo...' : 'Confirmar Movimentação'}</Button>

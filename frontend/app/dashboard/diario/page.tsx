@@ -46,7 +46,7 @@ export default function DiarioPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Diário de Obra</h1>
-          <p className="text-gray-500">Registro diário das atividades em campo.</p>
+          <p className="text-muted-foreground">Registro diário das atividades em campo.</p>
         </div>
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
           <Plus size={16} className="mr-2" />Novo Registro
@@ -54,17 +54,17 @@ export default function DiarioPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       ) : logs.length === 0 ? (
-        <p className="text-gray-500">Nenhum registro no diário ainda.</p>
+        <p className="text-muted-foreground">Nenhum registro no diário ainda.</p>
       ) : (
         <div className="space-y-4">
           {logs.map((log) => (
-            <div key={log.id} className="border rounded-md bg-white p-4 space-y-3">
+            <div key={log.id} className="border rounded-md bg-card p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-semibold">{log.project.number} - {log.project.name}</p>
-                  <p className="text-sm text-gray-500">{formatDate(log.date)}</p>
+                  <p className="text-sm text-muted-foreground">{formatDate(log.date)}</p>
                 </div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(log); setOpen(true); }}><Pencil size={16} /></Button>
@@ -72,7 +72,7 @@ export default function DiarioPage() {
                 </div>
               </div>
 
-              <div className="flex gap-4 text-sm text-gray-500 flex-wrap">
+              <div className="flex gap-4 text-sm text-muted-foreground flex-wrap">
                 {log.weather && (
                   <span className="flex items-center gap-1"><Cloud size={14} />{log.weather}</span>
                 )}
@@ -86,36 +86,36 @@ export default function DiarioPage() {
               {log.employees.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {log.employees.map((e) => (
-                    <span key={e.id} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{e.employee.name}</span>
+                    <span key={e.id} className="px-2 py-0.5 rounded-full text-xs bg-secondary text-secondary-foreground">{e.employee.name}</span>
                   ))}
                 </div>
               )}
 
               {log.noTravel ? (
-                <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 w-fit">Barracão (sem deslocamento)</span>
+                <span className="px-2 py-0.5 rounded-full text-xs bg-secondary text-muted-foreground w-fit">Barracão (sem deslocamento)</span>
               ) : log.vehicleUsages.length > 0 && (
                 <div className="space-y-1">
                   {log.vehicleUsages.map((v) => (
-                    <div key={v.id} className="flex items-center gap-2 text-xs text-blue-700">
+                    <div key={v.id} className="flex items-center gap-2 text-xs text-info">
                       <Car size={14} />
                       <span>{v.vehicle.name}</span>
-                      {v.driver && <span className="text-gray-400">— motorista: {v.driver.name}</span>}
+                      {v.driver && <span className="text-muted-foreground">— motorista: {v.driver.name}</span>}
                     </div>
                   ))}
                 </div>
               )}
 
               {log.toolsUsed.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap text-xs text-purple-700">
+                <div className="flex items-center gap-2 flex-wrap text-xs text-purple-300">
                   <Wrench size={14} />
                   {log.toolsUsed.map((t) => (
-                    <span key={t.id} className="px-2 py-0.5 rounded-full bg-purple-50">{t.tool.name}</span>
+                    <span key={t.id} className="px-2 py-0.5 rounded-full bg-purple-500/15">{t.tool.name}</span>
                   ))}
                 </div>
               )}
 
               {log.occurrences && (
-                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-md p-2 text-sm text-amber-800">
+                <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-md p-2 text-sm text-warning">
                   <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                   <span>{log.occurrences}</span>
                 </div>

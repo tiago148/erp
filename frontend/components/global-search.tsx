@@ -78,18 +78,18 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 text-sm text-gray-500 border rounded-md px-3 py-1.5 hover:bg-gray-50 w-64"
+        className="flex items-center gap-2 text-sm text-muted-foreground border rounded-md px-3 py-1.5 hover:bg-muted w-64"
       >
         <Search size={14} />
         <span className="flex-1 text-left">Buscar...</span>
-        <kbd className="text-[10px] border rounded px-1 text-gray-400">Ctrl K</kbd>
+        <kbd className="text-[10px] border rounded px-1 text-muted-foreground">Ctrl K</kbd>
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/30" onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 border-b px-4 py-3">
-              <Search size={16} className="text-gray-400" />
+              <Search size={16} className="text-muted-foreground" />
               <input
                 ref={inputRef}
                 value={query}
@@ -97,30 +97,30 @@ export function GlobalSearch() {
                 placeholder="Buscar clientes, materiais, projetos, orçamentos..."
                 className="flex-1 outline-none text-sm"
               />
-              <button onClick={() => setOpen(false)}><X size={16} className="text-gray-400" /></button>
+              <button onClick={() => setOpen(false)}><X size={16} className="text-muted-foreground" /></button>
             </div>
 
             <div className="max-h-96 overflow-y-auto p-2">
               {query.trim().length < 2 && (
-                <p className="text-sm text-gray-400 text-center py-8">Digite ao menos 2 caracteres para buscar.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Digite ao menos 2 caracteres para buscar.</p>
               )}
               {query.trim().length >= 2 && loading && (
-                <p className="text-sm text-gray-400 text-center py-8">Buscando...</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Buscando...</p>
               )}
               {query.trim().length >= 2 && !loading && !hasResults && (
-                <p className="text-sm text-gray-400 text-center py-8">Nenhum resultado encontrado.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum resultado encontrado.</p>
               )}
               {results && groups.map((group) => {
                 const items = results[group.key];
                 if (!items || items.length === 0) return null;
                 return (
                   <div key={group.key} className="mb-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-2 py-1">{group.label}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1">{group.label}</p>
                     {items.map((item: any) => (
                       <button
                         key={item.id}
                         onClick={() => goTo(group.key, item.id)}
-                        className="w-full flex items-center gap-2 text-sm px-2 py-2 rounded-md hover:bg-gray-100 text-left"
+                        className="w-full flex items-center gap-2 text-sm px-2 py-2 rounded-md hover:bg-secondary text-left"
                       >
                         {group.icon}
                         {itemLabel(group.key, item)}

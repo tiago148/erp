@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { marginBadgeClass, marginLabel } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { marginBadgeVariant, marginLabel } from '@/lib/utils';
+import { computeIndirectCost } from '@/lib/overhead';
 import { Trash2, Plus } from 'lucide-react';
 
 function fmt(v: number) {
@@ -54,6 +56,8 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [bdiPct, setBdiPct] = useState(initialData?.bdiPct ?? 20);
   const [discountPct, setDiscountPct] = useState(initialData?.discountPct ?? 0);
   const [notes, setNotes] = useState(initialData?.notes || '');
+  const [projectDays, setProjectDays] = useState(initialData?.projectDays ?? 0);
+  const [fixedExpensesTotal, setFixedExpensesTotal] = useState(0);
 
   const [materialItems, setMaterialItems] = useState(
     initialData?.materialItems.map((i) => ({ materialId: i.materialId, quantity: i.quantity })) || [],
@@ -82,6 +86,7 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     api.listWorkSites(token).then(setWorkSites);
     api.listEmployees(token).then(setEmployees);
     api.getSettings(token).then(setSettings);
+    api.listFixedExpenses(token).then((expenses) => setFixedExpensesTotal(expenses.reduce((s, e) => s + e.amount, 0)));
   }, [token]);
 
 function applyWorkSiteDistance(workSiteId: string) {
@@ -121,14 +126,17 @@ function applyWorkSiteDistance(workSiteId: string) {
 
   const materialsTotal = materialItems.reduce((s, i) => s + materialCost(i.materialId, i.quantity), 0);
   const laborTotal = laborItems.reduce((s, i) => s + laborCost(i.laborRoleId, i.hours), 0);
+  const laborHours = laborItems.reduce((s, i) => s + i.hours, 0);
   const travelTotal = travelItems.reduce((s, i) => s + travelCost(i), 0);
   const otherTotal = otherItems.reduce((s, i) => s + i.amount, 0);
   const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal;
-  const bdiValue = subtotal * (bdiPct / 100);
-  const base = subtotal + bdiValue;
+  const indirectCostValue = computeIndirectCost(settings, fixedExpensesTotal, subtotal, laborHours, projectDays);
+  const costWithIndirect = subtotal + indirectCostValue;
+  const bdiValue = costWithIndirect * (bdiPct / 100);
+  const base = costWithIndirect + bdiValue;
   const discountValue = base * (discountPct / 100);
   const total = base - discountValue;
-  const estimatedMargin = total - subtotal;
+  const estimatedMargin = total - costWithIndirect;
   const estimatedMarginPct = total > 0 ? (estimatedMargin / total) * 100 : 0;
   const marginHealthyPct = settings?.marginHealthyPct ?? 20;
   const marginWarningPct = settings?.marginWarningPct ?? 10;
@@ -150,6 +158,7 @@ function applyWorkSiteDistance(workSiteId: string) {
       bdiPct,
       discountPct,
       notes,
+      projectDays,
       materialItems,
       laborItems,
       travelItems,
@@ -188,7 +197,7 @@ function applyWorkSiteDistance(workSiteId: string) {
             </SelectContent>
           </Select>
           {clients.length === 0 && (
-            <p className="text-xs text-amber-600">Nenhum cliente cadastrado ainda.</p>
+            <p className="text-xs text-warning">Nenhum cliente cadastrado ainda.</p>
           )}
         </div>
         <div className="space-y-2">
@@ -251,10 +260,10 @@ function applyWorkSiteDistance(workSiteId: string) {
           }><Plus size={14} className="mr-1" />Adicionar</Button>
         </div>
         {materialItems.length === 0 && (
-          <p className="text-sm text-gray-400">Nenhum material adicionado.</p>
+          <p className="text-sm text-muted-foreground">Nenhum material adicionado.</p>
         )}
         {materialItems.length > 0 && (
-          <div className="flex gap-2 text-xs text-gray-500 font-medium px-1">
+          <div className="flex gap-2 text-xs text-muted-foreground font-medium px-1">
             <span className="flex-1">Material</span>
             <span className="w-28">Quantidade</span>
             <span className="w-24">Subtotal</span>
@@ -281,7 +290,7 @@ function applyWorkSiteDistance(workSiteId: string) {
               </Select>
               <Input type="number" step="0.01" min="0.01" className="w-28" placeholder="Qtd." value={item.quantity}
                 onChange={(e) => { const arr = [...materialItems]; arr[idx].quantity = parseFloat(e.target.value) || 0; setMaterialItems(arr); }} />
-              <span className="w-24 text-sm text-gray-500 text-right">{fmt(materialCost(item.materialId, item.quantity))}</span>
+              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(materialCost(item.materialId, item.quantity))}</span>
               <Button type="button" size="icon" variant="ghost" onClick={() => setMaterialItems(materialItems.filter((_, i) => i !== idx))}>
                 <Trash2 size={16} />
               </Button>
@@ -289,7 +298,7 @@ function applyWorkSiteDistance(workSiteId: string) {
           );
         })}
         {materials.length === 0 && (
-          <p className="text-xs text-amber-600">Nenhum material cadastrado ainda — cadastre em "Materiais" primeiro.</p>
+          <p className="text-xs text-warning">Nenhum material cadastrado ainda — cadastre em "Materiais" primeiro.</p>
         )}
       </div>
 
@@ -302,10 +311,10 @@ function applyWorkSiteDistance(workSiteId: string) {
           }><Plus size={14} className="mr-1" />Adicionar</Button>
         </div>
         {laborItems.length === 0 && (
-          <p className="text-sm text-gray-400">Nenhuma mão de obra adicionada.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma mão de obra adicionada.</p>
         )}
         {laborItems.length > 0 && (
-          <div className="flex gap-2 text-xs text-gray-500 font-medium px-1">
+          <div className="flex gap-2 text-xs text-muted-foreground font-medium px-1">
             <span className="flex-1">Função</span>
             <span className="w-28">Horas</span>
             <span className="w-24">Subtotal</span>
@@ -332,7 +341,7 @@ function applyWorkSiteDistance(workSiteId: string) {
               </Select>
               <Input type="number" step="0.5" min="0.5" className="w-28" placeholder="Horas" value={item.hours}
                 onChange={(e) => { const arr = [...laborItems]; arr[idx].hours = parseFloat(e.target.value) || 0; setLaborItems(arr); }} />
-              <span className="w-24 text-sm text-gray-500 text-right">{fmt(laborCost(item.laborRoleId, item.hours))}</span>
+              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(laborCost(item.laborRoleId, item.hours))}</span>
               <Button type="button" size="icon" variant="ghost" onClick={() => setLaborItems(laborItems.filter((_, i) => i !== idx))}>
                 <Trash2 size={16} />
               </Button>
@@ -340,7 +349,7 @@ function applyWorkSiteDistance(workSiteId: string) {
           );
         })}
         {laborRoles.length === 0 && (
-          <p className="text-xs text-amber-600">Nenhuma função cadastrada ainda — cadastre em "Mão de Obra" primeiro.</p>
+          <p className="text-xs text-warning">Nenhuma função cadastrada ainda — cadastre em "Mão de Obra" primeiro.</p>
         )}
       </div>
 
@@ -353,10 +362,10 @@ function applyWorkSiteDistance(workSiteId: string) {
           </Button>
         </div>
         {travelItems.length === 0 && (
-          <p className="text-sm text-gray-400">Nenhum deslocamento adicionado.</p>
+          <p className="text-sm text-muted-foreground">Nenhum deslocamento adicionado.</p>
         )}
         {travelItems.length > 0 && (
-          <div className="flex gap-2 text-xs text-gray-500 font-medium px-1 flex-wrap">
+          <div className="flex gap-2 text-xs text-muted-foreground font-medium px-1 flex-wrap">
             <span className="w-40">Veículo</span>
             <span className="w-24">Distância (km, ida)</span>
             <span className="w-24">Nº de viagens</span>
@@ -388,16 +397,16 @@ function applyWorkSiteDistance(workSiteId: string) {
                 onChange={(e) => { const arr = [...travelItems]; arr[idx].trips = parseInt(e.target.value) || 0; setTravelItems(arr); }} />
               <Input type="number" step="0.01" placeholder="Ex: 6,20" className="w-24" value={item.fuelPrice}
                 onChange={(e) => { const arr = [...travelItems]; arr[idx].fuelPrice = parseFloat(e.target.value) || 0; setTravelItems(arr); }} />
-              <span className="w-24 text-sm text-gray-500 text-right">{fmt(travelCost(item))}</span>
+              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(travelCost(item))}</span>
               <Button type="button" size="icon" variant="ghost" onClick={() => setTravelItems(travelItems.filter((_, i) => i !== idx))}>
                 <Trash2 size={16} />
               </Button>
             </div>
           );
         })}
-        <p className="text-xs text-gray-400">Distância é só de ida — o sistema calcula ida e volta automaticamente.</p>
+        <p className="text-xs text-muted-foreground">Distância é só de ida — o sistema calcula ida e volta automaticamente.</p>
         {vehicles.length === 0 && (
-          <p className="text-xs text-amber-600">Nenhum veículo cadastrado ainda — cadastre em "Veículos" primeiro.</p>
+          <p className="text-xs text-warning">Nenhum veículo cadastrado ainda — cadastre em "Veículos" primeiro.</p>
         )}
       </div>
 
@@ -410,10 +419,10 @@ function applyWorkSiteDistance(workSiteId: string) {
           }><Plus size={14} className="mr-1" />Adicionar</Button>
         </div>
         {otherItems.length === 0 && (
-          <p className="text-sm text-gray-400">Nenhum custo extra adicionado.</p>
+          <p className="text-sm text-muted-foreground">Nenhum custo extra adicionado.</p>
         )}
         {otherItems.length > 0 && (
-          <div className="flex gap-2 text-xs text-gray-500 font-medium px-1">
+          <div className="flex gap-2 text-xs text-muted-foreground font-medium px-1">
             <span className="flex-1">Descrição</span>
             <span className="w-28">Valor (R$)</span>
             <span className="w-9"></span>
@@ -433,7 +442,7 @@ function applyWorkSiteDistance(workSiteId: string) {
       </div>
 
       {/* REGIME / BDI / DESCONTO */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label>Regime Tributário</Label>
           <Select value={regime} onValueChange={(v) => setRegime(v as any)}>
@@ -447,6 +456,10 @@ function applyWorkSiteDistance(workSiteId: string) {
               <SelectItem value="MEI">MEI</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Prazo (dias úteis)</Label>
+          <Input type="number" min="0" step="0.5" value={projectDays} onChange={(e) => setProjectDays(parseFloat(e.target.value) || 0)} />
         </div>
         <div className="space-y-2">
           <Label>BDI (%)</Label>
@@ -465,25 +478,28 @@ function applyWorkSiteDistance(workSiteId: string) {
       </div>
 
       {/* RESUMO */}
-      <div className="bg-gray-50 rounded-md p-4 space-y-1 text-sm">
-        <div className="flex justify-between"><span>Custo estimado (materiais + mão de obra + deslocamento + outros)</span><span>{fmt(subtotal)}</span></div>
+      <div className="bg-muted rounded-md p-4 space-y-1 text-sm">
+        <div className="flex justify-between"><span>Custo direto (materiais + mão de obra + deslocamento + outros)</span><span>{fmt(subtotal)}</span></div>
+        {indirectCostValue > 0 && (
+          <div className="flex justify-between text-warning"><span>Custos Indiretos (taxa administrativa)</span><span>{fmt(indirectCostValue)}</span></div>
+        )}
         <div className="flex justify-between"><span>BDI ({bdiPct}%)</span><span>{fmt(bdiValue)}</span></div>
         <div className="flex justify-between font-medium"><span>Base</span><span>{fmt(base)}</span></div>
-        <div className="flex justify-between text-red-600"><span>Desconto ({discountPct}%)</span><span>- {fmt(discountValue)}</span></div>
-        <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span>Preço de Venda (estimado)</span><span>{fmt(total)}</span></div>
+        <div className="flex justify-between text-destructive"><span>Desconto ({discountPct}%)</span><span>- {fmt(discountValue)}</span></div>
+        <div className="flex justify-between font-bold text-lg border-t border-border pt-2 mt-2"><span>Preço de Venda (estimado)</span><span className="font-mono">{fmt(total)}</span></div>
         <div className="flex justify-between items-center pt-2">
           <span>Margem Estimada</span>
           <span className="flex items-center gap-2">
-            <span className="font-semibold">{fmt(estimatedMargin)} ({estimatedMarginPct.toFixed(1)}%)</span>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${marginBadgeClass(estimatedMarginPct, marginHealthyPct, marginWarningPct)}`}>
+            <span className="font-semibold font-mono">{fmt(estimatedMargin)} ({estimatedMarginPct.toFixed(1)}%)</span>
+            <Badge variant={marginBadgeVariant(estimatedMarginPct, marginHealthyPct, marginWarningPct)}>
               {marginLabel(estimatedMarginPct, marginHealthyPct, marginWarningPct)}
-            </span>
+            </Badge>
           </span>
         </div>
-        <p className="text-xs text-gray-400 mt-1">*Impostos do regime tributário são calculados e aplicados após salvar (não incluídos nesta prévia de margem). Ajuste o desconto acima para simular o efeito na margem final.</p>
+        <p className="text-xs text-muted-foreground mt-1">*Impostos do regime tributário são calculados e aplicados após salvar (não incluídos nesta prévia de margem). Ajuste o desconto acima para simular o efeito na margem final.</p>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Button type="submit" disabled={saving} className="w-full">
         {saving ? 'Salvando...' : 'Salvar Orçamento'}

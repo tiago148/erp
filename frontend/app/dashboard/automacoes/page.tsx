@@ -49,7 +49,7 @@ export default function AutomacoesPage() {
     });
   }, [token]);
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
+  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
 
   const lowStock = stockItems.filter((s) => s.quantity <= s.minQuantity);
 
@@ -82,7 +82,7 @@ export default function AutomacoesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Automações</h1>
-        <p className="text-gray-500">
+        <p className="text-muted-foreground">
           {totalAlerts === 0 ? 'Nenhum alerta pendente no momento.' : `${totalAlerts} alerta(s) que precisam de atenção.`}
         </p>
       </div>
@@ -90,18 +90,18 @@ export default function AutomacoesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <Package size={18} className="text-red-500" />
+            <Package size={18} className="text-destructive" />
             <CardTitle className="text-base">Estoque Baixo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {lowStock.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhum item abaixo do mínimo.</p>
+              <p className="text-sm text-muted-foreground">Nenhum item abaixo do mínimo.</p>
             ) : (
               <>
                 {lowStock.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm py-1 border-b last:border-0">
                     <span>{item.material.name}</span>
-                    <span className="text-red-600 font-medium">{item.quantity} / {item.minQuantity} {item.material.unit}</span>
+                    <span className="text-destructive font-medium">{item.quantity} / {item.minQuantity} {item.material.unit}</span>
                   </div>
                 ))}
                 <Link href="/dashboard/compras">
@@ -114,12 +114,12 @@ export default function AutomacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <ShieldAlert size={18} className="text-amber-500" />
+            <ShieldAlert size={18} className="text-warning" />
             <CardTitle className="text-base">Treinamentos Vencendo/Vencidos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {trainingAlerts.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhum treinamento vencendo nos próximos 30 dias.</p>
+              <p className="text-sm text-muted-foreground">Nenhum treinamento vencendo nos próximos 30 dias.</p>
             ) : (
               <>
                 {trainingAlerts.map((t) => {
@@ -127,7 +127,7 @@ export default function AutomacoesPage() {
                   return (
                     <div key={t.id} className="flex justify-between text-sm py-1 border-b last:border-0">
                       <span>{t.employee.name} — {t.nrType}</span>
-                      <span className={days < 0 ? 'text-red-600 font-medium' : 'text-amber-600 font-medium'}>
+                      <span className={days < 0 ? 'text-destructive font-medium' : 'text-warning font-medium'}>
                         {days < 0 ? `Vencido há ${Math.abs(days)}d` : `${days}d restantes`}
                       </span>
                     </div>
@@ -143,18 +143,18 @@ export default function AutomacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <Wrench size={18} className="text-blue-500" />
+            <Wrench size={18} className="text-info" />
             <CardTitle className="text-base">Ferramentas Fora Há Muito Tempo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {toolsOutTooLong.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhuma ferramenta fora há mais de 30 dias.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma ferramenta fora há mais de 30 dias.</p>
             ) : (
               <>
                 {toolsOutTooLong.map((tool) => (
                   <div key={tool.id} className="flex justify-between text-sm py-1 border-b last:border-0">
                     <span>{tool.name}</span>
-                    <span className="text-blue-600">{tool.currentProject?.name} ({daysSince(tool.movements[0].movedAt)}d)</span>
+                    <span className="text-info">{tool.currentProject?.name} ({daysSince(tool.movements[0].movedAt)}d)</span>
                   </div>
                 ))}
                 <Link href="/dashboard/equipamentos">
@@ -167,12 +167,12 @@ export default function AutomacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <FileCheck size={18} className="text-green-500" />
+            <FileCheck size={18} className="text-success" />
             <CardTitle className="text-base">Orçamentos Aprovados sem Projeto</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {approvedWithoutProject.length === 0 ? (
-              <p className="text-sm text-gray-400">Todos os orçamentos aprovados já viraram projeto.</p>
+              <p className="text-sm text-muted-foreground">Todos os orçamentos aprovados já viraram projeto.</p>
             ) : (
               <>
                 {approvedWithoutProject.map((b) => (
@@ -190,18 +190,18 @@ export default function AutomacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <Truck size={18} className="text-purple-500" />
+            <Truck size={18} className="text-purple-400" />
             <CardTitle className="text-base">Veículos com Revisão Pendente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {vehiclesDueForReview.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhum veículo precisa de revisão no momento.</p>
+              <p className="text-sm text-muted-foreground">Nenhum veículo precisa de revisão no momento.</p>
             ) : (
               <>
                 {vehiclesDueForReview.map(({ vehicle, kmSinceLastMaintenance }) => (
                   <div key={vehicle.id} className="flex justify-between text-sm py-1 border-b last:border-0">
                     <span>{vehicle.name} ({vehicle.plate})</span>
-                    <span className="text-purple-600 font-medium">{kmSinceLastMaintenance.toLocaleString('pt-BR')} km desde a última manutenção</span>
+                    <span className="text-purple-400 font-medium">{kmSinceLastMaintenance.toLocaleString('pt-BR')} km desde a última manutenção</span>
                   </div>
                 ))}
                 <Link href="/dashboard/equipamentos">

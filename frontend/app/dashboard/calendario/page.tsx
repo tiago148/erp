@@ -126,10 +126,10 @@ export default function CalendarioPage() {
   }
 
   const kindStyles: Record<ItemKind, string> = {
-    event: 'bg-purple-100 text-purple-700',
-    'project-start': 'bg-blue-100 text-blue-700',
-    'project-end': 'bg-green-100 text-green-700',
-    budget: 'bg-amber-100 text-amber-700',
+    event: 'bg-primary/15 text-primary',
+    'project-start': 'bg-info/15 text-info',
+    'project-end': 'bg-success/15 text-success',
+    budget: 'bg-warning/15 text-warning',
   };
 
   const kindIcons: Record<ItemKind, React.ReactNode> = {
@@ -145,7 +145,7 @@ export default function CalendarioPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Calendário</h1>
-        <p className="text-gray-500">Reuniões, obras e orçamentos em um só lugar.</p>
+        <p className="text-muted-foreground">Reuniões, obras e orçamentos em um só lugar.</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -163,24 +163,24 @@ export default function CalendarioPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       ) : (
-        <div className="border rounded-md bg-white overflow-hidden">
-          <div className="grid grid-cols-7 border-b bg-gray-50">
+        <div className="border rounded-md bg-card overflow-hidden">
+          <div className="grid grid-cols-7 border-b bg-muted">
             {weekDays.map((d, i) => (
-              <div key={i} className="text-center text-xs font-medium text-gray-500 py-2">{d}</div>
+              <div key={i} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
             {calendarDays.map((day, idx) => (
               <div
                 key={idx}
-                className={`min-h-[100px] border-b border-r p-1.5 ${day ? 'cursor-pointer hover:bg-gray-50' : 'bg-gray-50'}`}
+                className={`min-h-[100px] border-b border-r p-1.5 ${day ? 'cursor-pointer hover:bg-muted' : 'bg-muted'}`}
                 onClick={() => day && openNewEvent(day)}
               >
                 {day && (
                   <>
-                    <span className={`text-xs inline-flex items-center justify-center w-5 h-5 rounded-full ${sameDay(day, today) ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>
+                    <span className={`text-xs inline-flex items-center justify-center w-5 h-5 rounded-full ${sameDay(day, today) ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
                       {day.getDate()}
                     </span>
                     <div className="space-y-0.5 mt-1">
@@ -201,7 +201,7 @@ export default function CalendarioPage() {
                         </div>
                       ))}
                       {itemsForDay(day).length > 3 && (
-                        <p className="text-[10px] text-gray-400">+{itemsForDay(day).length - 3} mais</p>
+                        <p className="text-[10px] text-muted-foreground">+{itemsForDay(day).length - 3} mais</p>
                       )}
                     </div>
                   </>
@@ -226,7 +226,7 @@ export default function CalendarioPage() {
               <Label>Descrição (opcional)</Label>
               <Input value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
-            <p className="text-xs text-gray-400">Clique num evento de reunião no calendário pra excluí-lo.</p>
+            <p className="text-xs text-muted-foreground">Clique num evento de reunião no calendário pra excluí-lo.</p>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Criar Evento'}</Button>

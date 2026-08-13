@@ -33,6 +33,7 @@ import { VehicleMaintenancesModule } from './vehicle-maintenances/vehicle-mainte
 import { MaterialSurplusModule } from './material-surplus/material-surplus.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { ToolMaintenancesModule } from './tool-maintenances/tool-maintenances.module';
+import { FixedExpensesModule } from './fixed-expenses/fixed-expenses.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { ToolMaintenancesModule } from './tool-maintenances/tool-maintenances.mo
     MaterialSurplusModule,
     QuotationsModule,
     ToolMaintenancesModule,
+    FixedExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

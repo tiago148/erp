@@ -15,10 +15,10 @@ const columns: { status: TaskStatus; label: string }[] = [
 ];
 
 const priorityColors: Record<TaskPriority, string> = {
-  LOW: 'border-l-green-500 bg-green-50',
-  MEDIUM: 'border-l-blue-500 bg-blue-50',
-  HIGH: 'border-l-orange-500 bg-orange-50',
-  URGENT: 'border-l-red-500 bg-red-50',
+  LOW: 'border-l-success bg-success/10',
+  MEDIUM: 'border-l-info bg-info/10',
+  HIGH: 'border-l-warning bg-warning/10',
+  URGENT: 'border-l-destructive bg-destructive/10',
 };
 
 const priorityLabels: Record<TaskPriority, string> = {
@@ -26,10 +26,10 @@ const priorityLabels: Record<TaskPriority, string> = {
 };
 
 const priorityBadge: Record<TaskPriority, string> = {
-  LOW: 'bg-green-100 text-green-700',
-  MEDIUM: 'bg-blue-100 text-blue-700',
-  HIGH: 'bg-orange-100 text-orange-700',
-  URGENT: 'bg-red-100 text-red-700',
+  LOW: 'bg-success/15 text-success',
+  MEDIUM: 'bg-info/15 text-info',
+  HIGH: 'bg-warning/15 text-warning',
+  URGENT: 'bg-destructive/15 text-destructive',
 };
 
 function formatDate(value: string) {
@@ -88,7 +88,7 @@ export default function TarefasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Tarefas</h1>
-          <p className="text-gray-500">Arraste os cards entre as colunas para atualizar o status.</p>
+          <p className="text-muted-foreground">Arraste os cards entre as colunas para atualizar o status.</p>
         </div>
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
           <Plus size={16} className="mr-2" />Nova Tarefa
@@ -96,7 +96,7 @@ export default function TarefasPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {columns.map((col) => {
@@ -104,13 +104,13 @@ export default function TarefasPage() {
             return (
               <div
                 key={col.status}
-                className="bg-gray-50 rounded-md p-3 space-y-3 min-h-[300px]"
+                className="bg-muted rounded-md p-3 space-y-3 min-h-[300px]"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, col.status)}
               >
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="font-semibold text-sm text-gray-600">{col.label}</h3>
-                  <span className="text-xs text-gray-400">{columnTasks.length}</span>
+                  <h3 className="font-semibold text-sm text-muted-foreground">{col.label}</h3>
+                  <span className="text-xs text-muted-foreground">{columnTasks.length}</span>
                 </div>
                 {columnTasks.map((task) => (
                   <div
@@ -130,18 +130,18 @@ export default function TarefasPage() {
                         </Button>
                       </div>
                     </div>
-                    {task.description && <p className="text-xs text-gray-500">{task.description}</p>}
+                    {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${priorityBadge[task.priority]}`}>
                         {priorityLabels[task.priority]}
                       </span>
-                      {task.dueDate && <span className="text-[10px] text-gray-400">{formatDate(task.dueDate)}</span>}
+                      {task.dueDate && <span className="text-[10px] text-muted-foreground">{formatDate(task.dueDate)}</span>}
                     </div>
-                    {task.project && <p className="text-[10px] text-gray-400">{task.project.number} - {task.project.name}</p>}
+                    {task.project && <p className="text-[10px] text-muted-foreground">{task.project.number} - {task.project.name}</p>}
                   </div>
                 ))}
                 {columnTasks.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-4">Nenhuma tarefa aqui.</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">Nenhuma tarefa aqui.</p>
                 )}
               </div>
             );

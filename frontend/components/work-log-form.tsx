@@ -123,9 +123,9 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
       <div className="space-y-2">
         <Label>Funcionários em Campo</Label>
         <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto border rounded-md p-2">
-          {employees.length === 0 && <p className="text-xs text-gray-400">Nenhum funcionário cadastrado.</p>}
+          {employees.length === 0 && <p className="text-xs text-muted-foreground">Nenhum funcionário cadastrado.</p>}
           {employees.map((e) => (
-            <label key={e.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50">
+            <label key={e.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer hover:bg-muted">
               <input type="checkbox" checked={employeeIds.includes(e.id)} onChange={() => toggleEmployee(e.id)} />
               {e.name}
             </label>
@@ -134,7 +134,7 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
       </div>
 
       {/* VEÍCULOS + MOTORISTA */}
-      <div className="border rounded-md p-4 space-y-3 bg-white">
+      <div className="border rounded-md p-4 space-y-3 bg-card">
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <input type="checkbox" checked={noTravel} onChange={(e) => setNoTravel(e.target.checked)} />
           Barracão (sem deslocamento)
@@ -148,7 +148,7 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
                 <Plus size={14} className="mr-1" />Adicionar
               </Button>
             </div>
-            {vehicleEntries.length === 0 && <p className="text-sm text-gray-400">Nenhum veículo adicionado.</p>}
+            {vehicleEntries.length === 0 && <p className="text-sm text-muted-foreground">Nenhum veículo adicionado.</p>}
             {vehicleEntries.map((entry, idx) => {
               const vehicle = vehicles.find((v) => v.id === entry.vehicleId);
               const driver = employees.find((e) => e.id === entry.driverId);
@@ -184,9 +184,9 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
       <div className="space-y-2">
         <Label>Ferramentas Levadas</Label>
         <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto border rounded-md p-2">
-          {tools.length === 0 && <p className="text-xs text-gray-400">Nenhuma ferramenta cadastrada.</p>}
+          {tools.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma ferramenta cadastrada.</p>}
           {tools.map((t) => (
-            <label key={t.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50">
+            <label key={t.id} className="flex items-center gap-1.5 text-sm border rounded-md px-2 py-1 cursor-pointer hover:bg-muted">
               <input type="checkbox" checked={toolIds.includes(t.id)} onChange={() => toggleTool(t.id)} />
               {t.name}
             </label>
@@ -204,7 +204,7 @@ export function WorkLogForm({ initialData, onSubmit, onCancel }: Props) {
         <Textarea value={occurrences} onChange={(e) => setOccurrences(e.target.value)} rows={2} placeholder="Atrasos, imprevistos, acidentes..." />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>

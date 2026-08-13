@@ -33,16 +33,16 @@ function fmtDate(v: string) {
 
 const typeLabels: Record<FinanceEntryType, string> = { INCOME: 'Receita', EXPENSE: 'Despesa' };
 const typeColors: Record<FinanceEntryType, string> = {
-  INCOME: 'bg-green-100 text-green-700',
-  EXPENSE: 'bg-red-100 text-red-700',
+  INCOME: 'bg-success/15 text-success',
+  EXPENSE: 'bg-destructive/15 text-destructive',
 };
 const statusLabels: Record<FinanceEntryStatus, string> = {
   PENDING: 'Pendente', PAID: 'Pago', CANCELLED: 'Cancelado',
 };
 const statusColors: Record<FinanceEntryStatus, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
-  PAID: 'bg-green-100 text-green-700',
-  CANCELLED: 'bg-red-100 text-red-700',
+  PENDING: 'bg-warning/15 text-warning',
+  PAID: 'bg-success/15 text-success',
+  CANCELLED: 'bg-destructive/15 text-destructive',
 };
 
 function EntriesTab() {
@@ -140,7 +140,7 @@ function EntriesTab() {
         </div>
       </div>
 
-      <div className="border rounded-md bg-white overflow-x-auto">
+      <div className="border rounded-md bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -151,9 +151,9 @@ function EntriesTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-gray-500">Nenhum lançamento encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum lançamento encontrado.</TableCell></TableRow>
             ) : items.map((entry) => (
               <TableRow key={entry.id}>
                 <TableCell>{fmtDate(entry.dueDate)}</TableCell>
@@ -231,16 +231,16 @@ function CategoriesTab() {
       <div className="flex justify-end">
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Nova Categoria</Button>
       </div>
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow><TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead className="w-24">Ações</TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={3} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={3} className="text-center text-gray-500">Nenhuma categoria cadastrada.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">Nenhuma categoria cadastrada.</TableCell></TableRow>
             ) : items.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.name}</TableCell>
@@ -270,9 +270,9 @@ const billingStatusLabels: Record<ProjectBillingStatus, string> = {
   PLANNED: 'Previsto', INVOICED: 'Faturado', CANCELLED: 'Cancelado',
 };
 const billingStatusColors: Record<ProjectBillingStatus, string> = {
-  PLANNED: 'bg-gray-100 text-gray-700',
-  INVOICED: 'bg-blue-100 text-blue-700',
-  CANCELLED: 'bg-red-100 text-red-700',
+  PLANNED: 'bg-secondary text-secondary-foreground',
+  INVOICED: 'bg-info/15 text-info',
+  CANCELLED: 'bg-destructive/15 text-destructive',
 };
 
 function BillingTab() {
@@ -336,9 +336,9 @@ function BillingTab() {
       </div>
 
       {!projectId ? (
-        <p className="text-gray-500 text-sm">Selecione um projeto para ver o cronograma de faturamento.</p>
+        <p className="text-muted-foreground text-sm">Selecione um projeto para ver o cronograma de faturamento.</p>
       ) : (
-        <div className="border rounded-md bg-white overflow-x-auto">
+        <div className="border rounded-md bg-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -348,9 +348,9 @@ function BillingTab() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Nenhum item de faturamento para este projeto.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum item de faturamento para este projeto.</TableCell></TableRow>
               ) : items.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{fmtDate(item.plannedDate)}</TableCell>
@@ -413,7 +413,7 @@ function CashFlowTab() {
     api.listFinanceEntries(token).then((data) => { setEntries(data); setLoading(false); });
   }, [token]);
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
+  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
 
   const active = entries.filter((e) => e.status !== 'CANCELLED');
   const paid = active.filter((e) => e.status === 'PAID');
@@ -457,18 +457,18 @@ function CashFlowTab() {
   return (
     <div className="space-y-4">
       {overdue.length > 0 && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-md p-3 text-sm">
+        <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-md p-3 text-sm">
           <AlertTriangle size={16} />
           {overdue.length} lançamento(s) vencido(s) e ainda pendente(s) — {fmt(overdueIncome)} a receber e {fmt(overdueExpense)} a pagar.
         </div>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-gray-500">A Receber (pendente)</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-green-700">{fmt(pendingIncome)}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-gray-500">A Pagar (pendente)</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-red-700">{fmt(pendingExpense)}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-gray-500">Recebido</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-green-700">{fmt(paidIncome)}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-gray-500">Pago</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-red-700">{fmt(paidExpense)}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-gray-500">Saldo Realizado</CardTitle></CardHeader><CardContent><p className={`text-xl font-bold ${balance >= 0 ? 'text-green-700' : 'text-red-700'}`}>{fmt(balance)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">A Receber (pendente)</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-success">{fmt(pendingIncome)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">A Pagar (pendente)</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-destructive">{fmt(pendingExpense)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Recebido</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-success">{fmt(paidIncome)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Pago</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-destructive">{fmt(paidExpense)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Saldo Realizado</CardTitle></CardHeader><CardContent><p className={`text-xl font-bold ${balance >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(balance)}</p></CardContent></Card>
       </div>
 
       <Card>
@@ -477,15 +477,15 @@ function CashFlowTab() {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthly}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="mes" fontSize={12} />
-                <YAxis fontSize={12} tickFormatter={(v) => fmt(v)} width={90} />
-                <Tooltip formatter={(v: number) => fmt(v)} />
-                <Legend />
-                <Bar dataKey="Recebido" fill="#22c55e" />
-                <Bar dataKey="Pago" fill="#ef4444" />
-                <Bar dataKey="Previsto (receita)" fill="#86efac" />
-                <Bar dataKey="Previsto (despesa)" fill="#fca5a5" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#2e3138" />
+                <XAxis dataKey="mes" fontSize={12} tick={{ fill: '#8b929e' }} />
+                <YAxis fontSize={12} tickFormatter={(v) => fmt(v)} width={90} tick={{ fill: '#8b929e' }} />
+                <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ background: '#1e2026', border: '1px solid #2e3138', borderRadius: 8, color: '#d8dce6' }} />
+                <Legend wrapperStyle={{ color: '#8b929e' }} />
+                <Bar dataKey="Recebido" fill="#4caf82" />
+                <Bar dataKey="Pago" fill="#e05555" />
+                <Bar dataKey="Previsto (receita)" fill="#8fd4b0" />
+                <Bar dataKey="Previsto (despesa)" fill="#ea9494" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -500,7 +500,7 @@ export default function FinanceiroPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Financeiro</h1>
-        <p className="text-gray-500">Lançamentos, contas a pagar e a receber.</p>
+        <p className="text-muted-foreground">Lançamentos, contas a pagar e a receber.</p>
       </div>
       <Tabs defaultValue="lancamentos">
         <TabsList>

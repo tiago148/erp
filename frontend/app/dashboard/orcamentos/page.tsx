@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { api, Budget, BudgetStatus, Settings } from '@/lib/api';
-import { marginBadgeClass, marginLabel } from '@/lib/utils';
+import { marginBadgeVariant, marginLabel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -34,11 +35,11 @@ const statusLabels: Record<BudgetStatus, string> = {
 };
 
 const statusColors: Record<BudgetStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-700',
-  SENT: 'bg-blue-100 text-blue-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  NEGOTIATING: 'bg-yellow-100 text-yellow-700',
+  DRAFT: 'bg-secondary text-secondary-foreground',
+  SENT: 'bg-info/15 text-info',
+  APPROVED: 'bg-success/15 text-success',
+  REJECTED: 'bg-destructive/15 text-destructive',
+  NEGOTIATING: 'bg-warning/15 text-warning',
 };
 
 export default function OrcamentosPage() {
@@ -88,7 +89,7 @@ export default function OrcamentosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Orçamentos</h1>
-          <p className="text-gray-500">Orçamentos de projetos e serviços.</p>
+          <p className="text-muted-foreground">Orçamentos de projetos e serviços.</p>
         </div>
         <Link href="/dashboard/orcamentos/novo">
           <Button>
@@ -109,7 +110,7 @@ export default function OrcamentosPage() {
         </Button>
       </form>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -125,13 +126,13 @@ export default function OrcamentosPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : budgets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Nenhum orçamento cadastrado.
                 </TableCell>
               </TableRow>
@@ -148,23 +149,23 @@ export default function OrcamentosPage() {
                       {statusLabels[budget.status]}
                     </span>
                   </TableCell>
-                  <TableCell className="font-semibold">
+                  <TableCell className="font-semibold font-mono">
                     {formatCurrency(budget.totals.total)}
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${marginBadgeClass(
+                    <Badge
+                      variant={marginBadgeVariant(
                         budget.totals.estimatedMarginPct,
                         settings?.marginHealthyPct ?? 20,
                         settings?.marginWarningPct ?? 10,
-                      )}`}
+                      )}
                     >
                       {budget.totals.estimatedMarginPct.toFixed(1)}% · {marginLabel(
                         budget.totals.estimatedMarginPct,
                         settings?.marginHealthyPct ?? 20,
                         settings?.marginWarningPct ?? 10,
                       )}
-                    </span>
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">

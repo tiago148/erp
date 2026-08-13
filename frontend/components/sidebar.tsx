@@ -1,107 +1,42 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Briefcase,
-  BookOpen,
-  HardHat,
-  Boxes,
-  Package,
-  ShoppingCart,
-  Wallet,
-  Wrench,
-  ShieldCheck,
-  BarChart3,
-  Zap,
-  Settings,
-  UserCog,
-  KanbanSquare,
-  Calendar,
-  UsersRound,
-} from 'lucide-react';
-
-const menuGroups = [
-  { items: [{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }] },
-  { label: 'Cadastros', items: [{ label: 'Clientes', href: '/dashboard/clientes', icon: Users }] },
-  {
-    label: 'Obras',
-    items: [
-      { label: 'Projetos', href: '/dashboard/projetos', icon: Briefcase },
-      { label: 'Orçamentos', href: '/dashboard/orcamentos', icon: FileText },
-      { label: 'Diário de Obra', href: '/dashboard/diario', icon: BookOpen },
-    ],
-  },
-  {
-    label: 'Organização',
-    items: [
-      { label: 'Tarefas', href: '/dashboard/tarefas', icon: KanbanSquare },
-      { label: 'Calendário', href: '/dashboard/calendario', icon: Calendar },
-    ],
-  },
-  {
-    label: 'Equipe',
-    items: [
-      { label: 'Funcionários', href: '/dashboard/funcionarios', icon: UserCog },
-      { label: 'Mão de Obra', href: '/dashboard/mao-de-obra', icon: HardHat },
-      { label: 'Materiais', href: '/dashboard/materiais', icon: Boxes },
-    ],
-  },
-  {
-    label: 'Suprimentos',
-    items: [
-      { label: 'Estoque', href: '/dashboard/estoque', icon: Package },
-      { label: 'Compras', href: '/dashboard/compras', icon: ShoppingCart },
-    ],
-  },
-  {
-    label: 'Equipamentos & Logística',
-    items: [{ label: 'Equipamentos & Logística', href: '/dashboard/equipamentos', icon: Wrench }],
-  },
-  { label: 'Financeiro', items: [{ label: 'Financeiro', href: '/dashboard/financeiro', icon: Wallet }] },
-  {
-    items: [
-      { label: 'Segurança', href: '/dashboard/seguranca', icon: ShieldCheck },
-      { label: 'Relatórios', href: '/dashboard/relatorios', icon: BarChart3 },
-      { label: 'Automações', href: '/dashboard/automacoes', icon: Zap },
-      { label: 'Usuários', href: '/dashboard/usuarios', icon: UsersRound },
-      { label: 'Configurações', href: '/dashboard/config', icon: Settings },
-    ],
-  },
-];
+import { navGroups, isItemActive } from '@/lib/nav';
 
 export function Sidebar() {
   const pathname = usePathname();
+
   return (
-    <aside className="w-64 shrink-0 border-r bg-white flex flex-col overflow-y-auto">
-      <div className="h-16 flex items-center px-6 border-b shrink-0">
-        <span className="font-bold text-lg">ERP Inox</span>
+    <aside className="w-[68px] shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col items-center overflow-y-auto py-3 gap-0.5">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary bg-gradient-to-br from-secondary to-background mb-3">
+        <span className="font-heading text-base leading-none text-primary">OP</span>
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-4">
-        {menuGroups.map((group, gIdx) => (
-          <div key={gIdx}>
-            {group.label && (
-              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{group.label}</p>
-            )}
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
-                return (
-                  <Link key={item.href} href={item.href}
-                    className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'
-                    }`}>
-                    <Icon size={18} />{item.label}
-                  </Link>
-                );
-              })}
+
+      <nav className="flex flex-1 flex-col items-center gap-0.5">
+        {navGroups.map((group) => {
+          const target = group.items[0];
+          const Icon = target.icon;
+          const active = group.items.some((item) => isItemActive(item.href, pathname));
+
+          return (
+            <div key={group.id} className="group relative">
+              <Link
+                href={target.href}
+                className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-colors ${
+                  active
+                    ? 'border-sidebar-primary/40 bg-sidebar-primary/10 text-sidebar-primary'
+                    : 'border-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                }`}
+              >
+                <Icon size={18} />
+              </Link>
+              <span className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs font-medium text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                {group.label}
+              </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
     </aside>
   );

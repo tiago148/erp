@@ -84,7 +84,7 @@ export default function ConfigPage() {
   }
 
   if (loading || !settings) {
-    return <p className="text-gray-500">Carregando...</p>;
+    return <p className="text-muted-foreground">Carregando...</p>;
   }
 
   const isAdmin = user?.role === 'ADMIN';
@@ -93,11 +93,11 @@ export default function ConfigPage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-gray-500">Dados da empresa e valores padrão do sistema.</p>
+        <p className="text-muted-foreground">Dados da empresa e valores padrão do sistema.</p>
       </div>
 
       {!isAdmin && (
-        <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-3">
+        <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-md p-3">
           Apenas administradores podem editar as configurações. Você pode visualizar.
         </p>
       )}
@@ -142,7 +142,7 @@ export default function ConfigPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Valores Padrão</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-xs text-gray-400">Usados como sugestão inicial ao criar novos orçamentos — você ainda pode ajustar em cada um.</p>
+            <p className="text-xs text-muted-foreground">Usados como sugestão inicial ao criar novos orçamentos — você ainda pode ajustar em cada um.</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Regime Tributário Padrão</Label>
@@ -177,7 +177,7 @@ export default function ConfigPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Margem de Orçamento</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-xs text-gray-400">Limites usados para colorir o indicador de margem nos orçamentos (verde = saudável, amarelo = reduzida, vermelho = crítica).</p>
+            <p className="text-xs text-muted-foreground">Limites usados para colorir o indicador de margem nos orçamentos (verde = saudável, amarelo = reduzida, vermelho = crítica).</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Margem Saudável a partir de (%)</Label>
@@ -188,7 +188,7 @@ export default function ConfigPage() {
                 <Input type="number" step="1" disabled={!isAdmin} value={settings.marginWarningPct} onChange={(e) => set('marginWarningPct', parseFloat(e.target.value) || 0)} />
               </div>
             </div>
-            <p className="text-xs text-gray-400">Abaixo do limite de margem reduzida, o indicador fica vermelho (crítica).</p>
+            <p className="text-xs text-muted-foreground">Abaixo do limite de margem reduzida, o indicador fica vermelho (crítica).</p>
           </CardContent>
         </Card>
 
@@ -216,13 +216,13 @@ export default function ConfigPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Backup</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-gray-500">Exporta todos os dados do sistema em um arquivo JSON.</p>
+          <p className="text-sm text-muted-foreground">Exporta todos os dados do sistema em um arquivo JSON.</p>
           {isAdmin ? (
             <Button variant="outline" onClick={handleBackup}>
               <Download size={16} className="mr-2" />Baixar Backup Completo
             </Button>
           ) : (
-            <p className="text-xs text-amber-600">Apenas administradores podem exportar backup.</p>
+            <p className="text-xs text-warning">Apenas administradores podem exportar backup.</p>
           )}
         </CardContent>
       </Card>

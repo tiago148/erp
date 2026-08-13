@@ -23,11 +23,11 @@ const statusLabels: Record<ProjectStatus, string> = {
 };
 
 const statusColors: Record<ProjectStatus, string> = {
-  PLANNING: 'bg-gray-100 text-gray-700',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  ON_HOLD: 'bg-yellow-100 text-yellow-700',
-  COMPLETED: 'bg-green-100 text-green-700',
-  CANCELLED: 'bg-red-100 text-red-700',
+  PLANNING: 'bg-secondary text-secondary-foreground',
+  IN_PROGRESS: 'bg-info/15 text-info',
+  ON_HOLD: 'bg-warning/15 text-warning',
+  COMPLETED: 'bg-success/15 text-success',
+  CANCELLED: 'bg-destructive/15 text-destructive',
 };
 
 export default function ProjetosPage() {
@@ -65,7 +65,7 @@ export default function ProjetosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Projetos</h1>
-          <p className="text-gray-500">Obras em andamento e planejadas.</p>
+          <p className="text-muted-foreground">Obras em andamento e planejadas.</p>
         </div>
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
           <Plus size={16} className="mr-2" />Novo Projeto
@@ -77,7 +77,7 @@ export default function ProjetosPage() {
         <Button type="submit" variant="outline">Buscar</Button>
       </form>
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -87,9 +87,9 @@ export default function ProjetosPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : projects.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Nenhum projeto cadastrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum projeto cadastrado.</TableCell></TableRow>
             ) : projects.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.number}</TableCell>

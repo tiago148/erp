@@ -39,7 +39,7 @@ function NewUserForm({ onSubmit, onCancel }: { onSubmit: (data: CreateUserByAdmi
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Um e-mail de confirmação será enviado. O usuário define a própria senha ao confirmar a conta.
       </p>
       <div className="space-y-2">
@@ -60,7 +60,7 @@ function NewUserForm({ onSubmit, onCancel }: { onSubmit: (data: CreateUserByAdmi
           </SelectContent>
         </Select>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={saving}>{saving ? 'Criando...' : 'Criar Usuário'}</Button>
@@ -110,7 +110,7 @@ export default function UsuariosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-gray-500">Contas de acesso ao sistema.</p>
+          <p className="text-muted-foreground">Contas de acesso ao sistema.</p>
         </div>
         {isAdmin && (
           <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Novo Usuário</Button>
@@ -118,14 +118,14 @@ export default function UsuariosPage() {
       </div>
 
       {!isAdmin && (
-        <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-3">
+        <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-md p-3">
           Apenas administradores podem criar usuários ou reenviar confirmações. Você pode visualizar.
         </p>
       )}
 
-      {message && <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-3">{message}</p>}
+      {message && <p className="text-sm text-info bg-info/10 border border-info/30 rounded-md p-3">{message}</p>}
 
-      <div className="border rounded-md bg-white">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -136,16 +136,16 @@ export default function UsuariosPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : users.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Nenhum usuário cadastrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum usuário cadastrado.</TableCell></TableRow>
             ) : users.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">{u.name}</TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>{roleLabels[u.role]}</TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${u.active ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
                     {u.active ? 'Ativo' : 'Confirmação pendente'}
                   </span>
                 </TableCell>
