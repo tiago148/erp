@@ -47,3 +47,13 @@ export class CreateBudgetOtherItemDto {
   @Min(0)
   amount: number;
 }
+
+export class CreateBudgetCompositionItemDto {
+  @IsString()
+  @IsNotEmpty()
+  compositionId: string;
+
+  @IsNumber()
+  @Min(0.01)
+  quantity: number;
+}

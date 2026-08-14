@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, FixedExpense, FixedExpenseInput, Settings, OverheadMethod } from '@/lib/api';
+import { api, FixedExpense, FixedExpenseInput, Settings, OverheadMethod, CostComposition, CostCompositionInput, Budget, FinanceEntry } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { FixedExpenseForm } from '@/components/fixed-expense-form';
+import { CostCompositionForm } from '@/components/cost-composition-form';
 import { computeIndirectCost } from '@/lib/overhead';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 
@@ -293,20 +294,249 @@ function OverheadTab() {
   );
 }
 
+function CompositionsTab() {
+  const { token } = useAuth();
+  const [items, setItems] = useState<CostComposition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<CostComposition | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setItems(await api.listCostCompositions(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(data: CostCompositionInput) {
+    if (!token) return;
+    await api.createCostComposition(token, data);
+    setOpen(false);
+    load();
+  }
+
+  async function handleUpdate(data: CostCompositionInput) {
+    if (!token || !editing) return;
+    await api.updateCostComposition(token, editing.id, data);
+    setOpen(false);
+    setEditing(undefined);
+    load();
+  }
+
+  async function handleDelete(item: CostComposition) {
+    if (!token || !confirm(`Excluir a composição "${item.name}"?`)) return;
+    try {
+      await api.deleteCostComposition(token, item.id);
+      load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível excluir. Verifique se há orçamentos usando esta composição.');
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Serviços padronizados com material e mão de obra já embutidos — como o SINAPI/TCPO da construção civil.
+        Em vez de montar item por item toda vez, você orça pela unidade do serviço e o sistema puxa os materiais e as horas automaticamente.
+      </p>
+
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Nova Composição</Button>
+      </div>
+
+      <div className="border rounded-md bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead><TableHead>Serviço</TableHead><TableHead>Un</TableHead>
+              <TableHead>Material</TableHead><TableHead>Mão de Obra</TableHead><TableHead>Custo Unit.</TableHead>
+              <TableHead className="w-24">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhuma composição cadastrada.</TableCell></TableRow>
+            ) : items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="text-muted-foreground font-mono">{item.code || '-'}</TableCell>
+                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell>{item.unit}</TableCell>
+                <TableCell className="font-mono">{fmt(item.costs.materialCost)}</TableCell>
+                <TableCell className="font-mono">{fmt(item.costs.laborCost)}</TableCell>
+                <TableCell className="font-mono font-semibold text-primary">{fmt(item.costs.unitCost)}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => { setEditing(item); setOpen(true); }}><Pencil size={16} /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}><Trash2 size={16} /></Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(undefined); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Composição' : 'Nova Composição de Custo'}</DialogTitle></DialogHeader>
+          <CostCompositionForm
+            initialData={editing}
+            onSubmit={editing ? handleUpdate : handleCreate}
+            onCancel={() => { setOpen(false); setEditing(undefined); }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const regimeTaxEstimate: Record<string, number> = {
+  SIMPLES: 6,
+  LUCRO_PRESUMIDO: 13.3,
+  LUCRO_REAL: 18.6,
+  MEI: 0,
+};
+
+function monthKeyUTC(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function BreakEvenTab() {
+  const { token } = useAuth();
+  const [fixedTotal, setFixedTotal] = useState(0);
+  const [entries, setEntries] = useState<FinanceEntry[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    Promise.all([
+      api.listFixedExpenses(token),
+      api.listFinanceEntries(token),
+      api.listBudgets(token),
+      api.getSettings(token),
+    ]).then(([fe, fin, b, s]) => {
+      setFixedTotal(fe.reduce((sum, e) => sum + e.amount, 0));
+      setEntries(fin);
+      setBudgets(b);
+      setSettings(s);
+      setLoading(false);
+    });
+  }, [token]);
+
+  if (loading || !settings) return <p className="text-muted-foreground">Carregando...</p>;
+
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const paid = entries.filter((e) => e.status === 'PAID' && e.paidAt);
+  const monthsWithData = new Set<string>();
+  let recSum = 0;
+  let despSum = 0;
+  months.forEach((mk) => {
+    const rec = paid.filter((e) => e.type === 'INCOME' && monthKeyUTC(e.paidAt!) === mk).reduce((s, e) => s + (e.paidAmount ?? e.amount), 0);
+    const desp = paid.filter((e) => e.type === 'EXPENSE' && monthKeyUTC(e.paidAt!) === mk).reduce((s, e) => s + (e.paidAmount ?? e.amount), 0);
+    if (rec > 0 || desp > 0) { monthsWithData.add(mk); recSum += rec; despSum += desp; }
+  });
+  const n = monthsWithData.size;
+  const recMed = n ? recSum / n : 0;
+  const despMed = n ? despSum / n : 0;
+  const mcPct = recMed > 0 ? ((recMed - despMed) / recMed) * 100 : 40;
+  const impostosPct = regimeTaxEstimate[settings.defaultRegime] ?? 6;
+  const mcLiq = Math.max(1, mcPct - impostosPct);
+  const pontoEquilibrio = fixedTotal / (mcLiq / 100);
+  const workDays = settings.overheadWorkDaysPerMonth ?? 22;
+  const peDia = pontoEquilibrio / workDays;
+  const folga = recMed - pontoEquilibrio;
+  const margemSeguranca = recMed > 0 ? (folga / recMed) * 100 : 0;
+
+  const validBudgets = budgets.filter((b) => b.totals.total > 0);
+  const ticketMedio = validBudgets.length ? validBudgets.reduce((s, b) => s + b.totals.total, 0) / validBudgets.length : 0;
+  const nObras = ticketMedio > 0 ? pontoEquilibrio / ticketMedio : 0;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Quanto a empresa precisa faturar por mês para não dar prejuízo. Abaixo dessa linha você está pagando para trabalhar.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Ponto de Equilíbrio Mensal</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold font-mono text-warning">{fmt(pontoEquilibrio)}</p><p className="text-xs text-muted-foreground mt-1">Faturamento mínimo para não ter prejuízo</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Médio Real</CardTitle></CardHeader>
+          <CardContent><p className={`text-xl font-bold font-mono ${recMed >= pontoEquilibrio ? 'text-success' : 'text-destructive'}`}>{fmt(recMed)}</p><p className="text-xs text-muted-foreground mt-1">Média dos últimos {n || 0} mês(es) com receita</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Margem de Contribuição</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold font-mono text-info">{mcLiq.toFixed(1)}%</p><p className="text-xs text-muted-foreground mt-1">Depois de custo direto e impostos</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Margem de Segurança</CardTitle></CardHeader>
+          <CardContent><p className={`text-xl font-bold font-mono ${margemSeguranca >= 20 ? 'text-success' : margemSeguranca >= 0 ? 'text-warning' : 'text-destructive'}`}>{margemSeguranca.toFixed(0)}%</p><p className="text-xs text-muted-foreground mt-1">{folga >= 0 ? `Folga de ${fmt(folga)}` : `Faltam ${fmt(-folga)}`}</p></CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Leitura do Cenário</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed">
+              Com <strong className="text-destructive">{fmt(fixedTotal)}</strong> de despesa fixa e margem de contribuição de <strong className="text-info">{mcLiq.toFixed(1)}%</strong>,
+              a empresa precisa faturar <strong className="text-warning">{fmt(pontoEquilibrio)}</strong> por mês — cerca de <strong>{fmt(peDia)}</strong> por dia útil — só para empatar.
+              {recMed > 0 ? (
+                recMed >= pontoEquilibrio
+                  ? <span className="text-success"> O faturamento médio está {fmt(folga)} acima do ponto de equilíbrio. Cada real acima disso é lucro operacional.</span>
+                  : <span className="text-destructive"> O faturamento médio está {fmt(-folga)} abaixo do ponto de equilíbrio. Nesse ritmo a empresa consome caixa todo mês.</span>
+              ) : <span className="text-muted-foreground"> Registre receitas pagas no financeiro para comparar com o ponto de equilíbrio real.</span>}
+            </p>
+            <p className="text-xs text-muted-foreground mt-3">Margem de segurança abaixo de 20% é sinal de operação frágil: uma obra atrasada ou um cliente inadimplente já leva o mês para o vermelho.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Quantas Obras Para Empatar</CardTitle></CardHeader>
+          <CardContent>
+            {ticketMedio > 0 ? (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-border"><span className="text-muted-foreground">Ticket médio dos orçamentos</span><span className="font-mono text-primary">{fmt(ticketMedio)}</span></div>
+                <div className="flex justify-between py-1 border-b border-border"><span className="text-muted-foreground">Obras/mês para empatar</span><span className="font-mono text-warning">{nObras.toFixed(1)}</span></div>
+                <div className="flex justify-between py-1"><span className="text-muted-foreground">Obras/mês para 20% de lucro</span><span className="font-mono text-success">{(nObras * 1.25).toFixed(1)}</span></div>
+                <p className="text-xs text-muted-foreground pt-2">Se fechar menos de <strong>{Math.ceil(nObras)}</strong> obra(s) no mês, o resultado fica negativo. Use isso como meta comercial mínima.</p>
+              </div>
+            ) : <p className="text-sm text-muted-foreground">Cadastre orçamentos para calcular o ticket médio.</p>}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function CustosPage() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Custos</h1>
-        <p className="text-muted-foreground">Despesas fixas e taxa administrativa aplicada aos orçamentos.</p>
+        <p className="text-muted-foreground">Despesas fixas, taxa administrativa e composições de custo unitário.</p>
       </div>
       <Tabs defaultValue="despesas">
         <TabsList>
           <TabsTrigger value="despesas">Despesas Fixas</TabsTrigger>
           <TabsTrigger value="taxa">Taxa Administrativa</TabsTrigger>
+          <TabsTrigger value="composicoes">Composições</TabsTrigger>
+          <TabsTrigger value="equilibrio">Ponto de Equilíbrio</TabsTrigger>
         </TabsList>
         <TabsContent value="despesas"><FixedExpensesTab /></TabsContent>
         <TabsContent value="taxa"><OverheadTab /></TabsContent>
+        <TabsContent value="composicoes"><CompositionsTab /></TabsContent>
+        <TabsContent value="equilibrio"><BreakEvenTab /></TabsContent>
       </Tabs>
     </div>
   );

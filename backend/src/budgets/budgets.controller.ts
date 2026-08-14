@@ -7,6 +7,7 @@
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -37,8 +38,15 @@ export class BudgetsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateBudgetDto) {
-    return this.budgetsService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateBudgetDto,
+    @Req() req: any,
+  ) {
+    return this.budgetsService.update(id, dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Delete(':id')

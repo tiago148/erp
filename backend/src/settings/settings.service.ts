@@ -1,10 +1,14 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService, Actor } from '../audit/audit.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async get() {
     const existing = await this.prisma.client.settings.findFirst();
@@ -13,12 +17,30 @@ export class SettingsService {
     return this.prisma.client.settings.create({ data: {} });
   }
 
-  async update(dto: UpdateSettingsDto) {
+  async update(dto: UpdateSettingsDto, actor?: Actor) {
     const current = await this.get();
-    return this.prisma.client.settings.update({
+    const changedKeys = Object.keys(dto).filter(
+      (key) =>
+        (dto as Record<string, unknown>)[key] !== undefined &&
+        (dto as Record<string, unknown>)[key] !==
+          (current as Record<string, unknown>)[key],
+    );
+    const updated = await this.prisma.client.settings.update({
       where: { id: current.id },
       data: dto,
     });
+
+    if (changedKeys.length > 0) {
+      await this.auditService.log({
+        actor,
+        action: 'SETTINGS_UPDATE',
+        entity: 'Settings',
+        entityId: current.id,
+        details: `Campos alterados: ${changedKeys.join(', ')}`,
+      });
+    }
+
+    return updated;
   }
 
   async exportBackup() {

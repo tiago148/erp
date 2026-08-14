@@ -7,6 +7,8 @@ import { marginBadgeVariant, marginLabel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { MarginSimulator } from '@/components/margin-simulator';
 import {
   Table,
   TableBody,
@@ -15,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Pencil, Percent } from 'lucide-react';
 import Link from 'next/link';
 
 function formatCurrency(value: number) {
@@ -48,6 +50,7 @@ export default function OrcamentosPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [simulating, setSimulating] = useState<Budget | undefined>();
 
   const loadBudgets = useCallback(
     async (searchTerm?: string) => {
@@ -169,6 +172,9 @@ export default function OrcamentosPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" title="Simular desconto" onClick={() => setSimulating(budget)}>
+                        <Percent size={16} />
+                      </Button>
                       <Link href={`/dashboard/orcamentos/${budget.id}`}>
                         <Button variant="ghost" size="icon">
                           <Pencil size={16} />
@@ -189,6 +195,13 @@ export default function OrcamentosPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!simulating} onOpenChange={(v) => { if (!v) setSimulating(undefined); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Simulador de Margem e Desconto</DialogTitle></DialogHeader>
+          {simulating && <MarginSimulator budget={simulating} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

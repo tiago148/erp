@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { AuditService, Actor } from '../audit/audit.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly auditService: AuditService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -55,12 +57,24 @@ export class AuthService {
     });
 
     if (!user) {
+      await this.auditService.log({
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        details: `Tentativa de login com e-mail inexistente: ${dto.email}`,
+      });
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatches) {
+      await this.auditService.log({
+        actor: { userId: user.id, email: user.email },
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        entityId: user.id,
+        details: 'Senha incorreta.',
+      });
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
 
@@ -70,10 +84,17 @@ export class AuthService {
       );
     }
 
+    await this.auditService.log({
+      actor: { userId: user.id, email: user.email },
+      action: 'LOGIN_SUCCESS',
+      entity: 'User',
+      entityId: user.id,
+    });
+
     return this.buildAuthResponse(user);
   }
 
-  async createUserByAdmin(dto: CreateUserByAdminDto) {
+  async createUserByAdmin(dto: CreateUserByAdminDto, actor?: Actor) {
     const existing = await this.prisma.client.user.findUnique({
       where: { email: dto.email },
     });
@@ -102,6 +123,14 @@ export class AuthService {
     });
 
     await this.sendConfirmationEmail(user.email, user.name, confirmationToken);
+
+    await this.auditService.log({
+      actor,
+      action: 'USER_CREATE',
+      entity: 'User',
+      entityId: user.id,
+      details: `${user.name} <${user.email}> (role: ${user.role})`,
+    });
 
     return {
       id: user.id,

@@ -106,21 +106,25 @@ export interface BudgetTravelItem { id: string; vehicleId: string; vehicle: Vehi
 export interface BudgetOtherItem { id: string; description: string; amount: number; }
 export interface BudgetTax { name: string; rate: number; value: number; }
 export interface BudgetTotals {
-  materialsTotal: number; laborTotal: number; travelTotal: number; otherTotal: number;
+  materialsTotal: number; laborTotal: number; travelTotal: number; otherTotal: number; compositionsTotal: number;
   subtotal: number; indirectCostValue: number; bdiValue: number; base: number; taxes: BudgetTax[]; taxTotal: number;
   discountValue: number; total: number;
   estimatedCost: number; estimatedMargin: number; estimatedMarginPct: number;
+}
+export interface BudgetCompositionItem {
+  id: string; budgetId: string; compositionId: string; composition: CostComposition; quantity: number; unitCost: number;
 }
 export interface Budget {
   id: string; number: string; clientId: string; client: Client; description?: string;
   status: BudgetStatus; regime: TaxRegime; bdiPct: number; discountPct: number; notes?: string;
   employeeId?: string; employee?: Employee; projectDays?: number;
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
-  otherItems: BudgetOtherItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
+  otherItems: BudgetOtherItem[]; compositionItems: BudgetCompositionItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
 }
 export interface BudgetInput {
   clientId: string; description?: string; status?: BudgetStatus; regime?: TaxRegime;
   bdiPct?: number; discountPct?: number; notes?: string; employeeId?: string; projectDays?: number;
+  compositionItems?: { compositionId: string; quantity: number }[];
   materialItems?: { materialId: string; quantity: number }[];
   laborItems?: { laborRoleId: string; hours: number }[];
   travelItems?: { vehicleId: string; distanceKm: number; trips: number; fuelPrice: number }[];
@@ -297,6 +301,58 @@ export interface FixedExpense {
   updatedAt: string;
 }
 export type FixedExpenseInput = Omit<FixedExpense, 'id' | 'financeEntryId' | 'createdAt' | 'updatedAt'>;
+
+export interface AuditLog {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  action: string;
+  entity?: string;
+  entityId?: string;
+  details?: string;
+  createdAt: string;
+}
+
+export interface CostCompositionMaterial {
+  id: string;
+  compositionId: string;
+  materialId: string;
+  material: Material;
+  coefficient: number;
+}
+export interface CostCompositionLabor {
+  id: string;
+  compositionId: string;
+  laborRoleId: string;
+  laborRole: LaborRole;
+  hoursPerUnit: number;
+}
+export interface CostCompositionCosts {
+  materialCost: number;
+  laborCost: number;
+  unitCost: number;
+  totalHours: number;
+}
+export interface CostComposition {
+  id: string;
+  code?: string;
+  name: string;
+  unit: string;
+  description?: string;
+  materials: CostCompositionMaterial[];
+  labor: CostCompositionLabor[];
+  costs: CostCompositionCosts;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CostCompositionInput {
+  code?: string;
+  name: string;
+  unit: string;
+  description?: string;
+  materials?: { materialId: string; coefficient: number }[];
+  labor?: { laborRoleId: string; hoursPerUnit: number }[];
+}
 
 export type CnhType = 'A' | 'B' | 'C' | 'D' | 'E';
 export interface Employee {
@@ -723,6 +779,20 @@ export const api = {
     request<FixedExpense>(`/fixed-expenses/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteFixedExpense: (token: string, id: string) =>
     request<void>(`/fixed-expenses/${id}`, { method: 'DELETE', token }),
+
+  listAuditLogs: (token: string, action?: string) =>
+    request<AuditLog[]>(`/audit-logs${action ? `?action=${action}` : ''}`, { method: 'GET', token }),
+
+  listCostCompositions: (token: string) =>
+    request<CostComposition[]>('/cost-compositions', { method: 'GET', token }),
+  getCostComposition: (token: string, id: string) =>
+    request<CostComposition>(`/cost-compositions/${id}`, { method: 'GET', token }),
+  createCostComposition: (token: string, data: CostCompositionInput) =>
+    request<CostComposition>('/cost-compositions', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateCostComposition: (token: string, id: string, data: Partial<CostCompositionInput>) =>
+    request<CostComposition>(`/cost-compositions/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteCostComposition: (token: string, id: string) =>
+    request<void>(`/cost-compositions/${id}`, { method: 'DELETE', token }),
 
   listEmployees: (token: string, search?: string) =>
     request<Employee[]>(`/employees${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),

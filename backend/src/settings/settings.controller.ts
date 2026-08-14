@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+﻿import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -15,7 +15,12 @@ export class SettingsController {
   @Patch()
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  update(@Body() dto: UpdateSettingsDto) { return this.settingsService.update(dto); }
+  update(@Body() dto: UpdateSettingsDto, @Req() req: any) {
+    return this.settingsService.update(dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
+  }
 
   @Get('backup')
   @UseGuards(RolesGuard)

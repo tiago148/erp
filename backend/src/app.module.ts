@@ -34,11 +34,14 @@ import { MaterialSurplusModule } from './material-surplus/material-surplus.modul
 import { QuotationsModule } from './quotations/quotations.module';
 import { ToolMaintenancesModule } from './tool-maintenances/tool-maintenances.module';
 import { FixedExpensesModule } from './fixed-expenses/fixed-expenses.module';
+import { CostCompositionsModule } from './cost-compositions/cost-compositions.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AuditModule,
     AuthModule,
     ClientsModule,
     MaterialsModule,
@@ -70,6 +73,7 @@ import { FixedExpensesModule } from './fixed-expenses/fixed-expenses.module';
     QuotationsModule,
     ToolMaintenancesModule,
     FixedExpensesModule,
+    CostCompositionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -19,6 +19,7 @@ import {
   Calendar,
   UsersRound,
   Calculator,
+  LineChart,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -81,7 +82,14 @@ export const navGroups: NavGroup[] = [
     ],
   },
   { id: 'seguranca', label: 'Segurança do Trabalho', items: [{ label: 'Segurança', href: '/dashboard/seguranca', icon: ShieldCheck }] },
-  { id: 'relatorios', label: 'Relatórios', items: [{ label: 'Relatórios', href: '/dashboard/relatorios', icon: BarChart3 }] },
+  {
+    id: 'relatorios',
+    label: 'Relatórios',
+    items: [
+      { label: 'Relatórios', href: '/dashboard/relatorios', icon: BarChart3 },
+      { label: 'Indicadores', href: '/dashboard/indicadores', icon: LineChart },
+    ],
+  },
   { id: 'automacoes', label: 'Automações', items: [{ label: 'Automações', href: '/dashboard/automacoes', icon: Zap }] },
   { id: 'usuarios', label: 'Usuários', items: [{ label: 'Usuários', href: '/dashboard/usuarios', icon: UsersRound }] },
   { id: 'config', label: 'Configurações', items: [{ label: 'Configurações', href: '/dashboard/config', icon: Settings }] },

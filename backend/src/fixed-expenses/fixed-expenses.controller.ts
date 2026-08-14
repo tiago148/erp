@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,8 +21,11 @@ import { UpdateFixedExpenseDto } from './dto/update-fixed-expense.dto';
 export class FixedExpensesController {
   constructor(private readonly fixedExpensesService: FixedExpensesService) {}
 
-  @Post() create(@Body() dto: CreateFixedExpenseDto) {
-    return this.fixedExpensesService.create(dto);
+  @Post() create(@Body() dto: CreateFixedExpenseDto, @Req() req: any) {
+    return this.fixedExpensesService.create(dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Get() findAll() {
@@ -35,14 +39,21 @@ export class FixedExpensesController {
   @Patch(':id') update(
     @Param('id') id: string,
     @Body() dto: UpdateFixedExpenseDto,
+    @Req() req: any,
   ) {
-    return this.fixedExpensesService.update(id, dto);
+    return this.fixedExpensesService.update(id, dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  remove(@Param('id') id: string) {
-    return this.fixedExpensesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.fixedExpensesService.remove(id, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 }

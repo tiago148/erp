@@ -42,8 +42,11 @@ export class AuthController {
   @Post('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  createUser(@Body() dto: CreateUserByAdminDto) {
-    return this.authService.createUserByAdmin(dto);
+  createUser(@Body() dto: CreateUserByAdminDto, @Req() req: any) {
+    return this.authService.createUserByAdmin(dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Get('users')

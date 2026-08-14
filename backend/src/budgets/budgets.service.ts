@@ -1,6 +1,8 @@
 ﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { round2 } from '../common/money';
+import { calculateCompositionUnitCost } from '../common/cost-composition';
+import { AuditService, Actor } from '../audit/audit.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 
@@ -40,7 +42,10 @@ interface OverheadContext {
 
 @Injectable()
 export class BudgetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   private async getOverheadContext(): Promise<OverheadContext | null> {
     const settings = await this.prisma.client.settings.findFirst();
@@ -125,7 +130,14 @@ export class BudgetsService {
       0,
     );
 
-    const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal;
+    const compositionsTotal = budget.compositionItems.reduce(
+      (sum: number, item: any) =>
+        sum + Number(item.quantity) * Number(item.unitCost),
+      0,
+    );
+
+    const subtotal =
+      materialsTotal + laborTotal + travelTotal + otherTotal + compositionsTotal;
     const projectDays = Number(budget.projectDays || 0);
     const indirectCostValue = this.calculateIndirectCost(
       overheadCtx,
@@ -159,6 +171,7 @@ export class BudgetsService {
       laborTotal: round2(laborTotal),
       travelTotal: round2(travelTotal),
       otherTotal: round2(otherTotal),
+      compositionsTotal: round2(compositionsTotal),
       subtotal: round2(subtotal),
       indirectCostValue: round2(indirectCostValue),
       bdiValue: round2(bdiValue),
@@ -181,7 +194,34 @@ export class BudgetsService {
       laborItems: { include: { laborRole: true } },
       travelItems: { include: { vehicle: true } },
       otherItems: true,
+      compositionItems: { include: { composition: true } },
     };
+  }
+
+  private async resolveCompositionItems(
+    items: { compositionId: string; quantity: number }[],
+  ) {
+    return Promise.all(
+      items.map(async (item) => {
+        const composition = await this.prisma.client.costComposition.findUnique({
+          where: { id: item.compositionId },
+          include: {
+            materials: { include: { material: true } },
+            labor: { include: { laborRole: true } },
+          },
+        });
+        if (!composition)
+          throw new NotFoundException(
+            'Composicao nao encontrada: ' + item.compositionId,
+          );
+        const { unitCost } = calculateCompositionUnitCost(composition);
+        return {
+          compositionId: item.compositionId,
+          quantity: item.quantity,
+          unitCost: round2(unitCost),
+        };
+      }),
+    );
   }
 
   private async generateNumber() {
@@ -241,6 +281,10 @@ export class BudgetsService {
       amount: item.amount,
     }));
 
+    const compositionItemsData = await this.resolveCompositionItems(
+      dto.compositionItems || [],
+    );
+
     const budget = await this.prisma.client.budget.create({
       data: {
         number,
@@ -257,6 +301,7 @@ export class BudgetsService {
         laborItems: { create: laborItemsData },
         travelItems: { create: travelItemsData },
         otherItems: { create: otherItemsData },
+        compositionItems: { create: compositionItemsData },
       },
       include: this.include(),
     });
@@ -302,8 +347,8 @@ export class BudgetsService {
     return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
   }
 
-  async update(id: string, dto: UpdateBudgetDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateBudgetDto, actor?: Actor) {
+    const existing = await this.findOne(id);
 
     const updateData: any = {
       description: dto.description,
@@ -393,11 +438,31 @@ export class BudgetsService {
       };
     }
 
+    if (dto.compositionItems) {
+      const compositionItemsData = await this.resolveCompositionItems(
+        dto.compositionItems,
+      );
+      await this.prisma.client.budgetCompositionItem.deleteMany({
+        where: { budgetId: id },
+      });
+      updateData.compositionItems = { create: compositionItemsData };
+    }
+
     const budget = await this.prisma.client.budget.update({
       where: { id },
       data: updateData,
       include: this.include(),
     });
+
+    if (dto.status && (dto.status as string) !== (existing.status as string)) {
+      await this.auditService.log({
+        actor,
+        action: 'BUDGET_STATUS_CHANGE',
+        entity: 'Budget',
+        entityId: budget.id,
+        details: `Nº ${budget.number}: ${existing.status} → ${dto.status}`,
+      });
+    }
 
     const overheadCtx = await this.getOverheadContext();
     return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };

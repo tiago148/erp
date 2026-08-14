@@ -14,6 +14,7 @@ import {
   CreateBudgetLaborItemDto,
   CreateBudgetTravelItemDto,
   CreateBudgetOtherItemDto,
+  CreateBudgetCompositionItemDto,
 } from './create-budget-item.dto';
 
 export enum BudgetStatus {
@@ -94,4 +95,10 @@ export class CreateBudgetDto {
   @ValidateNested({ each: true })
   @Type(() => CreateBudgetOtherItemDto)
   otherItems?: CreateBudgetOtherItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateBudgetCompositionItemDto)
+  compositionItems?: CreateBudgetCompositionItemDto[];
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite, Settings, Employee } from '@/lib/api';
+import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite, Settings, Employee, CostComposition } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +44,7 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [workSites, setWorkSites] = useState<WorkSite[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [compositions, setCompositions] = useState<CostComposition[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [selectedWorkSiteId, setSelectedWorkSiteId] = useState('');
   const [saving, setSaving] = useState(false);
@@ -76,6 +77,9 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [otherItems, setOtherItems] = useState(
     initialData?.otherItems.map((i) => ({ description: i.description, amount: i.amount })) || [],
   );
+  const [compositionItems, setCompositionItems] = useState(
+    initialData?.compositionItems.map((i) => ({ compositionId: i.compositionId, quantity: i.quantity })) || [],
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -85,6 +89,7 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     api.listVehicles(token).then(setVehicles);
     api.listWorkSites(token).then(setWorkSites);
     api.listEmployees(token).then(setEmployees);
+    api.listCostCompositions(token).then(setCompositions);
     api.getSettings(token).then(setSettings);
     api.listFixedExpenses(token).then((expenses) => setFixedExpensesTotal(expenses.reduce((s, e) => s + e.amount, 0)));
   }, [token]);
@@ -116,6 +121,11 @@ function applyWorkSiteDistance(workSiteId: string) {
     return liters * t.fuelPrice;
   }
 
+  function compositionCost(compositionId: string, qty: number) {
+    const c = compositions.find((x) => x.id === compositionId);
+    return c ? c.costs.unitCost * qty : 0;
+  }
+
  function addTravelItem() {
   const site = workSites.find((w) => w.id === selectedWorkSiteId);
   setTravelItems([
@@ -129,7 +139,8 @@ function applyWorkSiteDistance(workSiteId: string) {
   const laborHours = laborItems.reduce((s, i) => s + i.hours, 0);
   const travelTotal = travelItems.reduce((s, i) => s + travelCost(i), 0);
   const otherTotal = otherItems.reduce((s, i) => s + i.amount, 0);
-  const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal;
+  const compositionsTotal = compositionItems.reduce((s, i) => s + compositionCost(i.compositionId, i.quantity), 0);
+  const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal + compositionsTotal;
   const indirectCostValue = computeIndirectCost(settings, fixedExpensesTotal, subtotal, laborHours, projectDays);
   const costWithIndirect = subtotal + indirectCostValue;
   const bdiValue = costWithIndirect * (bdiPct / 100);
@@ -163,6 +174,7 @@ function applyWorkSiteDistance(workSiteId: string) {
       laborItems,
       travelItems,
       otherItems,
+      compositionItems,
     };
 
     try {
@@ -249,6 +261,49 @@ function applyWorkSiteDistance(workSiteId: string) {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* SERVICOS COMPOSTOS (CPU) */}
+      <div className="border rounded-md p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <Label className="font-semibold">Serviços Compostos (CPU)</Label>
+          <Button type="button" size="sm" variant="outline" onClick={() =>
+            setCompositionItems([...compositionItems, { compositionId: '', quantity: 1 }])
+          }><Plus size={14} className="mr-1" />Adicionar</Button>
+        </div>
+        {compositionItems.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhum serviço composto adicionado.</p>
+        )}
+        {compositionItems.map((item, idx) => {
+          const selected = compositions.find((c) => c.id === item.compositionId);
+          return (
+            <div key={idx} className="flex gap-2 items-center">
+              <Select value={item.compositionId} onValueChange={(v) => {
+                const arr = [...compositionItems]; arr[idx].compositionId = v; setCompositionItems(arr);
+              }}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Selecione o serviço">
+                    {selected ? `${selected.name} (${fmt(selected.costs.unitCost)}/${selected.unit})` : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {compositions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name} ({fmt(c.costs.unitCost)}/{c.unit})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input type="number" step="0.01" min="0.01" className="w-28" placeholder="Qtd." value={item.quantity}
+                onChange={(e) => { const arr = [...compositionItems]; arr[idx].quantity = parseFloat(e.target.value) || 0; setCompositionItems(arr); }} />
+              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(compositionCost(item.compositionId, item.quantity))}</span>
+              <Button type="button" size="icon" variant="ghost" onClick={() => setCompositionItems(compositionItems.filter((_, i) => i !== idx))}>
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          );
+        })}
+        {compositions.length === 0 && (
+          <p className="text-xs text-warning">Nenhuma composição cadastrada ainda — cadastre em &quot;Custos &gt; Composições&quot;.</p>
+        )}
       </div>
 
       {/* MATERIAIS */}

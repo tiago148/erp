@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Settings } from '@/lib/api';
+import { api, Settings, AuditLog } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { Download } from 'lucide-react';
 
 const regimeLabels: Record<string, string> = {
@@ -16,6 +19,97 @@ const regimeLabels: Record<string, string> = {
   LUCRO_REAL: 'Lucro Real',
   MEI: 'MEI',
 };
+
+const actionLabels: Record<string, string> = {
+  LOGIN_SUCCESS: 'Login',
+  LOGIN_FAILED: 'Falha de login',
+  USER_CREATE: 'Usuário criado',
+  SETTINGS_UPDATE: 'Configurações alteradas',
+  BUDGET_STATUS_CHANGE: 'Status de orçamento alterado',
+  FIXED_EXPENSE_CREATE: 'Despesa fixa criada',
+  FIXED_EXPENSE_UPDATE: 'Despesa fixa alterada',
+  FIXED_EXPENSE_DELETE: 'Despesa fixa excluída',
+};
+
+const actionVariants: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'accent'> = {
+  LOGIN_SUCCESS: 'success',
+  LOGIN_FAILED: 'danger',
+  USER_CREATE: 'info',
+  SETTINGS_UPDATE: 'accent',
+  BUDGET_STATUS_CHANGE: 'accent',
+  FIXED_EXPENSE_CREATE: 'success',
+  FIXED_EXPENSE_UPDATE: 'warning',
+  FIXED_EXPENSE_DELETE: 'danger',
+};
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('pt-BR');
+}
+
+function AuditTab() {
+  const { token } = useAuth();
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionFilter, setActionFilter] = useState<string>('');
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      setLogs(await api.listAuditLogs(token, actionFilter || undefined));
+    } finally {
+      setLoading(false);
+    }
+  }, [token, actionFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Login e eventos de alto valor: usuários, configurações, status de orçamento e despesas fixas.</p>
+        <Select value={actionFilter || 'ALL'} onValueChange={(v) => setActionFilter(!v || v === 'ALL' ? '' : v)}>
+          <SelectTrigger className="w-56"><SelectValue>{actionFilter ? actionLabels[actionFilter] : 'Todas as ações'}</SelectValue></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todas as ações</SelectItem>
+            {Object.entries(actionLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="border rounded-md bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data/Hora</TableHead>
+              <TableHead>Usuário</TableHead>
+              <TableHead>Ação</TableHead>
+              <TableHead>Detalhes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : logs.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhum evento registrado.</TableCell></TableRow>
+            ) : (
+              logs.map((log) => (
+                <TableRow key={log.id}>
+                  <TableCell className="font-mono text-xs">{formatDateTime(log.createdAt)}</TableCell>
+                  <TableCell>{log.userEmail || '—'}</TableCell>
+                  <TableCell><Badge variant={actionVariants[log.action] ?? 'accent'}>{actionLabels[log.action] ?? log.action}</Badge></TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{log.details || '—'}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
 
 export default function ConfigPage() {
   const { token, user } = useAuth();
@@ -90,12 +184,20 @@ export default function ConfigPage() {
   const isAdmin = user?.role === 'ADMIN';
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-muted-foreground">Dados da empresa e valores padrão do sistema.</p>
+        <p className="text-muted-foreground">Dados da empresa, valores padrão do sistema e auditoria.</p>
       </div>
 
+      <Tabs defaultValue="geral">
+        <TabsList>
+          <TabsTrigger value="geral">Configurações</TabsTrigger>
+          {isAdmin && <TabsTrigger value="auditoria">Auditoria</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="geral">
+    <div className="space-y-6 max-w-3xl">
       {!isAdmin && (
         <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-md p-3">
           Apenas administradores podem editar as configurações. Você pode visualizar.
@@ -226,6 +328,15 @@ export default function ConfigPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="auditoria">
+            <AuditTab />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }
