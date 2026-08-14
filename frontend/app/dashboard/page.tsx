@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Project, Budget, StockItem, Training, Task, CalendarEvent, FinanceEntry } from '@/lib/api';
+import { api, Project, Budget, StockItem, Training, Task, CalendarEvent, FinanceEntry, TrackedDocument } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ActionCenter } from '@/components/action-center';
 import { FileText, AlertTriangle, Briefcase, KanbanSquare } from 'lucide-react';
@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>([]);
+  const [documents, setDocuments] = useState<TrackedDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,7 +42,8 @@ export default function DashboardPage() {
       api.listTasks(token),
       api.listCalendarEvents(token),
       api.listFinanceEntries(token),
-    ]).then(([p, b, s, t, tk, e, f]) => {
+      api.listDocuments(token),
+    ]).then(([p, b, s, t, tk, e, f, d]) => {
       setProjects(p);
       setBudgets(b);
       setStockItems(s);
@@ -49,6 +51,7 @@ export default function DashboardPage() {
       setTasks(tk);
       setEvents(e);
       setFinanceEntries(f);
+      setDocuments(d);
       setLoading(false);
     });
   }, [token]);
@@ -136,6 +139,7 @@ export default function DashboardPage() {
         projects={projects}
         tasks={tasks}
         trainings={trainings}
+        documents={documents}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

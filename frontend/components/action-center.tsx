@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Wallet, HandCoins, Package, FileText, Briefcase, KanbanSquare, ShieldAlert } from 'lucide-react';
-import type { Budget, FinanceEntry, Project, StockItem, Task, Training } from '@/lib/api';
+import { Wallet, HandCoins, Package, FileText, Briefcase, KanbanSquare, ShieldAlert, FileWarning } from 'lucide-react';
+import type { Budget, FinanceEntry, Project, StockItem, Task, Training, TrackedDocument } from '@/lib/api';
 
 type Bucket = 'urgent' | 'today' | 'week';
 
@@ -32,6 +32,13 @@ function ageDays(date: string) {
   return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const documentTargetTypeLabels: Record<string, string> = {
+  VEHICLE: 'Veículo',
+  EMPLOYEE: 'Funcionário',
+  TOOL: 'Ferramenta',
+  COMPANY: 'Empresa',
+};
+
 interface Props {
   financeEntries: FinanceEntry[];
   stockItems: StockItem[];
@@ -39,9 +46,10 @@ interface Props {
   projects: Project[];
   tasks: Task[];
   trainings: Training[];
+  documents: TrackedDocument[];
 }
 
-export function ActionCenter({ financeEntries, stockItems, budgets, projects, tasks, trainings }: Props) {
+export function ActionCenter({ financeEntries, stockItems, budgets, projects, tasks, trainings, documents }: Props) {
   const items: ActionItem[] = [];
 
   financeEntries
@@ -169,6 +177,23 @@ export function ActionCenter({ financeEntries, stockItems, budgets, projects, ta
         text: `${t.nrType} — ${t.employee.name}`,
         meta: d < 0 ? `Vencido há ${Math.abs(d)} dia(s)` : `Vence em ${d} dia(s)`,
         href: '/dashboard/seguranca',
+      });
+    });
+
+  documents
+    .forEach((doc) => {
+      const d = daysBetween(doc.expiresAt);
+      if (d > 30) return;
+      items.push({
+        key: `documento-${doc.id}`,
+        bucket: d < 0 ? 'urgent' : 'week',
+        sortKey: d,
+        icon: FileWarning,
+        colorClass: d < 0 ? 'text-destructive' : 'text-warning',
+        bgClass: d < 0 ? 'bg-destructive/15' : 'bg-warning/15',
+        text: `${doc.title} — ${documentTargetTypeLabels[doc.targetType]}: ${doc.targetLabel}`,
+        meta: d < 0 ? `Vencido há ${Math.abs(d)} dia(s)` : `Vence em ${d} dia(s)`,
+        href: '/dashboard/equipamentos',
       });
     });
 

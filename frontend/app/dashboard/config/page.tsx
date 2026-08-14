@@ -29,6 +29,8 @@ const actionLabels: Record<string, string> = {
   FIXED_EXPENSE_CREATE: 'Despesa fixa criada',
   FIXED_EXPENSE_UPDATE: 'Despesa fixa alterada',
   FIXED_EXPENSE_DELETE: 'Despesa fixa excluída',
+  USER_MODULES_UPDATE: 'Módulos de usuário alterados',
+  BACKUP_RESTORE: 'Backup restaurado',
 };
 
 const actionVariants: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'accent'> = {
@@ -40,6 +42,8 @@ const actionVariants: Record<string, 'success' | 'danger' | 'warning' | 'info' |
   FIXED_EXPENSE_CREATE: 'success',
   FIXED_EXPENSE_UPDATE: 'warning',
   FIXED_EXPENSE_DELETE: 'danger',
+  USER_MODULES_UPDATE: 'accent',
+  BACKUP_RESTORE: 'danger',
 };
 
 function formatDateTime(value: string) {
@@ -108,6 +112,71 @@ function AuditTab() {
         </Table>
       </div>
     </div>
+  );
+}
+
+const RESTORE_CONFIRMATION_PHRASE = 'RESTAURAR';
+
+function RestoreBackupCard() {
+  const { token } = useAuth();
+  const [file, setFile] = useState<File | null>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageIsError, setMessageIsError] = useState(false);
+
+  async function handleRestore() {
+    if (!token || !file) return;
+    setMessage('');
+    setMessageIsError(false);
+    setRestoring(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      await api.restoreBackup(token, confirmText, parsed);
+      setMessage('Backup restaurado com sucesso. Recarregue a página para ver os dados atualizados.');
+      setFile(null);
+      setConfirmText('');
+    } catch (err) {
+      setMessageIsError(true);
+      setMessage(err instanceof Error ? err.message : 'Erro ao restaurar backup');
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader><CardTitle className="text-base text-destructive">Restaurar Backup</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-destructive/90 bg-destructive/10 border border-destructive/30 rounded-md p-3">
+          <strong>Ação destrutiva e irreversível.</strong> Restaurar um backup apaga permanentemente todos os dados atuais de clientes, materiais, mão de obra, veículos, orçamentos, obras, ferramentas, estoque, diário de obra, fornecedores, compras, financeiro e faturamento — substituindo-os pelo conteúdo do arquivo. Dados de segurança do trabalho, cotações, tarefas, despesas fixas, composições de custo, documentos com vencimento e auditoria não são afetados. Use apenas com um backup confiável e gerado por este sistema.
+        </p>
+        <div className="space-y-2">
+          <Label>Arquivo de backup (.json)</Label>
+          <input
+            type="file"
+            accept="application/json"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:text-foreground"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Digite <span className="font-mono text-destructive">{RESTORE_CONFIRMATION_PHRASE}</span> para confirmar</Label>
+          <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={RESTORE_CONFIRMATION_PHRASE} />
+        </div>
+        {message && (
+          <p className={`text-sm ${messageIsError ? 'text-destructive' : 'text-success'}`}>{message}</p>
+        )}
+        <Button
+          variant="destructive"
+          disabled={!file || confirmText !== RESTORE_CONFIRMATION_PHRASE || restoring}
+          onClick={handleRestore}
+        >
+          {restoring ? 'Restaurando...' : 'Restaurar Backup Agora'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -328,6 +397,8 @@ export default function ConfigPage() {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && <RestoreBackupCard />}
     </div>
         </TabsContent>
 

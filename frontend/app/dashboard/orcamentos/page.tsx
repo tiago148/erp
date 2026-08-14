@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { api, Budget, BudgetStatus, Settings } from '@/lib/api';
+import { api, Budget, BudgetStatus, BudgetVersionSummary, Settings } from '@/lib/api';
 import { marginBadgeVariant, marginLabel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, Pencil, Percent } from 'lucide-react';
+import { Plus, Trash2, Pencil, Percent, Copy, GitBranch, History } from 'lucide-react';
 import Link from 'next/link';
 
 function formatCurrency(value: number) {
@@ -46,11 +47,14 @@ const statusColors: Record<BudgetStatus, string> = {
 
 export default function OrcamentosPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [simulating, setSimulating] = useState<Budget | undefined>();
+  const [viewingVersionsOf, setViewingVersionsOf] = useState<Budget | undefined>();
+  const [versions, setVersions] = useState<BudgetVersionSummary[]>([]);
 
   const loadBudgets = useCallback(
     async (searchTerm?: string) => {
@@ -85,6 +89,27 @@ export default function OrcamentosPage() {
 
     await api.deleteBudget(token, budget.id);
     loadBudgets(search);
+  }
+
+  async function handleDuplicate(budget: Budget) {
+    if (!token) return;
+    const copy = await api.duplicateBudget(token, budget.id);
+    loadBudgets(search);
+    router.push(`/dashboard/orcamentos/${copy.id}`);
+  }
+
+  async function handleNewVersion(budget: Budget) {
+    if (!token) return;
+    if (!confirm(`Criar uma nova versão (rascunho) do orçamento nº ${budget.number}?`)) return;
+    const newVersion = await api.createBudgetVersion(token, budget.id);
+    loadBudgets(search);
+    router.push(`/dashboard/orcamentos/${newVersion.id}`);
+  }
+
+  async function handleViewVersions(budget: Budget) {
+    if (!token) return;
+    setViewingVersionsOf(budget);
+    setVersions(await api.listBudgetVersions(token, budget.id));
   }
 
   return (
@@ -142,7 +167,19 @@ export default function OrcamentosPage() {
             ) : (
               budgets.map((budget) => (
                 <TableRow key={budget.id}>
-                  <TableCell className="font-medium">{budget.number}</TableCell>
+                  <TableCell className="font-medium">
+                    {budget.number}
+                    {budget.version > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleViewVersions(budget)}
+                        className="ml-1.5 text-xs text-info hover:underline"
+                        title="Ver histórico de versões"
+                      >
+                        v{budget.version}
+                      </button>
+                    )}
+                  </TableCell>
                   <TableCell>{budget.client.name}</TableCell>
                   <TableCell>{formatDate(budget.createdAt)}</TableCell>
                   <TableCell>
@@ -175,6 +212,15 @@ export default function OrcamentosPage() {
                       <Button variant="ghost" size="icon" title="Simular desconto" onClick={() => setSimulating(budget)}>
                         <Percent size={16} />
                       </Button>
+                      <Button variant="ghost" size="icon" title="Duplicar" onClick={() => handleDuplicate(budget)}>
+                        <Copy size={16} />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Nova versão" onClick={() => handleNewVersion(budget)}>
+                        <GitBranch size={16} />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Ver versões" onClick={() => handleViewVersions(budget)}>
+                        <History size={16} />
+                      </Button>
                       <Link href={`/dashboard/orcamentos/${budget.id}`}>
                         <Button variant="ghost" size="icon">
                           <Pencil size={16} />
@@ -200,6 +246,31 @@ export default function OrcamentosPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Simulador de Margem e Desconto</DialogTitle></DialogHeader>
           {simulating && <MarginSimulator budget={simulating} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingVersionsOf} onOpenChange={(v) => { if (!v) setViewingVersionsOf(undefined); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Histórico de Versões — nº {viewingVersionsOf?.number}</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            {versions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma versão encontrada.</p>
+            ) : (
+              versions.map((v) => (
+                <Link
+                  key={v.id}
+                  href={`/dashboard/orcamentos/${v.id}`}
+                  className="flex items-center justify-between text-sm py-2 px-3 rounded-md border border-border hover:bg-muted/40 transition-colors"
+                >
+                  <span>v{v.version} {v.id === viewingVersionsOf?.id && <span className="text-xs text-muted-foreground">(atual)</span>}</span>
+                  <span className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[v.status]}`}>{statusLabels[v.status]}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{formatDate(v.createdAt)}</span>
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,19 +3,65 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { api, ManagedUser, CreateUserByAdminInput, UserRole } from '@/lib/api';
+import { navGroups } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Send } from 'lucide-react';
+import { Plus, Send, LayoutGrid } from 'lucide-react';
 
 function fmtDate(v: string) {
   return new Date(v).toLocaleDateString('pt-BR');
 }
 
 const roleLabels: Record<UserRole, string> = { ADMIN: 'Administrador', USER: 'Usuário' };
+
+function ModulesForm({ managedUser, onSubmit, onCancel }: { managedUser: ManagedUser; onSubmit: (allowedModules: string[]) => Promise<void>; onCancel: () => void }) {
+  const [checked, setChecked] = useState<Set<string>>(
+    new Set(managedUser.allowedModules.length > 0 ? managedUser.allowedModules : navGroups.map((g) => g.id)),
+  );
+  const [saving, setSaving] = useState(false);
+
+  function toggle(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const allowedModules = checked.size === navGroups.length ? [] : Array.from(checked);
+      await onSubmit(allowedModules);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Controla apenas quais módulos aparecem na navegação de <strong>{managedUser.name}</strong>. Não substitui as permissões de Administrador/Usuário — apenas organiza a interface.
+      </p>
+      <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
+        {navGroups.map((group) => (
+          <label key={group.id} className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-muted/40">
+            <input type="checkbox" className="h-4 w-4 accent-primary" checked={checked.has(group.id)} onChange={() => toggle(group.id)} />
+            {group.label}
+          </label>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button type="button" onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+      </div>
+    </div>
+  );
+}
 
 function NewUserForm({ onSubmit, onCancel }: { onSubmit: (data: CreateUserByAdminInput) => Promise<void>; onCancel: () => void }) {
   const [name, setName] = useState('');
@@ -75,6 +121,7 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [managingModulesOf, setManagingModulesOf] = useState<ManagedUser | undefined>();
 
   const isAdmin = user?.role === 'ADMIN';
 
@@ -91,6 +138,13 @@ export default function UsuariosPage() {
     await api.createUserByAdmin(token, data);
     setOpen(false);
     setMessage('Usuário criado. Um e-mail de confirmação foi enviado (ou, se o SMTP ainda não estiver configurado, o link apareceu no log do servidor).');
+    load();
+  }
+
+  async function handleUpdateModules(allowedModules: string[]) {
+    if (!token || !managingModulesOf) return;
+    await api.updateUserModules(token, managingModulesOf.id, allowedModules);
+    setManagingModulesOf(undefined);
     load();
   }
 
@@ -152,11 +206,16 @@ export default function UsuariosPage() {
                 <TableCell>{fmtDate(u.createdAt)}</TableCell>
                 {isAdmin && (
                   <TableCell>
-                    {!u.active && (
-                      <Button variant="ghost" size="icon" title="Reenviar confirmação" onClick={() => handleResend(u)}>
-                        <Send size={16} />
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" title="Módulos visíveis" onClick={() => setManagingModulesOf(u)}>
+                        <LayoutGrid size={16} />
                       </Button>
-                    )}
+                      {!u.active && (
+                        <Button variant="ghost" size="icon" title="Reenviar confirmação" onClick={() => handleResend(u)}>
+                          <Send size={16} />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 )}
               </TableRow>
@@ -169,6 +228,15 @@ export default function UsuariosPage() {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
           <NewUserForm onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!managingModulesOf} onOpenChange={(v) => { if (!v) setManagingModulesOf(undefined); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Módulos — {managingModulesOf?.name}</DialogTitle></DialogHeader>
+          {managingModulesOf && (
+            <ModulesForm managedUser={managingModulesOf} onSubmit={handleUpdateModules} onCancel={() => setManagingModulesOf(undefined)} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -9,6 +9,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  allowedModules?: string[];
 }
 
 interface AuthContextValue {

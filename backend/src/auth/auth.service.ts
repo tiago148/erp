@@ -150,10 +150,44 @@ export class AuthService {
         email: true,
         role: true,
         active: true,
+        allowedModules: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async updateAllowedModules(
+    id: string,
+    allowedModules: string[],
+    actor?: Actor,
+  ) {
+    const user = await this.prisma.client.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Usuario nao encontrado.');
+
+    const updated = await this.prisma.client.user.update({
+      where: { id },
+      data: { allowedModules },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        allowedModules: true,
+        createdAt: true,
+      },
+    });
+
+    await this.auditService.log({
+      actor,
+      action: 'USER_MODULES_UPDATE',
+      entity: 'User',
+      entityId: id,
+      details: `${user.email}: [${allowedModules.join(', ') || 'todos'}]`,
+    });
+
+    return updated;
   }
 
   async confirmAccount(dto: ConfirmAccountDto) {
@@ -233,6 +267,7 @@ export class AuthService {
     name: string;
     email: string;
     role: string;
+    allowedModules: string[];
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
@@ -243,6 +278,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        allowedModules: user.allowedModules,
       },
     };
   }

@@ -36,6 +36,8 @@ import { ToolMaintenancesModule } from './tool-maintenances/tool-maintenances.mo
 import { FixedExpensesModule } from './fixed-expenses/fixed-expenses.module';
 import { CostCompositionsModule } from './cost-compositions/cost-compositions.module';
 import { AuditModule } from './audit/audit.module';
+import { DocumentsModule } from './documents/documents.module';
+import { ProjectPhasesModule } from './project-phases/project-phases.module';
 
 @Module({
   imports: [
@@ -74,6 +76,8 @@ import { AuditModule } from './audit/audit.module';
     ToolMaintenancesModule,
     FixedExpensesModule,
     CostCompositionsModule,
+    DocumentsModule,
+    ProjectPhasesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

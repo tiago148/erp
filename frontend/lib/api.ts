@@ -24,12 +24,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export interface AuthResponse {
   accessToken: string;
-  user: { id: string; name: string; email: string; role: string };
+  user: { id: string; name: string; email: string; role: string; allowedModules?: string[] };
 }
 
 export type UserRole = 'ADMIN' | 'USER';
 export interface ManagedUser {
-  id: string; name: string; email: string; role: UserRole; active: boolean; createdAt: string;
+  id: string; name: string; email: string; role: UserRole; active: boolean; allowedModules: string[]; createdAt: string;
 }
 export interface CreateUserByAdminInput {
   name: string; email: string; role?: UserRole;
@@ -115,11 +115,14 @@ export interface BudgetCompositionItem {
   id: string; budgetId: string; compositionId: string; composition: CostComposition; quantity: number; unitCost: number;
 }
 export interface Budget {
-  id: string; number: string; clientId: string; client: Client; description?: string;
+  id: string; number: string; version: number; rootId?: string; clientId: string; client: Client; description?: string;
   status: BudgetStatus; regime: TaxRegime; bdiPct: number; discountPct: number; notes?: string;
   employeeId?: string; employee?: Employee; projectDays?: number;
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
   otherItems: BudgetOtherItem[]; compositionItems: BudgetCompositionItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
+}
+export interface BudgetVersionSummary {
+  id: string; number: string; version: number; status: BudgetStatus; createdAt: string;
 }
 export interface BudgetInput {
   clientId: string; description?: string; status?: BudgetStatus; regime?: TaxRegime;
@@ -151,6 +154,13 @@ export interface ProjectInput {
   status?: ProjectStatus; budgetAmount?: number; startDate?: string; endDate?: string; notes?: string;
   responsibleEmployeeId?: string;
 }
+
+export interface ProjectPhase {
+  id: string; projectId: string; name: string; weightPct: number;
+  plannedStart: string; plannedEnd: string; progressPct: number; measuredAt?: string;
+  notes?: string; createdAt: string; updatedAt: string;
+}
+export type ProjectPhaseInput = Omit<ProjectPhase, 'id' | 'createdAt' | 'updatedAt'>;
 
 export type ToolLocation = 'COMPANY' | 'PROJECT';
 export interface ToolMovement {
@@ -312,6 +322,22 @@ export interface AuditLog {
   details?: string;
   createdAt: string;
 }
+
+export type DocumentTargetType = 'VEHICLE' | 'EMPLOYEE' | 'TOOL' | 'COMPANY';
+export interface TrackedDocument {
+  id: string;
+  targetType: DocumentTargetType;
+  targetId?: string;
+  targetLabel: string;
+  title: string;
+  documentNumber?: string;
+  issueDate?: string;
+  expiresAt: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export type TrackedDocumentInput = Omit<TrackedDocument, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface CostCompositionMaterial {
   id: string;
@@ -586,6 +612,8 @@ export const api = {
     request<{ message: string }>('/auth/resend-confirmation', { method: 'POST', token, body: JSON.stringify({ email }) }),
   confirmAccount: (tokenParam: string, password: string) =>
     request<AuthResponse>('/auth/confirm', { method: 'POST', body: JSON.stringify({ token: tokenParam, password }) }),
+  updateUserModules: (token: string, id: string, allowedModules: string[]) =>
+    request<ManagedUser>(`/auth/users/${id}/modules`, { method: 'PATCH', token, body: JSON.stringify({ allowedModules }) }),
 
   listClients: (token: string, search?: string) =>
     request<Client[]>(`/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -660,6 +688,12 @@ export const api = {
     request<Budget>(`/budgets/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteBudget: (token: string, id: string) =>
     request<void>(`/budgets/${id}`, { method: 'DELETE', token }),
+  duplicateBudget: (token: string, id: string) =>
+    request<Budget>(`/budgets/${id}/duplicate`, { method: 'POST', token }),
+  createBudgetVersion: (token: string, id: string) =>
+    request<Budget>(`/budgets/${id}/new-version`, { method: 'POST', token }),
+  listBudgetVersions: (token: string, id: string) =>
+    request<BudgetVersionSummary[]>(`/budgets/${id}/versions`, { method: 'GET', token }),
 
   listWorkSites: (token: string, search?: string) =>
     request<WorkSite[]>(`/work-sites${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -672,12 +706,23 @@ export const api = {
 
   listProjects: (token: string, search?: string) =>
     request<Project[]>(`/projects${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  getProject: (token: string, id: string) =>
+    request<Project>(`/projects/${id}`, { method: 'GET', token }),
   createProject: (token: string, data: ProjectInput) =>
     request<Project>('/projects', { method: 'POST', token, body: JSON.stringify(data) }),
   updateProject: (token: string, id: string, data: Partial<ProjectInput>) =>
     request<Project>(`/projects/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteProject: (token: string, id: string) =>
     request<void>(`/projects/${id}`, { method: 'DELETE', token }),
+
+  listProjectPhases: (token: string, projectId?: string) =>
+    request<ProjectPhase[]>(`/project-phases${projectId ? `?projectId=${projectId}` : ''}`, { method: 'GET', token }),
+  createProjectPhase: (token: string, data: ProjectPhaseInput) =>
+    request<ProjectPhase>('/project-phases', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateProjectPhase: (token: string, id: string, data: Partial<ProjectPhaseInput>) =>
+    request<ProjectPhase>(`/project-phases/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteProjectPhase: (token: string, id: string) =>
+    request<void>(`/project-phases/${id}`, { method: 'DELETE', token }),
 
   listTools: (token: string, search?: string) =>
     request<Tool[]>(`/tools${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -770,6 +815,8 @@ export const api = {
   updateSettings: (token: string, data: SettingsInput) =>
     request<Settings>('/settings', { method: 'PATCH', token, body: JSON.stringify(data) }),
   getBackupUrl: () => `${API_URL}/settings/backup`,
+  restoreBackup: (token: string, confirmationText: string, data: Record<string, unknown>) =>
+    request<{ restoredAt: string }>('/settings/restore', { method: 'POST', token, body: JSON.stringify({ confirmationText, data }) }),
 
   listFixedExpenses: (token: string) =>
     request<FixedExpense[]>('/fixed-expenses', { method: 'GET', token }),
@@ -782,6 +829,15 @@ export const api = {
 
   listAuditLogs: (token: string, action?: string) =>
     request<AuditLog[]>(`/audit-logs${action ? `?action=${action}` : ''}`, { method: 'GET', token }),
+
+  listDocuments: (token: string, targetType?: DocumentTargetType) =>
+    request<TrackedDocument[]>(`/documents${targetType ? `?targetType=${targetType}` : ''}`, { method: 'GET', token }),
+  createDocument: (token: string, data: TrackedDocumentInput) =>
+    request<TrackedDocument>('/documents', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateDocument: (token: string, id: string, data: Partial<TrackedDocumentInput>) =>
+    request<TrackedDocument>(`/documents/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteDocument: (token: string, id: string) =>
+    request<void>(`/documents/${id}`, { method: 'DELETE', token }),
 
   listCostCompositions: (token: string) =>
     request<CostComposition[]>('/cost-compositions', { method: 'GET', token }),

@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  Param,
+  Patch,
   Post,
   Get,
   HttpCode,
@@ -14,6 +16,7 @@ import { LoginDto } from './dto/login.dto';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 import { ConfirmAccountDto } from './dto/confirm-account.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
+import { UpdateUserModulesDto } from './dto/update-user-modules.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
@@ -54,6 +57,20 @@ export class AuthController {
   @Roles('ADMIN')
   listUsers() {
     return this.authService.listUsers();
+  }
+
+  @Patch('users/:id/modules')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  updateUserModules(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserModulesDto,
+    @Req() req: any,
+  ) {
+    return this.authService.updateAllowedModules(id, dto.allowedModules, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Post('resend-confirmation')

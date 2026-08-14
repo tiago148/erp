@@ -103,3 +103,8 @@ export function isItemActive(href: string, pathname: string) {
 export function findActiveGroup(pathname: string): NavGroup | undefined {
   return navGroups.find((group) => group.items.some((item) => isItemActive(item.href, pathname)));
 }
+
+export function getVisibleNavGroups(allowedModules?: string[]): NavGroup[] {
+  if (!allowedModules || allowedModules.length === 0) return navGroups;
+  return navGroups.filter((group) => allowedModules.includes(group.id));
+}

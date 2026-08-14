@@ -55,4 +55,19 @@ export class BudgetsController {
   remove(@Param('id') id: string) {
     return this.budgetsService.remove(id);
   }
+
+  @Post(':id/duplicate')
+  duplicate(@Param('id') id: string) {
+    return this.budgetsService.duplicate(id);
+  }
+
+  @Post(':id/new-version')
+  createNewVersion(@Param('id') id: string) {
+    return this.budgetsService.createNewVersion(id);
+  }
+
+  @Get(':id/versions')
+  findVersions(@Param('id') id: string) {
+    return this.budgetsService.findVersions(id);
+  }
 }

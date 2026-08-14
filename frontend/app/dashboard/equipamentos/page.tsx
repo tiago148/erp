@@ -5,7 +5,7 @@ import { useAuth } from '@/context/auth-context';
 import {
   api, Vehicle, VehicleInput, WorkSite, WorkSiteInput, Tool, ToolInput, MoveToolInput,
   VehicleTrip, VehicleTripInput, VehicleMaintenance, VehicleMaintenanceInput,
-  ToolMaintenance, ToolMaintenanceInput,
+  ToolMaintenance, ToolMaintenanceInput, TrackedDocument, TrackedDocumentInput,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { VehicleForm } from '@/components/vehicle-form';
 import { WorkSiteForm } from '@/components/work-site-form';
 import { ToolForm } from '@/components/tool-form';
@@ -20,6 +21,7 @@ import { MoveToolForm } from '@/components/move-tool-form';
 import { VehicleTripForm } from '@/components/vehicle-trip-form';
 import { VehicleMaintenanceForm } from '@/components/vehicle-maintenance-form';
 import { ToolMaintenanceForm } from '@/components/tool-maintenance-form';
+import { DocumentForm } from '@/components/document-form';
 import { Plus, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 
 function fmtCurrency(v: number) {
@@ -579,8 +581,121 @@ function MaintenancesTab() {
   );
 }
 
-function ComingSoon({ label }: { label: string }) {
-  return <p className="text-center text-muted-foreground py-12">{label} — em breve.</p>;
+const targetTypeLabels: Record<string, string> = {
+  VEHICLE: 'Veículo',
+  EMPLOYEE: 'Funcionário',
+  TOOL: 'Ferramenta',
+  COMPANY: 'Empresa',
+};
+
+function documentDaysLeft(expiresAt: string) {
+  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function DocumentsTab() {
+  const { token } = useAuth();
+  const [documents, setDocuments] = useState<TrackedDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<TrackedDocument | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setDocuments(await api.listDocuments(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(data: TrackedDocumentInput) {
+    if (!token) return;
+    await api.createDocument(token, data);
+    setOpen(false);
+    load();
+  }
+
+  async function handleUpdate(data: TrackedDocumentInput) {
+    if (!token || !editing) return;
+    await api.updateDocument(token, editing.id, data);
+    setOpen(false);
+    setEditing(undefined);
+    load();
+  }
+
+  async function handleDelete(document: TrackedDocument) {
+    if (!token || !confirm(`Excluir o documento "${document.title}" de ${document.targetLabel}?`)) return;
+    await api.deleteDocument(token, document.id);
+    load();
+  }
+
+  const sorted = [...documents].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime());
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Documentos com vencimento de veículos, funcionários, ferramentas e da empresa.</p>
+        <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
+          <Plus size={16} className="mr-2" />Novo Documento
+        </Button>
+      </div>
+
+      <div className="border rounded-md bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Vinculado a</TableHead>
+              <TableHead>Documento</TableHead>
+              <TableHead>Número</TableHead>
+              <TableHead>Vencimento</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-20">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : sorted.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum documento cadastrado.</TableCell></TableRow>
+            ) : (
+              sorted.map((doc) => {
+                const d = documentDaysLeft(doc.expiresAt);
+                return (
+                  <TableRow key={doc.id}>
+                    <TableCell>{targetTypeLabels[doc.targetType]}: {doc.targetLabel}</TableCell>
+                    <TableCell className="font-medium">{doc.title}</TableCell>
+                    <TableCell className="text-muted-foreground">{doc.documentNumber || '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">{new Date(doc.expiresAt).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
+                    <TableCell>
+                      <Badge variant={d < 0 ? 'danger' : d <= 30 ? 'warning' : 'success'}>
+                        {d < 0 ? `Vencido há ${Math.abs(d)}d` : d <= 30 ? `Vence em ${d}d` : 'Em dia'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => { setEditing(doc); setOpen(true); }}><Pencil size={16} /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(doc)}><Trash2 size={16} /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(undefined); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Documento' : 'Novo Documento'}</DialogTitle></DialogHeader>
+          <DocumentForm
+            initialData={editing}
+            onSubmit={editing ? handleUpdate : handleCreate}
+            onCancel={() => { setOpen(false); setEditing(undefined); }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
 
 export default function EquipamentosPage() {
@@ -604,7 +719,7 @@ export default function EquipamentosPage() {
         <TabsContent value="veiculos"><VehiclesTab /></TabsContent>
         <TabsContent value="locais"><WorkSitesTab /></TabsContent>
         <TabsContent value="manutencoes"><MaintenancesTab /></TabsContent>
-        <TabsContent value="documentos"><ComingSoon label="Documentos" /></TabsContent>
+        <TabsContent value="documentos"><DocumentsTab /></TabsContent>
         <TabsContent value="historico"><VehicleTripsTab /></TabsContent>
       </Tabs>
     </div>

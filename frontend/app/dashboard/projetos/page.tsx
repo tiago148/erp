@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProjectForm } from '@/components/project-form';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -99,6 +100,9 @@ export default function ProjetosPage() {
                 <TableCell className="font-semibold">{fmt(p.budgetAmount)}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
+                    <Link href={`/dashboard/projetos/${p.id}`}>
+                      <Button variant="ghost" size="icon" title="Etapas e Curva S"><TrendingUp size={16} /></Button>
+                    </Link>
                     <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setOpen(true); }}><Pencil size={16} /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(p)}><Trash2 size={16} /></Button>
                   </div>

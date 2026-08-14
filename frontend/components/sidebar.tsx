@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { navGroups, isItemActive } from '@/lib/nav';
+import { getVisibleNavGroups, isItemActive } from '@/lib/nav';
+import { useAuth } from '@/context/auth-context';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const groups = getVisibleNavGroups(user?.allowedModules);
 
   return (
     <aside className="w-[68px] shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col items-center overflow-y-auto py-3 gap-0.5">
@@ -14,7 +17,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col items-center gap-0.5">
-        {navGroups.map((group) => {
+        {groups.map((group) => {
           const target = group.items[0];
           const Icon = target.icon;
           const active = group.items.some((item) => isItemActive(item.href, pathname));

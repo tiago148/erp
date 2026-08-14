@@ -472,4 +472,123 @@ export class BudgetsService {
     await this.findOne(id);
     return this.prisma.client.budget.delete({ where: { id } });
   }
+
+  private cloneItemsData(source: Awaited<ReturnType<typeof this.findOne>>) {
+    return {
+      materialItems: {
+        create: source.materialItems.map((item) => ({
+          materialId: item.materialId,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+        })),
+      },
+      laborItems: {
+        create: source.laborItems.map((item) => ({
+          laborRoleId: item.laborRoleId,
+          hours: item.hours,
+          hourlyRate: item.hourlyRate,
+        })),
+      },
+      travelItems: {
+        create: source.travelItems.map((item) => ({
+          vehicleId: item.vehicleId,
+          distanceKm: item.distanceKm,
+          trips: item.trips,
+          fuelPrice: item.fuelPrice,
+        })),
+      },
+      otherItems: {
+        create: source.otherItems.map((item) => ({
+          description: item.description,
+          amount: item.amount,
+        })),
+      },
+      compositionItems: {
+        create: source.compositionItems.map((item) => ({
+          compositionId: item.compositionId,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+        })),
+      },
+    };
+  }
+
+  async duplicate(id: string) {
+    const source = await this.findOne(id);
+    const number = await this.generateNumber();
+
+    const budget = await this.prisma.client.budget.create({
+      data: {
+        number,
+        version: 1,
+        rootId: null,
+        clientId: source.clientId,
+        description: source.description
+          ? `${source.description} (cópia)`
+          : undefined,
+        status: 'DRAFT',
+        regime: source.regime,
+        bdiPct: source.bdiPct,
+        discountPct: source.discountPct,
+        notes: source.notes,
+        employeeId: source.employeeId,
+        projectDays: source.projectDays,
+        ...this.cloneItemsData(source),
+      },
+      include: this.include(),
+    });
+
+    const overheadCtx = await this.getOverheadContext();
+    return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
+  }
+
+  async createNewVersion(id: string) {
+    const source = await this.findOne(id);
+    const rootId = source.rootId ?? source.id;
+
+    const family = await this.prisma.client.budget.findMany({
+      where: { OR: [{ id: rootId }, { rootId }] },
+      select: { version: true },
+    });
+    const nextVersion = Math.max(...family.map((b) => b.version)) + 1;
+
+    const budget = await this.prisma.client.budget.create({
+      data: {
+        number: source.number,
+        version: nextVersion,
+        rootId,
+        clientId: source.clientId,
+        description: source.description,
+        status: 'DRAFT',
+        regime: source.regime,
+        bdiPct: source.bdiPct,
+        discountPct: source.discountPct,
+        notes: source.notes,
+        employeeId: source.employeeId,
+        projectDays: source.projectDays,
+        ...this.cloneItemsData(source),
+      },
+      include: this.include(),
+    });
+
+    const overheadCtx = await this.getOverheadContext();
+    return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
+  }
+
+  async findVersions(id: string) {
+    const source = await this.findOne(id);
+    const rootId = source.rootId ?? source.id;
+
+    return this.prisma.client.budget.findMany({
+      where: { OR: [{ id: rootId }, { rootId }] },
+      select: {
+        id: true,
+        number: true,
+        version: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { version: 'asc' },
+    });
+  }
 }
