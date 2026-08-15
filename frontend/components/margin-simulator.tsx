@@ -10,19 +10,17 @@ function fmt(v: number) {
 export function MarginSimulator({ budget }: { budget: Budget }) {
   const [discountPct, setDiscountPct] = useState(budget.discountPct);
 
-  const { base, taxTotal, estimatedCost, total: originalTotal } = budget.totals;
-  const newDiscountValue = (base + taxTotal) * (discountPct / 100);
-  const newTotal = base + taxTotal - newDiscountValue;
-  const newMargin = newTotal - estimatedCost;
+  const { pvCheio, custoTotal, impostoPct, total: originalTotal } = budget.totals;
+  const newDiscountValue = pvCheio * (discountPct / 100);
+  const newTotal = pvCheio - newDiscountValue;
+  const newImpostoReal = newTotal * (impostoPct / 100);
+  const newMargin = newTotal - custoTotal - newImpostoReal;
   const newMarginPct = newTotal > 0 ? (newMargin / newTotal) * 100 : 0;
   const perda = originalTotal - newTotal;
 
-  let maxDiscount = 0;
-  for (let d = 0; d <= 60; d += 0.5) {
-    const np = base + taxTotal - (base + taxTotal) * (d / 100);
-    if (np - estimatedCost <= 0) { maxDiscount = d; break; }
-    maxDiscount = d;
-  }
+  // Fórmula fechada: desconto que zera o lucro (margemReal = 0).
+  const maxDiscountRaw = pvCheio > 0 ? (1 - custoTotal / (pvCheio * (1 - impostoPct / 100))) * 100 : 0;
+  const maxDiscount = Math.min(100, Math.max(0, maxDiscountRaw));
 
   return (
     <div className="space-y-5">
@@ -32,7 +30,7 @@ export function MarginSimulator({ budget }: { budget: Budget }) {
       </div>
 
       <div className="bg-muted rounded-md p-4 space-y-1 text-sm">
-        <div className="flex justify-between"><span>Custo total (direto + indireto)</span><span className="font-mono">{fmt(estimatedCost)}</span></div>
+        <div className="flex justify-between"><span>Custo total (direto + indireto + contingência + financeiro)</span><span className="font-mono">{fmt(custoTotal)}</span></div>
         <div className="flex justify-between font-bold border-t border-border pt-2 mt-2"><span>Preço atual</span><span className="font-mono">{fmt(originalTotal)}</span></div>
       </div>
 

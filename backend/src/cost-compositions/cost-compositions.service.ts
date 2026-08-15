@@ -16,8 +16,14 @@ export class CostCompositionsService {
     };
   }
 
-  private attachCost(composition: any) {
-    const costs = calculateCompositionUnitCost(composition);
+  private async getSalarioMinimo() {
+    const settings = await this.prisma.client.settings.findFirst();
+    return settings ? Number(settings.salarioMinimo) : 1518;
+  }
+
+  private async attachCost(composition: any) {
+    const salarioMinimo = await this.getSalarioMinimo();
+    const costs = calculateCompositionUnitCost(composition, salarioMinimo);
     return {
       ...composition,
       costs: {
@@ -79,7 +85,7 @@ export class CostCompositionsService {
       include: this.include(),
       orderBy: { name: 'asc' },
     });
-    return compositions.map((c) => this.attachCost(c));
+    return Promise.all(compositions.map((c) => this.attachCost(c)));
   }
 
   async findOne(id: string) {
@@ -87,8 +93,7 @@ export class CostCompositionsService {
       where: { id },
       include: this.include(),
     });
-    if (!composition)
-      throw new NotFoundException('Composicao nao encontrada.');
+    if (!composition) throw new NotFoundException('Composicao nao encontrada.');
     return this.attachCost(composition);
   }
 

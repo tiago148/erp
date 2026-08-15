@@ -2,6 +2,7 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { round2 } from '../common/money';
 import { calculateCompositionUnitCost } from '../common/cost-composition';
+import { calculateLaborRoleEffectiveRate } from '../common/labor-rate';
 import { AuditService, Actor } from '../audit/audit.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -46,6 +47,11 @@ export class BudgetsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
   ) {}
+
+  private async getSalarioMinimo() {
+    const settings = await this.prisma.client.settings.findFirst();
+    return settings ? Number(settings.salarioMinimo) : 1518;
+  }
 
   private async getOverheadContext(): Promise<OverheadContext | null> {
     const settings = await this.prisma.client.settings.findFirst();
@@ -137,7 +143,11 @@ export class BudgetsService {
     );
 
     const subtotal =
-      materialsTotal + laborTotal + travelTotal + otherTotal + compositionsTotal;
+      materialsTotal +
+      laborTotal +
+      travelTotal +
+      otherTotal +
+      compositionsTotal;
     const projectDays = Number(budget.projectDays || 0);
     const indirectCostValue = this.calculateIndirectCost(
       overheadCtx,
@@ -147,24 +157,46 @@ export class BudgetsService {
     );
     const costWithIndirect = subtotal + indirectCostValue;
 
-    const bdiPct = Number(budget.bdiPct);
-    const bdiValue = costWithIndirect * (bdiPct / 100);
-    const base = costWithIndirect + bdiValue;
+    // Gross-up pricing: lucroPct and impostoPct are both percentages of the
+    // FINAL sale price (not markups on cost), so the price is solved by
+    // dividing the fully-loaded cost by the leftover share after both are
+    // subtracted — see Bloco K of the roadmap for the full derivation.
+    const contingenciaPct = Number(budget.contingenciaPct ?? 0);
+    const contingenciaValue = costWithIndirect * (contingenciaPct / 100);
 
-    const taxes = (TAX_TABLE[budget.regime] || []).map((tax) => ({
-      name: tax.name,
-      rate: tax.rate,
-      value: round2(base * (tax.rate / 100)),
-    }));
-    const taxTotal = taxes.reduce((sum, tax) => sum + tax.value, 0);
+    const taxaCapitalPct = Number(budget.taxaCapitalPct ?? 0);
+    const prazoRecebimentoDias = Number(budget.prazoRecebimentoDias ?? 0);
+    const custoFinanceiroValue =
+      (costWithIndirect + contingenciaValue) *
+      (taxaCapitalPct / 100) *
+      (prazoRecebimentoDias / 30);
+
+    const custoTotal =
+      costWithIndirect + contingenciaValue + custoFinanceiroValue;
+
+    const taxRates = TAX_TABLE[budget.regime] || [];
+    const impostoPct = taxRates.reduce((sum, tax) => sum + tax.rate, 0);
+    const lucroPct = Number(budget.lucroPct ?? 0);
+
+    const rawDivisor = 1 - (impostoPct + lucroPct) / 100;
+    const pricingImpossible = rawDivisor <= 0.02;
+    const divisor = pricingImpossible ? 0.02 : rawDivisor;
+    const pvCheio = custoTotal / divisor;
 
     const discountPct = Number(budget.discountPct);
-    const discountValue = (base + taxTotal) * (discountPct / 100);
-    const total = base + taxTotal - discountValue;
+    const discountValue = pvCheio * (discountPct / 100);
+    const total = pvCheio - discountValue;
 
-    const estimatedCost = costWithIndirect;
-    const estimatedMargin = total - estimatedCost;
-    const estimatedMarginPct = total > 0 ? (estimatedMargin / total) * 100 : 0;
+    const impostoReal = total * (impostoPct / 100);
+    const taxes = taxRates.map((tax) => ({
+      name: tax.name,
+      rate: tax.rate,
+      value: round2(total * (tax.rate / 100)),
+    }));
+
+    const lucroReal = total - custoTotal - impostoReal;
+    const margemReal = total > 0 ? (lucroReal / total) * 100 : 0;
+    const bdiEquivalente = subtotal > 0 ? (total / subtotal - 1) * 100 : 0;
 
     return {
       materialsTotal: round2(materialsTotal),
@@ -174,15 +206,26 @@ export class BudgetsService {
       compositionsTotal: round2(compositionsTotal),
       subtotal: round2(subtotal),
       indirectCostValue: round2(indirectCostValue),
-      bdiValue: round2(bdiValue),
-      base: round2(base),
+      costWithIndirect: round2(costWithIndirect),
+      contingenciaValue: round2(contingenciaValue),
+      custoFinanceiroValue: round2(custoFinanceiroValue),
+      custoTotal: round2(custoTotal),
+      impostoPct: round2(impostoPct),
+      pvCheio: round2(pvCheio),
       taxes,
-      taxTotal: round2(taxTotal),
+      taxTotal: round2(impostoReal),
+      impostoReal: round2(impostoReal),
       discountValue: round2(discountValue),
       total: round2(total),
-      estimatedCost: round2(estimatedCost),
-      estimatedMargin: round2(estimatedMargin),
-      estimatedMarginPct: round2(estimatedMarginPct),
+      lucroReal: round2(lucroReal),
+      margemReal: round2(margemReal),
+      bdiEquivalente: round2(bdiEquivalente),
+      pricingImpossible,
+      // Aliases kept so pre-existing consumers (dashboard/report aggregates)
+      // that read the old field names keep working unchanged.
+      estimatedCost: round2(custoTotal),
+      estimatedMargin: round2(lucroReal),
+      estimatedMarginPct: round2(margemReal),
     };
   }
 
@@ -200,21 +243,27 @@ export class BudgetsService {
 
   private async resolveCompositionItems(
     items: { compositionId: string; quantity: number }[],
+    salarioMinimo: number,
   ) {
     return Promise.all(
       items.map(async (item) => {
-        const composition = await this.prisma.client.costComposition.findUnique({
-          where: { id: item.compositionId },
-          include: {
-            materials: { include: { material: true } },
-            labor: { include: { laborRole: true } },
+        const composition = await this.prisma.client.costComposition.findUnique(
+          {
+            where: { id: item.compositionId },
+            include: {
+              materials: { include: { material: true } },
+              labor: { include: { laborRole: true } },
+            },
           },
-        });
+        );
         if (!composition)
           throw new NotFoundException(
             'Composicao nao encontrada: ' + item.compositionId,
           );
-        const { unitCost } = calculateCompositionUnitCost(composition);
+        const { unitCost } = calculateCompositionUnitCost(
+          composition,
+          salarioMinimo,
+        );
         return {
           compositionId: item.compositionId,
           quantity: item.quantity,
@@ -231,6 +280,7 @@ export class BudgetsService {
 
   async create(dto: CreateBudgetDto) {
     const number = await this.generateNumber();
+    const salarioMinimo = await this.getSalarioMinimo();
 
     const materialItemsData = await Promise.all(
       (dto.materialItems || []).map(async (item) => {
@@ -258,13 +308,20 @@ export class BudgetsService {
           throw new NotFoundException(
             'Funcao nao encontrada: ' + item.laborRoleId,
           );
-        const effectiveRate = round2(
-          Number(role.hourlyRate) * (1 + Number(role.chargesPct) / 100),
+        const { effectiveHourlyRate } = calculateLaborRoleEffectiveRate(
+          {
+            hourlyRate: Number(role.hourlyRate),
+            chargesPct: Number(role.chargesPct),
+            periculosidade: role.periculosidade,
+            insalubridadePct: Number(role.insalubridadePct),
+            noturnoPct: Number(role.noturnoPct),
+          },
+          salarioMinimo,
         );
         return {
           laborRoleId: item.laborRoleId,
           hours: item.hours,
-          hourlyRate: effectiveRate,
+          hourlyRate: round2(effectiveHourlyRate),
         };
       }),
     );
@@ -283,6 +340,7 @@ export class BudgetsService {
 
     const compositionItemsData = await this.resolveCompositionItems(
       dto.compositionItems || [],
+      salarioMinimo,
     );
 
     const budget = await this.prisma.client.budget.create({
@@ -293,6 +351,10 @@ export class BudgetsService {
         status: dto.status,
         regime: dto.regime,
         bdiPct: dto.bdiPct,
+        lucroPct: dto.lucroPct,
+        contingenciaPct: dto.contingenciaPct,
+        prazoRecebimentoDias: dto.prazoRecebimentoDias,
+        taxaCapitalPct: dto.taxaCapitalPct,
         discountPct: dto.discountPct,
         notes: dto.notes,
         employeeId: dto.employeeId,
@@ -349,12 +411,17 @@ export class BudgetsService {
 
   async update(id: string, dto: UpdateBudgetDto, actor?: Actor) {
     const existing = await this.findOne(id);
+    const salarioMinimo = await this.getSalarioMinimo();
 
     const updateData: any = {
       description: dto.description,
       status: dto.status,
       regime: dto.regime,
       bdiPct: dto.bdiPct,
+      lucroPct: dto.lucroPct,
+      contingenciaPct: dto.contingenciaPct,
+      prazoRecebimentoDias: dto.prazoRecebimentoDias,
+      taxaCapitalPct: dto.taxaCapitalPct,
       discountPct: dto.discountPct,
       notes: dto.notes,
       employeeId: dto.employeeId,
@@ -396,13 +463,20 @@ export class BudgetsService {
             throw new NotFoundException(
               'Funcao nao encontrada: ' + item.laborRoleId,
             );
-          const effectiveRate = round2(
-            Number(role.hourlyRate) * (1 + Number(role.chargesPct) / 100),
+          const { effectiveHourlyRate } = calculateLaborRoleEffectiveRate(
+            {
+              hourlyRate: Number(role.hourlyRate),
+              chargesPct: Number(role.chargesPct),
+              periculosidade: role.periculosidade,
+              insalubridadePct: Number(role.insalubridadePct),
+              noturnoPct: Number(role.noturnoPct),
+            },
+            salarioMinimo,
           );
           return {
             laborRoleId: item.laborRoleId,
             hours: item.hours,
-            hourlyRate: effectiveRate,
+            hourlyRate: round2(effectiveHourlyRate),
           };
         }),
       );
@@ -441,6 +515,7 @@ export class BudgetsService {
     if (dto.compositionItems) {
       const compositionItemsData = await this.resolveCompositionItems(
         dto.compositionItems,
+        salarioMinimo,
       );
       await this.prisma.client.budgetCompositionItem.deleteMany({
         where: { budgetId: id },
@@ -529,6 +604,10 @@ export class BudgetsService {
         status: 'DRAFT',
         regime: source.regime,
         bdiPct: source.bdiPct,
+        lucroPct: source.lucroPct,
+        contingenciaPct: source.contingenciaPct,
+        prazoRecebimentoDias: source.prazoRecebimentoDias,
+        taxaCapitalPct: source.taxaCapitalPct,
         discountPct: source.discountPct,
         notes: source.notes,
         employeeId: source.employeeId,
@@ -562,6 +641,10 @@ export class BudgetsService {
         status: 'DRAFT',
         regime: source.regime,
         bdiPct: source.bdiPct,
+        lucroPct: source.lucroPct,
+        contingenciaPct: source.contingenciaPct,
+        prazoRecebimentoDias: source.prazoRecebimentoDias,
+        taxaCapitalPct: source.taxaCapitalPct,
         discountPct: source.discountPct,
         notes: source.notes,
         employeeId: source.employeeId,

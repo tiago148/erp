@@ -1,4 +1,5 @@
 ﻿import {
+  IsBoolean,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -19,4 +20,18 @@ export class CreateLaborRoleDto {
   @IsNumber()
   @Min(0)
   chargesPct?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  periculosidade?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  insalubridadePct?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  noturnoPct?: number;
 }

@@ -4,15 +4,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { api, SearchResults } from '@/lib/api';
-import { Search, Users, Boxes, UserCog, Briefcase, FileText, Wrench, X } from 'lucide-react';
+import { Search, Users, Boxes, UserCog, Briefcase, FileText, Wrench, Truck, ShoppingCart, ClipboardList, KanbanSquare, MapPin, Wallet, X } from 'lucide-react';
 
 const groups: { key: keyof SearchResults; label: string; icon: React.ReactNode; href: (id: string) => string }[] = [
   { key: 'clients', label: 'Clientes', icon: <Users size={14} />, href: () => '/dashboard/clientes' },
   { key: 'materials', label: 'Materiais', icon: <Boxes size={14} />, href: () => '/dashboard/materiais' },
   { key: 'employees', label: 'Funcionários', icon: <UserCog size={14} />, href: () => '/dashboard/funcionarios' },
-  { key: 'projects', label: 'Projetos', icon: <Briefcase size={14} />, href: () => '/dashboard/projetos' },
+  { key: 'projects', label: 'Projetos', icon: <Briefcase size={14} />, href: (id: string) => `/dashboard/projetos/${id}` },
   { key: 'budgets', label: 'Orçamentos', icon: <FileText size={14} />, href: (id: string) => `/dashboard/orcamentos/${id}` },
   { key: 'tools', label: 'Ferramentas', icon: <Wrench size={14} />, href: () => '/dashboard/equipamentos' },
+  { key: 'vehicles', label: 'Veículos', icon: <Truck size={14} />, href: () => '/dashboard/equipamentos' },
+  { key: 'suppliers', label: 'Fornecedores', icon: <ShoppingCart size={14} />, href: () => '/dashboard/compras' },
+  { key: 'purchaseOrders', label: 'Compras', icon: <ShoppingCart size={14} />, href: () => '/dashboard/compras' },
+  { key: 'quotations', label: 'Cotações', icon: <ClipboardList size={14} />, href: () => '/dashboard/compras' },
+  { key: 'tasks', label: 'Tarefas', icon: <KanbanSquare size={14} />, href: () => '/dashboard/tarefas' },
+  { key: 'workSites', label: 'Locais de Obra', icon: <MapPin size={14} />, href: () => '/dashboard/equipamentos' },
+  { key: 'financeEntries', label: 'Financeiro', icon: <Wallet size={14} />, href: () => '/dashboard/financeiro' },
 ];
 
 function itemLabel(key: keyof SearchResults, item: any) {
@@ -22,6 +29,13 @@ function itemLabel(key: keyof SearchResults, item: any) {
   if (key === 'projects') return `${item.number} — ${item.name}`;
   if (key === 'budgets') return `${item.number} — ${item.client?.name}`;
   if (key === 'tools') return item.name;
+  if (key === 'vehicles') return `${item.name} — ${item.plate}`;
+  if (key === 'suppliers') return item.name;
+  if (key === 'purchaseOrders') return `${item.number} — ${item.supplier?.name}`;
+  if (key === 'quotations') return `${item.number}${item.description ? ` — ${item.description}` : ''}`;
+  if (key === 'tasks') return item.title;
+  if (key === 'workSites') return `${item.name} — ${item.client?.name}`;
+  if (key === 'financeEntries') return item.description;
   return '';
 }
 
@@ -94,7 +108,7 @@ export function GlobalSearch() {
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar clientes, materiais, projetos, orçamentos..."
+                placeholder="Buscar em todo o sistema..."
                 className="flex-1 outline-none text-sm"
               />
               <button onClick={() => setOpen(false)}><X size={16} className="text-muted-foreground" /></button>

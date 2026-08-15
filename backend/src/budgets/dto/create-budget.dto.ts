@@ -57,6 +57,26 @@ export class CreateBudgetDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  lucroPct?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  contingenciaPct?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  prazoRecebimentoDias?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxaCapitalPct?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   discountPct?: number;
 
   @IsOptional()

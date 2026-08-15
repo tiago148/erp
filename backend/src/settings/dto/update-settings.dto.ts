@@ -31,7 +31,11 @@ export class UpdateSettingsDto {
   @IsOptional() @IsString() companyEmail?: string;
   @IsOptional() @IsEnum(TaxRegime) defaultRegime?: TaxRegime;
   @IsOptional() @IsNumber() @Min(0) defaultBdiPct?: number;
+  @IsOptional() @IsNumber() @Min(0) defaultLucroPct?: number;
+  @IsOptional() @IsNumber() @Min(0) defaultContingenciaPct?: number;
+  @IsOptional() @IsNumber() @Min(0) defaultTaxaCapitalPct?: number;
   @IsOptional() @IsNumber() @Min(0) defaultChargesPct?: number;
+  @IsOptional() @IsNumber() @Min(0) salarioMinimo?: number;
   @IsOptional() @IsNumber() @Min(0) defaultFuelPrice?: number;
   @IsOptional() @IsString() budgetPrefix?: string;
   @IsOptional() @IsString() projectPrefix?: string;

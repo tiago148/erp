@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite, Settings, Employee, CostComposition } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { marginBadgeVariant, marginLabel } from '@/lib/utils';
 import { computeIndirectCost } from '@/lib/overhead';
+import { getImpostoPct } from '@/lib/tax-table';
 import { Trash2, Plus } from 'lucide-react';
 
 function fmt(v: number) {
@@ -54,11 +55,15 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [employeeId, setEmployeeId] = useState(initialData?.employeeId || '');
   const [status, setStatus] = useState(initialData?.status || 'DRAFT');
   const [regime, setRegime] = useState(initialData?.regime || 'SIMPLES');
-  const [bdiPct, setBdiPct] = useState(initialData?.bdiPct ?? 20);
+  const [lucroPct, setLucroPct] = useState(initialData?.lucroPct ?? 15);
+  const [contingenciaPct, setContingenciaPct] = useState(initialData?.contingenciaPct ?? 0);
+  const [prazoRecebimentoDias, setPrazoRecebimentoDias] = useState(initialData?.prazoRecebimentoDias ?? 0);
+  const [taxaCapitalPct, setTaxaCapitalPct] = useState(initialData?.taxaCapitalPct ?? 1.5);
   const [discountPct, setDiscountPct] = useState(initialData?.discountPct ?? 0);
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [projectDays, setProjectDays] = useState(initialData?.projectDays ?? 0);
   const [fixedExpensesTotal, setFixedExpensesTotal] = useState(0);
+  const isNewRef = useRef(!initialData);
 
   const [materialItems, setMaterialItems] = useState(
     initialData?.materialItems.map((i) => ({ materialId: i.materialId, quantity: i.quantity })) || [],
@@ -90,7 +95,14 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     api.listWorkSites(token).then(setWorkSites);
     api.listEmployees(token).then(setEmployees);
     api.listCostCompositions(token).then(setCompositions);
-    api.getSettings(token).then(setSettings);
+    api.getSettings(token).then((s) => {
+      setSettings(s);
+      if (isNewRef.current) {
+        setLucroPct(s.defaultLucroPct);
+        setContingenciaPct(s.defaultContingenciaPct);
+        setTaxaCapitalPct(s.defaultTaxaCapitalPct);
+      }
+    });
     api.listFixedExpenses(token).then((expenses) => setFixedExpensesTotal(expenses.reduce((s, e) => s + e.amount, 0)));
   }, [token]);
 
@@ -143,11 +155,21 @@ function applyWorkSiteDistance(workSiteId: string) {
   const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal + compositionsTotal;
   const indirectCostValue = computeIndirectCost(settings, fixedExpensesTotal, subtotal, laborHours, projectDays);
   const costWithIndirect = subtotal + indirectCostValue;
-  const bdiValue = costWithIndirect * (bdiPct / 100);
-  const base = costWithIndirect + bdiValue;
-  const discountValue = base * (discountPct / 100);
-  const total = base - discountValue;
-  const estimatedMargin = total - costWithIndirect;
+
+  const contingenciaValue = costWithIndirect * (contingenciaPct / 100);
+  const custoFinanceiroValue = (costWithIndirect + contingenciaValue) * (taxaCapitalPct / 100) * (prazoRecebimentoDias / 30);
+  const custoTotal = costWithIndirect + contingenciaValue + custoFinanceiroValue;
+
+  const impostoPct = getImpostoPct(regime);
+  const rawDivisor = 1 - (impostoPct + lucroPct) / 100;
+  const pricingImpossible = rawDivisor <= 0.02;
+  const divisor = pricingImpossible ? 0.02 : rawDivisor;
+  const pvCheio = custoTotal / divisor;
+
+  const discountValue = pvCheio * (discountPct / 100);
+  const total = pvCheio - discountValue;
+  const impostoReal = total * (impostoPct / 100);
+  const estimatedMargin = total - custoTotal - impostoReal;
   const estimatedMarginPct = total > 0 ? (estimatedMargin / total) * 100 : 0;
   const marginHealthyPct = settings?.marginHealthyPct ?? 20;
   const marginWarningPct = settings?.marginWarningPct ?? 10;
@@ -166,7 +188,10 @@ function applyWorkSiteDistance(workSiteId: string) {
       employeeId: employeeId || undefined,
       status,
       regime,
-      bdiPct,
+      lucroPct,
+      contingenciaPct,
+      prazoRecebimentoDias,
+      taxaCapitalPct,
       discountPct,
       notes,
       projectDays,
@@ -496,7 +521,7 @@ function applyWorkSiteDistance(workSiteId: string) {
         ))}
       </div>
 
-      {/* REGIME / BDI / DESCONTO */}
+      {/* REGIME / PRAZO / DESCONTO */}
       <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label>Regime Tributário</Label>
@@ -517,12 +542,28 @@ function applyWorkSiteDistance(workSiteId: string) {
           <Input type="number" min="0" step="0.5" value={projectDays} onChange={(e) => setProjectDays(parseFloat(e.target.value) || 0)} />
         </div>
         <div className="space-y-2">
-          <Label>BDI (%)</Label>
-          <Input type="number" step="0.5" value={bdiPct} onChange={(e) => setBdiPct(parseFloat(e.target.value) || 0)} />
-        </div>
-        <div className="space-y-2">
           <Label>Desconto (%)</Label>
           <Input type="number" step="0.5" value={discountPct} onChange={(e) => setDiscountPct(parseFloat(e.target.value) || 0)} />
+        </div>
+      </div>
+
+      {/* FORMACAO DE PRECO (GROSS-UP) */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="space-y-2">
+          <Label>Margem de lucro desejada (%)</Label>
+          <Input type="number" step="0.5" value={lucroPct} onChange={(e) => setLucroPct(parseFloat(e.target.value) || 0)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Contingência (%)</Label>
+          <Input type="number" step="0.5" value={contingenciaPct} onChange={(e) => setContingenciaPct(parseFloat(e.target.value) || 0)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Prazo médio de recebimento (dias)</Label>
+          <Input type="number" min="0" step="1" value={prazoRecebimentoDias} onChange={(e) => setPrazoRecebimentoDias(parseInt(e.target.value) || 0)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Taxa de capital ao mês (%)</Label>
+          <Input type="number" step="0.1" value={taxaCapitalPct} onChange={(e) => setTaxaCapitalPct(parseFloat(e.target.value) || 0)} />
         </div>
       </div>
 
@@ -538,8 +579,14 @@ function applyWorkSiteDistance(workSiteId: string) {
         {indirectCostValue > 0 && (
           <div className="flex justify-between text-warning"><span>Custos Indiretos (taxa administrativa)</span><span>{fmt(indirectCostValue)}</span></div>
         )}
-        <div className="flex justify-between"><span>BDI ({bdiPct}%)</span><span>{fmt(bdiValue)}</span></div>
-        <div className="flex justify-between font-medium"><span>Base</span><span>{fmt(base)}</span></div>
+        {contingenciaValue > 0 && (
+          <div className="flex justify-between"><span>Contingência ({contingenciaPct}%)</span><span>{fmt(contingenciaValue)}</span></div>
+        )}
+        {custoFinanceiroValue > 0 && (
+          <div className="flex justify-between"><span>Custo financeiro (prazo de recebimento)</span><span>{fmt(custoFinanceiroValue)}</span></div>
+        )}
+        <div className="flex justify-between font-medium"><span>Custo total</span><span>{fmt(custoTotal)}</span></div>
+        <div className="flex justify-between text-muted-foreground"><span>Impostos ({impostoPct}% do preço)</span><span>{fmt(impostoReal)}</span></div>
         <div className="flex justify-between text-destructive"><span>Desconto ({discountPct}%)</span><span>- {fmt(discountValue)}</span></div>
         <div className="flex justify-between font-bold text-lg border-t border-border pt-2 mt-2"><span>Preço de Venda (estimado)</span><span className="font-mono">{fmt(total)}</span></div>
         <div className="flex justify-between items-center pt-2">
@@ -551,7 +598,13 @@ function applyWorkSiteDistance(workSiteId: string) {
             </Badge>
           </span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">*Impostos do regime tributário são calculados e aplicados após salvar (não incluídos nesta prévia de margem). Ajuste o desconto acima para simular o efeito na margem final.</p>
+        <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t border-border mt-1">
+          <span>Conferência: custo + imposto + lucro</span>
+          <span className="font-mono">{fmt(custoTotal)} + {fmt(impostoReal)} + {fmt(estimatedMargin)} = {fmt(custoTotal + impostoReal + estimatedMargin)}</span>
+        </div>
+        {pricingImpossible && (
+          <p className="text-xs text-destructive mt-1">⚠️ Margem de lucro + impostos somam 98% ou mais do preço — não é matematicamente possível atingir a margem desejada. Reduza a margem ou revise o regime tributário.</p>
+        )}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

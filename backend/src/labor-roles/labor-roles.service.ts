@@ -5,22 +5,34 @@
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { round2 } from '../common/money';
+import { calculateLaborRoleEffectiveRate } from '../common/labor-rate';
 import { CreateLaborRoleDto } from './dto/create-labor-role.dto';
 import { UpdateLaborRoleDto } from './dto/update-labor-role.dto';
 import { BulkAdjustPriceDto } from './dto/bulk-adjust-price.dto';
 
-function withEffectiveRate(role: any) {
-  const hourlyRate = Number(role.hourlyRate);
-  const chargesPct = Number(role.chargesPct);
-  const effectiveHourlyRate =
-    Math.round(hourlyRate * (1 + chargesPct / 100) * 100) / 100;
+function withEffectiveRate(role: any, salarioMinimo: number) {
+  const { effectiveHourlyRate } = calculateLaborRoleEffectiveRate(
+    {
+      hourlyRate: Number(role.hourlyRate),
+      chargesPct: Number(role.chargesPct),
+      periculosidade: role.periculosidade,
+      insalubridadePct: Number(role.insalubridadePct),
+      noturnoPct: Number(role.noturnoPct),
+    },
+    salarioMinimo,
+  );
 
-  return { ...role, effectiveHourlyRate };
+  return { ...role, effectiveHourlyRate: round2(effectiveHourlyRate) };
 }
 
 @Injectable()
 export class LaborRolesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async getSalarioMinimo() {
+    const settings = await this.prisma.client.settings.findFirst();
+    return settings ? Number(settings.salarioMinimo) : 1518;
+  }
 
   async create(dto: CreateLaborRoleDto) {
     const existing = await this.prisma.client.laborRole.findUnique({
@@ -32,30 +44,34 @@ export class LaborRolesService {
     }
 
     const role = await this.prisma.client.laborRole.create({ data: dto });
-    return withEffectiveRate(role);
+    return withEffectiveRate(role, await this.getSalarioMinimo());
   }
 
   async findAll(search?: string) {
-    const roles = await this.prisma.client.laborRole.findMany({
-      where: search
-        ? { name: { contains: search, mode: 'insensitive' } }
-        : undefined,
-      orderBy: { name: 'asc' },
-    });
+    const [roles, salarioMinimo] = await Promise.all([
+      this.prisma.client.laborRole.findMany({
+        where: search
+          ? { name: { contains: search, mode: 'insensitive' } }
+          : undefined,
+        orderBy: { name: 'asc' },
+      }),
+      this.getSalarioMinimo(),
+    ]);
 
-    return roles.map(withEffectiveRate);
+    return roles.map((role) => withEffectiveRate(role, salarioMinimo));
   }
 
   async findOne(id: string) {
-    const role = await this.prisma.client.laborRole.findUnique({
-      where: { id },
-    });
+    const [role, salarioMinimo] = await Promise.all([
+      this.prisma.client.laborRole.findUnique({ where: { id } }),
+      this.getSalarioMinimo(),
+    ]);
 
     if (!role) {
       throw new NotFoundException('Funcao nao encontrada.');
     }
 
-    return withEffectiveRate(role);
+    return withEffectiveRate(role, salarioMinimo);
   }
 
   async update(id: string, dto: UpdateLaborRoleDto) {
@@ -64,7 +80,7 @@ export class LaborRolesService {
       where: { id },
       data: dto,
     });
-    return withEffectiveRate(role);
+    return withEffectiveRate(role, await this.getSalarioMinimo());
   }
 
   async remove(id: string) {

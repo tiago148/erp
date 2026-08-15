@@ -50,6 +50,7 @@ export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface LaborRole {
   id: string; name: string; hourlyRate: number; chargesPct: number;
+  periculosidade: boolean; insalubridadePct: number; noturnoPct: number;
   effectiveHourlyRate: number; createdAt: string; updatedAt: string;
 }
 export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 'effectiveHourlyRate'>;
@@ -107,8 +108,11 @@ export interface BudgetOtherItem { id: string; description: string; amount: numb
 export interface BudgetTax { name: string; rate: number; value: number; }
 export interface BudgetTotals {
   materialsTotal: number; laborTotal: number; travelTotal: number; otherTotal: number; compositionsTotal: number;
-  subtotal: number; indirectCostValue: number; bdiValue: number; base: number; taxes: BudgetTax[]; taxTotal: number;
+  subtotal: number; indirectCostValue: number; costWithIndirect: number;
+  contingenciaValue: number; custoFinanceiroValue: number; custoTotal: number;
+  impostoPct: number; pvCheio: number; taxes: BudgetTax[]; taxTotal: number; impostoReal: number;
   discountValue: number; total: number;
+  lucroReal: number; margemReal: number; bdiEquivalente: number; pricingImpossible: boolean;
   estimatedCost: number; estimatedMargin: number; estimatedMarginPct: number;
 }
 export interface BudgetCompositionItem {
@@ -116,7 +120,9 @@ export interface BudgetCompositionItem {
 }
 export interface Budget {
   id: string; number: string; version: number; rootId?: string; clientId: string; client: Client; description?: string;
-  status: BudgetStatus; regime: TaxRegime; bdiPct: number; discountPct: number; notes?: string;
+  status: BudgetStatus; regime: TaxRegime; bdiPct: number;
+  lucroPct: number; contingenciaPct: number; prazoRecebimentoDias: number; taxaCapitalPct: number;
+  discountPct: number; notes?: string;
   employeeId?: string; employee?: Employee; projectDays?: number;
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
   otherItems: BudgetOtherItem[]; compositionItems: BudgetCompositionItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
@@ -126,7 +132,8 @@ export interface BudgetVersionSummary {
 }
 export interface BudgetInput {
   clientId: string; description?: string; status?: BudgetStatus; regime?: TaxRegime;
-  bdiPct?: number; discountPct?: number; notes?: string; employeeId?: string; projectDays?: number;
+  bdiPct?: number; lucroPct?: number; contingenciaPct?: number; prazoRecebimentoDias?: number; taxaCapitalPct?: number;
+  discountPct?: number; notes?: string; employeeId?: string; projectDays?: number;
   compositionItems?: { compositionId: string; quantity: number }[];
   materialItems?: { materialId: string; quantity: number }[];
   laborItems?: { laborRoleId: string; hours: number }[];
@@ -278,7 +285,11 @@ export interface Settings {
   companyEmail?: string;
   defaultRegime: TaxRegime;
   defaultBdiPct: number;
+  defaultLucroPct: number;
+  defaultContingenciaPct: number;
+  defaultTaxaCapitalPct: number;
   defaultChargesPct: number;
+  salarioMinimo: number;
   defaultFuelPrice: number;
   budgetPrefix: string;
   projectPrefix: string;
@@ -597,6 +608,13 @@ export interface SearchResults {
   projects: Project[];
   budgets: Budget[];
   tools: Tool[];
+  suppliers: Supplier[];
+  vehicles: Vehicle[];
+  purchaseOrders: PurchaseOrder[];
+  quotations: Quotation[];
+  tasks: Task[];
+  workSites: WorkSite[];
+  financeEntries: FinanceEntry[];
 }
 
 export const api = {

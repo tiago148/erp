@@ -214,7 +214,9 @@ export default function ConfigPage() {
         companyPhone: settings.companyPhone,
         companyEmail: settings.companyEmail,
         defaultRegime: settings.defaultRegime,
-        defaultBdiPct: settings.defaultBdiPct,
+        defaultLucroPct: settings.defaultLucroPct,
+        defaultContingenciaPct: settings.defaultContingenciaPct,
+        defaultTaxaCapitalPct: settings.defaultTaxaCapitalPct,
         defaultChargesPct: settings.defaultChargesPct,
         defaultFuelPrice: settings.defaultFuelPrice,
         budgetPrefix: settings.budgetPrefix,
@@ -328,8 +330,18 @@ export default function ConfigPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>BDI Padrão (%)</Label>
-                <Input type="number" step="0.5" disabled={!isAdmin} value={settings.defaultBdiPct} onChange={(e) => set('defaultBdiPct', parseFloat(e.target.value) || 0)} />
+                <Label>Margem de Lucro Padrão (%)</Label>
+                <Input type="number" step="0.5" disabled={!isAdmin} value={settings.defaultLucroPct} onChange={(e) => set('defaultLucroPct', parseFloat(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Contingência Padrão (%)</Label>
+                <Input type="number" step="0.5" disabled={!isAdmin} value={settings.defaultContingenciaPct} onChange={(e) => set('defaultContingenciaPct', parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Taxa de Capital Padrão (% ao mês)</Label>
+                <Input type="number" step="0.1" disabled={!isAdmin} value={settings.defaultTaxaCapitalPct} onChange={(e) => set('defaultTaxaCapitalPct', parseFloat(e.target.value) || 0)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
