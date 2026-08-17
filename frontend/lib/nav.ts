@@ -20,6 +20,7 @@ import {
   UsersRound,
   Calculator,
   LineChart,
+  Library,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -91,6 +92,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   { id: 'automacoes', label: 'Automações', items: [{ label: 'Automações', href: '/dashboard/automacoes', icon: Zap }] },
+  { id: 'conhecimento', label: 'Base de Conhecimento', items: [{ label: 'Base de Conhecimento', href: '/dashboard/conhecimento', icon: Library }] },
   { id: 'usuarios', label: 'Usuários', items: [{ label: 'Usuários', href: '/dashboard/usuarios', icon: UsersRound }] },
   { id: 'config', label: 'Configurações', items: [{ label: 'Configurações', href: '/dashboard/config', icon: Settings }] },
 ];

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, StockItem, Training, Tool, Budget, Project, Vehicle, VehicleMaintenance } from '@/lib/api';
+import { api, StockItem, Training, Tool, Budget, Project, MaintenancePlan } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -23,8 +23,7 @@ export default function AutomacoesPage() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehicleMaintenances, setVehicleMaintenances] = useState<VehicleMaintenance[]>([]);
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,16 +34,14 @@ export default function AutomacoesPage() {
       api.listTools(token),
       api.listBudgets(token),
       api.listProjects(token),
-      api.listVehicles(token),
-      api.listVehicleMaintenances(token),
-    ]).then(([s, t, tl, b, p, v, vm]) => {
+      api.listMaintenancePlans(token),
+    ]).then(([s, t, tl, b, p, mp]) => {
       setStockItems(s);
       setTrainings(t);
       setTools(tl);
       setBudgets(b);
       setProjects(p);
-      setVehicles(v);
-      setVehicleMaintenances(vm);
+      setMaintenancePlans(mp);
       setLoading(false);
     });
   }, [token]);
@@ -65,18 +62,9 @@ export default function AutomacoesPage() {
     (b) => b.status === 'APPROVED' && !projects.some((p) => p.budgetId === b.id),
   );
 
-  const vehiclesDueForReview = vehicles
-    .filter((v) => v.reviewIntervalKm)
-    .map((v) => {
-      const lastMaintenanceKm = vehicleMaintenances
-        .filter((m) => m.vehicleId === v.id)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.km ?? v.initialKm;
-      const kmSinceLastMaintenance = v.currentKm - lastMaintenanceKm;
-      return { vehicle: v, kmSinceLastMaintenance };
-    })
-    .filter(({ vehicle, kmSinceLastMaintenance }) => kmSinceLastMaintenance >= (vehicle.reviewIntervalKm as number));
+  const plansDue = maintenancePlans.filter((p) => p.level !== 'OK');
 
-  const totalAlerts = lowStock.length + trainingAlerts.length + toolsOutTooLong.length + approvedWithoutProject.length + vehiclesDueForReview.length;
+  const totalAlerts = lowStock.length + trainingAlerts.length + toolsOutTooLong.length + approvedWithoutProject.length + plansDue.length;
 
   return (
     <div className="space-y-6">
@@ -191,21 +179,25 @@ export default function AutomacoesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <Truck size={18} className="text-purple-400" />
-            <CardTitle className="text-base">Veículos com Revisão Pendente</CardTitle>
+            <CardTitle className="text-base">Revisões Preventivas Pendentes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {vehiclesDueForReview.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum veículo precisa de revisão no momento.</p>
+            {plansDue.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma revisão de veículo ou ferramenta pendente no momento.</p>
             ) : (
               <>
-                {vehiclesDueForReview.map(({ vehicle, kmSinceLastMaintenance }) => (
-                  <div key={vehicle.id} className="flex justify-between text-sm py-1 border-b last:border-0">
-                    <span>{vehicle.name} ({vehicle.plate})</span>
-                    <span className="text-purple-400 font-medium">{kmSinceLastMaintenance.toLocaleString('pt-BR')} km desde a última manutenção</span>
+                {plansDue.map((plan) => (
+                  <div key={plan.id} className="flex justify-between text-sm py-1 border-b last:border-0">
+                    <span>{plan.targetLabel} — {plan.name}</span>
+                    <span className={`font-medium ${plan.level === 'VENCIDO' ? 'text-destructive' : 'text-purple-400'}`}>
+                      {plan.intervalType === 'KM'
+                        ? (plan.kmRemaining !== null ? (plan.kmRemaining <= 0 ? `${Math.abs(plan.kmRemaining).toLocaleString('pt-BR')} km vencido` : `faltam ${plan.kmRemaining.toLocaleString('pt-BR')} km`) : '-')
+                        : (plan.daysRemaining !== null ? (plan.daysRemaining <= 0 ? `vencida há ${Math.abs(plan.daysRemaining)}d` : `${plan.daysRemaining}d restantes`) : '-')}
+                    </span>
                   </div>
                 ))}
                 <Link href="/dashboard/equipamentos">
-                  <Button variant="outline" size="sm" className="mt-2">Ver Veículos</Button>
+                  <Button variant="outline" size="sm" className="mt-2">Ver Equipamentos</Button>
                 </Link>
               </>
             )}

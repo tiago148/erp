@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Material, MaterialInput } from '@/lib/api';
+import { api, Material, MaterialInput, QuoteConfidence } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,13 +20,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MaterialForm } from '@/components/material-form';
-import { Plus, Pencil, Trash2, Percent } from 'lucide-react';
+import { MaterialQuotesDialog } from '@/components/material-quotes-dialog';
+import { Plus, Pencil, Trash2, Percent, ClipboardList } from 'lucide-react';
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+const confidenceVariant: Record<QuoteConfidence, 'success' | 'warning' | 'danger'> = {
+  ALTA: 'success',
+  MEDIA: 'warning',
+  BAIXA: 'danger',
+};
 
 export default function MateriaisPage() {
   const { token } = useAuth();
@@ -40,6 +48,7 @@ export default function MateriaisPage() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkError, setBulkError] = useState('');
+  const [quotesMaterial, setQuotesMaterial] = useState<Material | undefined>();
 
   const loadMaterials = useCallback(
     async (searchTerm?: string) => {
@@ -157,20 +166,21 @@ export default function MateriaisPage() {
               <TableHead>Categoria</TableHead>
               <TableHead>Unidade</TableHead>
               <TableHead>Custo Unit.</TableHead>
+              <TableHead>Preço Ref.</TableHead>
               <TableHead>Fornecedor</TableHead>
-              <TableHead className="w-24">Ações</TableHead>
+              <TableHead className="w-32">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : materials.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Nenhum material cadastrado.
                 </TableCell>
               </TableRow>
@@ -182,9 +192,27 @@ export default function MateriaisPage() {
                   <TableCell>{material.category}</TableCell>
                   <TableCell>{material.unit}</TableCell>
                   <TableCell>{formatCurrency(material.unitCost)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <span>{formatCurrency(material.reference?.referencePrice ?? material.unitCost)}</span>
+                      {material.reference?.confidence && (
+                        <Badge variant={confidenceVariant[material.reference.confidence]}>
+                          {material.reference.confidence}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{material.supplier || '-'}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Cotações"
+                        onClick={() => setQuotesMaterial(material)}
+                      >
+                        <ClipboardList size={16} />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -249,6 +277,23 @@ export default function MateriaisPage() {
               <Button type="submit" disabled={bulkSaving}>{bulkSaving ? 'Aplicando...' : 'Aplicar Reajuste'}</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!quotesMaterial} onOpenChange={(open) => !open && setQuotesMaterial(undefined)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cotações — {quotesMaterial?.name}</DialogTitle>
+          </DialogHeader>
+          {quotesMaterial && (
+            <MaterialQuotesDialog
+              material={quotesMaterial}
+              onMaterialUpdated={(updated) => {
+                setQuotesMaterial(updated);
+                setMaterials((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

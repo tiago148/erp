@@ -5,9 +5,30 @@
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { round2 } from '../common/money';
+import { calculateMaterialReferencePrice } from '../common/material-price';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { BulkAdjustPriceDto } from './dto/bulk-adjust-price.dto';
+
+function withReferencePrice(material: any) {
+  const quotes = (material.quotes ?? []).map((q: any) => ({
+    id: q.id,
+    price: Number(q.price),
+    quantity: Number(q.quantity),
+    freight: Number(q.freight),
+    freightModality: q.freightModality,
+    validUntil: q.validUntil,
+  }));
+  const reference = calculateMaterialReferencePrice(
+    {
+      unitCost: Number(material.unitCost),
+      referenceMode: material.referenceMode,
+      manualQuoteId: material.manualQuoteId,
+    },
+    quotes,
+  );
+  return { ...material, reference };
+}
 
 @Injectable()
 export class MaterialsService {
@@ -24,11 +45,12 @@ export class MaterialsService {
       }
     }
 
-    return this.prisma.client.material.create({ data: dto });
+    const material = await this.prisma.client.material.create({ data: dto });
+    return withReferencePrice({ ...material, quotes: [] });
   }
 
-  findAll(search?: string) {
-    return this.prisma.client.material.findMany({
+  async findAll(search?: string) {
+    const materials = await this.prisma.client.material.findMany({
       where: search
         ? {
             OR: [
@@ -38,25 +60,33 @@ export class MaterialsService {
             ],
           }
         : undefined,
+      include: { quotes: true },
       orderBy: { name: 'asc' },
     });
+    return materials.map(withReferencePrice);
   }
 
   async findOne(id: string) {
     const material = await this.prisma.client.material.findUnique({
       where: { id },
+      include: { quotes: { include: { supplier: true } } },
     });
 
     if (!material) {
       throw new NotFoundException('Material nao encontrado.');
     }
 
-    return material;
+    return withReferencePrice(material);
   }
 
   async update(id: string, dto: UpdateMaterialDto) {
     await this.findOne(id);
-    return this.prisma.client.material.update({ where: { id }, data: dto });
+    const material = await this.prisma.client.material.update({
+      where: { id },
+      data: dto,
+      include: { quotes: true },
+    });
+    return withReferencePrice(material);
   }
 
   async remove(id: string) {

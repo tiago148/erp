@@ -42,11 +42,39 @@ export interface Client {
 }
 export type ClientInput = Omit<Client, 'id' | 'createdAt' | 'updatedAt'>;
 
+export interface ClientContact {
+  id: string; clientId: string; name: string; role?: string; phone?: string; email?: string; notes?: string;
+  createdAt: string; updatedAt: string;
+}
+export type ClientContactInput = Omit<ClientContact, 'id' | 'createdAt' | 'updatedAt'>;
+
+export type MaterialReferenceMode = 'MANUAL' | 'AUTO';
+export type FreightModality = 'FOB' | 'CIF';
+export type QuoteConfidence = 'ALTA' | 'MEDIA' | 'BAIXA';
+
+export interface MaterialQuote {
+  id: string; materialId: string; supplierId: string; supplier: Supplier;
+  price: number; quantity: number; freight: number; freightModality: FreightModality;
+  validUntil: string; notes?: string; landedCost: number; confidence: QuoteConfidence;
+  createdAt: string; updatedAt: string;
+}
+export type MaterialQuoteInput = {
+  materialId: string; supplierId: string; price: number; quantity?: number;
+  freight?: number; freightModality?: FreightModality; validUntil: string; notes?: string;
+};
+
+export interface MaterialReference {
+  referencePrice: number; source: 'MANUAL' | 'QUOTE'; confidence?: QuoteConfidence; quoteId?: string;
+}
+
 export interface Material {
   id: string; code?: string; name: string; category: string; unit: string;
-  unitCost: number; supplier?: string; createdAt: string; updatedAt: string;
+  unitCost: number; supplier?: string;
+  referenceMode: MaterialReferenceMode; manualQuoteId?: string;
+  reference?: MaterialReference; quotes?: MaterialQuote[];
+  createdAt: string; updatedAt: string;
 }
-export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
+export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt' | 'reference' | 'quotes'>;
 
 export interface LaborRole {
   id: string; name: string; hourlyRate: number; chargesPct: number;
@@ -62,16 +90,23 @@ export interface Vehicle {
 }
 export type VehicleInput = Omit<Vehicle, 'id' | 'currentKm' | 'createdAt' | 'updatedAt'>;
 
+export type VehicleTripType = 'FRETE' | 'ENTREGA' | 'COLETA' | 'COMPRA' | 'VISITA' | 'OUTRO';
+export type VehicleTripStatus = 'OPEN' | 'CLOSED';
+
 export interface VehicleTrip {
   id: string; vehicleId: string; vehicle: Vehicle;
   driverId?: string; driver?: Employee; projectId?: string; project?: Project;
-  origin: string; destination: string; purpose?: string; distanceKm: number;
-  date: string; notes?: string; createdAt: string;
+  type: VehicleTripType; origin: string; destination: string; purpose?: string;
+  startKm?: number; endKm?: number; distanceKm: number; tollCost: number; status: VehicleTripStatus;
+  date: string; closedAt?: string; notes?: string; createdAt: string;
 }
 export interface VehicleTripInput {
-  vehicleId: string; driverId?: string; projectId?: string;
-  origin: string; destination: string; purpose?: string; distanceKm: number;
+  vehicleId: string; driverId?: string; projectId?: string; type?: VehicleTripType;
+  origin: string; destination: string; purpose?: string; startKm?: number;
   date?: string; notes?: string;
+}
+export interface CloseVehicleTripInput {
+  endKm: number; tollCost?: number; notes?: string;
 }
 
 export interface VehicleMaintenance {
@@ -244,13 +279,65 @@ export interface PurchaseOrderInput {
   items: { materialId: string; quantity: number; unitCost: number }[];
 }
 
-export type SurplusStatus = 'PENDING' | 'RETURNED_TO_STOCK' | 'KEPT_AT_PROJECT';
+export type SurplusStatus = 'PENDING' | 'RETURNED_TO_STOCK' | 'KEPT_AT_PROJECT' | 'SOLD_AS_SCRAP';
+export type SurplusShape = 'CHAPA' | 'BARRA_TUBO' | 'FIO' | 'OUTRO';
+export type SurplusDestination = 'ESTOQUE' | 'RETALHO' | 'SUCATA';
 export interface MaterialSurplus {
   id: string; projectId: string; project: Project; materialId: string; material: Material;
-  quantity: number; status: SurplusStatus; notes?: string; resolvedAt?: string; createdAt: string; updatedAt: string;
+  quantity: number; shape?: SurplusShape; alloy?: string; length?: number; width?: number;
+  unitValue?: number; location?: string; destination?: SurplusDestination;
+  status: SurplusStatus; notes?: string; resolvedAt?: string; createdAt: string; updatedAt: string;
 }
 export interface MaterialSurplusInput {
-  projectId: string; materialId: string; quantity: number; notes?: string;
+  projectId: string; materialId: string; quantity: number;
+  shape?: SurplusShape; alloy?: string; length?: number; width?: number;
+  unitValue?: number; location?: string; destination?: SurplusDestination;
+  notes?: string;
+}
+
+export interface ScrapSale {
+  id: string; surplusId?: string; surplus?: MaterialSurplus; description: string;
+  weightKg?: number; pricePerKg?: number; totalValue: number; buyerName?: string;
+  saleDate: string; financeEntryId?: string; financeEntry?: FinanceEntry; notes?: string; createdAt: string;
+}
+export interface ScrapSaleInput {
+  surplusId?: string; description: string; weightKg?: number; pricePerKg?: number;
+  totalValue: number; buyerName?: string; saleDate?: string; notes?: string;
+}
+
+export interface Playbook {
+  id: string; code?: string; title: string; category: string;
+  objective?: string; executor?: string; requirements?: string; steps: string[];
+  acceptanceCriteria?: string; commonErrors?: string; standardTime?: string;
+  compositionId?: string; compositionLabel?: string; version: number;
+  createdAt: string; updatedAt: string;
+}
+export interface PlaybookInput {
+  code?: string; title: string; category: string;
+  objective?: string; executor?: string; requirements?: string; steps: string[];
+  acceptanceCriteria?: string; commonErrors?: string; standardTime?: string;
+  compositionId?: string; compositionLabel?: string;
+}
+
+export interface Checklist {
+  id: string; title: string; context: string; items: string[];
+  createdAt: string; updatedAt: string;
+}
+export interface ChecklistInput {
+  title: string; context: string; items: string[];
+}
+
+export interface LessonLearned {
+  id: string; date: string; projectId?: string; projectLabel?: string; category: string;
+  whatHappened: string; rootCause?: string; estimatedCost?: number; hoursLost?: number;
+  actionTaken: string; responsibleEmployeeId?: string; responsibleLabel?: string;
+  becameProcedure: boolean; createdAt: string; updatedAt: string;
+}
+export interface LessonLearnedInput {
+  date: string; projectId?: string; projectLabel?: string; category: string;
+  whatHappened: string; rootCause?: string; estimatedCost?: number; hoursLost?: number;
+  actionTaken: string; responsibleEmployeeId?: string; responsibleLabel?: string;
+  becameProcedure?: boolean;
 }
 
 export type QuotationStatus = 'OPEN' | 'CLOSED';
@@ -301,7 +388,9 @@ export interface Settings {
   overheadOccupancyPct: number;
   overheadWorkDaysPerMonth?: number;
   overheadAvgDirectCost?: number;
+  overheadSimultaneousProjects: number;
   overheadAutoApply: boolean;
+  assetOpportunityCostPct: number;
   updatedAt: string;
 }
 export type SettingsInput = Partial<Omit<Settings, 'id' | 'updatedAt'>>;
@@ -322,6 +411,47 @@ export interface FixedExpense {
   updatedAt: string;
 }
 export type FixedExpenseInput = Omit<FixedExpense, 'id' | 'financeEntryId' | 'createdAt' | 'updatedAt'>;
+
+export interface Asset {
+  id: string;
+  name: string;
+  category?: string;
+  acquisitionValue: number;
+  acquisitionDate: string;
+  usefulLifeMonths: number;
+  residualValue: number;
+  notes?: string;
+  monthlyDepreciation: number;
+  accumulatedDepreciation: number;
+  bookValue: number;
+  isFullyDepreciated: boolean;
+  depreciationContribution: number;
+  opportunityCostContribution: number;
+  totalMonthlyCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export type AssetInput = Omit<
+  Asset,
+  'id' | 'monthlyDepreciation' | 'accumulatedDepreciation' | 'bookValue' | 'isFullyDepreciated'
+  | 'depreciationContribution' | 'opportunityCostContribution' | 'totalMonthlyCost' | 'createdAt' | 'updatedAt'
+>;
+
+export type PriceAdjustmentTarget = 'LABOR_ROLE' | 'MATERIAL' | 'FIXED_EXPENSE';
+export interface PriceAdjustment {
+  id: string;
+  target: PriceAdjustmentTarget;
+  percentage: number;
+  categoryFilter?: string;
+  itemsAffected: number;
+  actorEmail?: string;
+  createdAt: string;
+}
+export interface PriceAdjustmentInput {
+  target: PriceAdjustmentTarget;
+  percentage: number;
+  categoryFilter?: string;
+}
 
 export interface AuditLog {
   id: string;
@@ -349,6 +479,38 @@ export interface TrackedDocument {
   updatedAt: string;
 }
 export type TrackedDocumentInput = Omit<TrackedDocument, 'id' | 'createdAt' | 'updatedAt'>;
+
+export type MaintenanceTargetType = 'VEHICLE' | 'TOOL';
+export type MaintenanceIntervalType = 'KM' | 'MONTHS';
+export type MaintenanceAlertLevel = 'OK' | 'ATENCAO' | 'VENCIDO';
+export interface MaintenancePlan {
+  id: string;
+  targetType: MaintenanceTargetType;
+  targetId: string;
+  targetLabel: string;
+  name: string;
+  intervalType: MaintenanceIntervalType;
+  intervalKm?: number;
+  intervalMonths?: number;
+  alertThresholdKm?: number;
+  alertThresholdDays?: number;
+  lastServiceDate?: string;
+  lastServiceKm?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Campos computados pelo backend a cada leitura (nao persistidos):
+  currentKm: number | null;
+  nextDueKm: number | null;
+  nextDueDate: string | null;
+  kmRemaining: number | null;
+  daysRemaining: number | null;
+  level: MaintenanceAlertLevel;
+}
+export type MaintenancePlanInput = Omit<
+  MaintenancePlan,
+  'id' | 'createdAt' | 'updatedAt' | 'currentKm' | 'nextDueKm' | 'nextDueDate' | 'kmRemaining' | 'daysRemaining' | 'level'
+>;
 
 export interface CostCompositionMaterial {
   id: string;
@@ -509,6 +671,8 @@ export interface FinanceCategory {
 }
 export type FinanceCategoryInput = { name: string; type: FinanceEntryType };
 
+export type RecurrenceFrequency = 'NONE' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
 export interface FinanceEntry {
   id: string;
   type: FinanceEntryType;
@@ -520,6 +684,8 @@ export interface FinanceEntry {
   paidAt?: string;
   paidAmount?: number;
   status: FinanceEntryStatus;
+  recurrence: RecurrenceFrequency;
+  recurrenceOf?: string;
   projectId?: string;
   project?: Project;
   supplierId?: string;
@@ -540,6 +706,7 @@ export interface FinanceEntryInput {
   categoryId: string;
   amount: number;
   dueDate: string;
+  recurrence?: RecurrenceFrequency;
   projectId?: string;
   supplierId?: string;
   clientId?: string;
@@ -567,6 +734,17 @@ export interface FinanceImportMapping {
 export interface FinanceImportResult {
   imported: number;
   skipped: { row: number; reason: string }[];
+}
+
+export interface FinanceAttachment {
+  id: string;
+  financeEntryId: string;
+  fileName: string;
+  storagePath: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+  url: string;
 }
 
 export interface FinanceEntryFilters {
@@ -635,6 +813,8 @@ export const api = {
 
   listClients: (token: string, search?: string) =>
     request<Client[]>(`/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  getClient: (token: string, id: string) =>
+    request<Client>(`/clients/${id}`, { method: 'GET', token }),
   createClient: (token: string, data: ClientInput) =>
     request<Client>('/clients', { method: 'POST', token, body: JSON.stringify(data) }),
   updateClient: (token: string, id: string, data: Partial<ClientInput>) =>
@@ -642,14 +822,34 @@ export const api = {
   deleteClient: (token: string, id: string) =>
     request<void>(`/clients/${id}`, { method: 'DELETE', token }),
 
+  listClientContacts: (token: string, clientId: string) =>
+    request<ClientContact[]>(`/client-contacts?clientId=${encodeURIComponent(clientId)}`, { method: 'GET', token }),
+  createClientContact: (token: string, data: ClientContactInput) =>
+    request<ClientContact>('/client-contacts', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateClientContact: (token: string, id: string, data: Partial<ClientContactInput>) =>
+    request<ClientContact>(`/client-contacts/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteClientContact: (token: string, id: string) =>
+    request<void>(`/client-contacts/${id}`, { method: 'DELETE', token }),
+
   listMaterials: (token: string, search?: string) =>
     request<Material[]>(`/materials${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  getMaterial: (token: string, id: string) =>
+    request<Material>(`/materials/${id}`, { method: 'GET', token }),
   createMaterial: (token: string, data: MaterialInput) =>
     request<Material>('/materials', { method: 'POST', token, body: JSON.stringify(data) }),
   updateMaterial: (token: string, id: string, data: Partial<MaterialInput>) =>
     request<Material>(`/materials/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteMaterial: (token: string, id: string) =>
     request<void>(`/materials/${id}`, { method: 'DELETE', token }),
+
+  listMaterialQuotes: (token: string, materialId: string) =>
+    request<MaterialQuote[]>(`/material-quotes?materialId=${encodeURIComponent(materialId)}`, { method: 'GET', token }),
+  createMaterialQuote: (token: string, data: MaterialQuoteInput) =>
+    request<MaterialQuote>('/material-quotes', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateMaterialQuote: (token: string, id: string, data: Partial<MaterialQuoteInput>) =>
+    request<MaterialQuote>(`/material-quotes/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteMaterialQuote: (token: string, id: string) =>
+    request<void>(`/material-quotes/${id}`, { method: 'DELETE', token }),
   bulkAdjustMaterialPrices: (token: string, data: { percentage: number; category?: string }) =>
     request<{ adjusted: number }>('/materials/bulk-adjust-price', { method: 'POST', token, body: JSON.stringify(data) }),
 
@@ -677,6 +877,10 @@ export const api = {
     request<VehicleTrip[]>(`/vehicle-trips${vehicleId ? `?vehicleId=${vehicleId}` : ''}`, { method: 'GET', token }),
   createVehicleTrip: (token: string, data: VehicleTripInput) =>
     request<VehicleTrip>('/vehicle-trips', { method: 'POST', token, body: JSON.stringify(data) }),
+  closeVehicleTrip: (token: string, id: string, data: CloseVehicleTripInput) =>
+    request<VehicleTrip>(`/vehicle-trips/${id}/close`, { method: 'POST', token, body: JSON.stringify(data) }),
+  deleteVehicleTrip: (token: string, id: string) =>
+    request<void>(`/vehicle-trips/${id}`, { method: 'DELETE', token }),
 
   listVehicleMaintenances: (token: string, vehicleId?: string) =>
     request<VehicleMaintenance[]>(`/vehicle-maintenances${vehicleId ? `?vehicleId=${vehicleId}` : ''}`, { method: 'GET', token }),
@@ -809,6 +1013,11 @@ export const api = {
   deleteMaterialSurplus: (token: string, id: string) =>
     request<void>(`/material-surpluses/${id}`, { method: 'DELETE', token }),
 
+  listScrapSales: (token: string) =>
+    request<ScrapSale[]>('/scrap-sales', { method: 'GET', token }),
+  createScrapSale: (token: string, data: ScrapSaleInput) =>
+    request<ScrapSale>('/scrap-sales', { method: 'POST', token, body: JSON.stringify(data) }),
+
   listQuotations: (token: string, search?: string) =>
     request<Quotation[]>(`/quotations${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
   getQuotation: (token: string, id: string) =>
@@ -845,6 +1054,20 @@ export const api = {
   deleteFixedExpense: (token: string, id: string) =>
     request<void>(`/fixed-expenses/${id}`, { method: 'DELETE', token }),
 
+  listAssets: (token: string) =>
+    request<Asset[]>('/assets', { method: 'GET', token }),
+  createAsset: (token: string, data: AssetInput) =>
+    request<Asset>('/assets', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateAsset: (token: string, id: string, data: Partial<AssetInput>) =>
+    request<Asset>(`/assets/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteAsset: (token: string, id: string) =>
+    request<void>(`/assets/${id}`, { method: 'DELETE', token }),
+
+  listPriceAdjustments: (token: string) =>
+    request<PriceAdjustment[]>('/price-adjustments', { method: 'GET', token }),
+  createPriceAdjustment: (token: string, data: PriceAdjustmentInput) =>
+    request<PriceAdjustment>('/price-adjustments', { method: 'POST', token, body: JSON.stringify(data) }),
+
   listAuditLogs: (token: string, action?: string) =>
     request<AuditLog[]>(`/audit-logs${action ? `?action=${action}` : ''}`, { method: 'GET', token }),
 
@@ -856,6 +1079,22 @@ export const api = {
     request<TrackedDocument>(`/documents/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   deleteDocument: (token: string, id: string) =>
     request<void>(`/documents/${id}`, { method: 'DELETE', token }),
+
+  listMaintenancePlans: (token: string, targetType?: MaintenanceTargetType, targetId?: string) => {
+    const params = new URLSearchParams();
+    if (targetType) params.set('targetType', targetType);
+    if (targetId) params.set('targetId', targetId);
+    const qs = params.toString();
+    return request<MaintenancePlan[]>(`/maintenance-plans${qs ? `?${qs}` : ''}`, { method: 'GET', token });
+  },
+  createMaintenancePlan: (token: string, data: MaintenancePlanInput) =>
+    request<MaintenancePlan>('/maintenance-plans', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateMaintenancePlan: (token: string, id: string, data: Partial<MaintenancePlanInput>) =>
+    request<MaintenancePlan>(`/maintenance-plans/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  markMaintenancePlanServiced: (token: string, id: string) =>
+    request<MaintenancePlan>(`/maintenance-plans/${id}/mark-serviced`, { method: 'POST', token }),
+  deleteMaintenancePlan: (token: string, id: string) =>
+    request<void>(`/maintenance-plans/${id}`, { method: 'DELETE', token }),
 
   listCostCompositions: (token: string) =>
     request<CostComposition[]>('/cost-compositions', { method: 'GET', token }),
@@ -947,6 +1186,16 @@ export const api = {
   deleteFinanceEntry: (token: string, id: string) =>
     request<void>(`/finance/entries/${id}`, { method: 'DELETE', token }),
 
+  listFinanceAttachments: (token: string, financeEntryId: string) =>
+    request<FinanceAttachment[]>(`/finance/entries/${financeEntryId}/attachments`, { method: 'GET', token }),
+  uploadFinanceAttachment: (token: string, financeEntryId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<FinanceAttachment>(`/finance/entries/${financeEntryId}/attachments`, { method: 'POST', token, body: formData });
+  },
+  deleteFinanceAttachment: (token: string, id: string) =>
+    request<void>(`/finance/attachments/${id}`, { method: 'DELETE', token }),
+
   previewFinanceImport: (token: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -971,4 +1220,31 @@ export const api = {
     request<ProjectBillingItem>(`/project-billing/${id}/cancel`, { method: 'POST', token }),
   deleteProjectBillingItem: (token: string, id: string) =>
     request<void>(`/project-billing/${id}`, { method: 'DELETE', token }),
+
+  listPlaybooks: (token: string) =>
+    request<Playbook[]>('/playbooks', { method: 'GET', token }),
+  createPlaybook: (token: string, data: PlaybookInput) =>
+    request<Playbook>('/playbooks', { method: 'POST', token, body: JSON.stringify(data) }),
+  updatePlaybook: (token: string, id: string, data: Partial<PlaybookInput>) =>
+    request<Playbook>(`/playbooks/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deletePlaybook: (token: string, id: string) =>
+    request<void>(`/playbooks/${id}`, { method: 'DELETE', token }),
+
+  listChecklists: (token: string) =>
+    request<Checklist[]>('/checklists', { method: 'GET', token }),
+  createChecklist: (token: string, data: ChecklistInput) =>
+    request<Checklist>('/checklists', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateChecklist: (token: string, id: string, data: Partial<ChecklistInput>) =>
+    request<Checklist>(`/checklists/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteChecklist: (token: string, id: string) =>
+    request<void>(`/checklists/${id}`, { method: 'DELETE', token }),
+
+  listLessonsLearned: (token: string) =>
+    request<LessonLearned[]>('/lessons-learned', { method: 'GET', token }),
+  createLessonLearned: (token: string, data: LessonLearnedInput) =>
+    request<LessonLearned>('/lessons-learned', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateLessonLearned: (token: string, id: string, data: Partial<LessonLearnedInput>) =>
+    request<LessonLearned>(`/lessons-learned/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteLessonLearned: (token: string, id: string) =>
+    request<void>(`/lessons-learned/${id}`, { method: 'DELETE', token }),
 };

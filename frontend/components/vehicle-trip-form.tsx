@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Employee, Project, VehicleTripInput } from '@/lib/api';
+import { api, Employee, Project, VehicleTripInput, VehicleTripType } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,21 +11,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface Props {
   vehicleId: string;
+  currentKm: number;
   onSubmit: (data: VehicleTripInput) => Promise<void>;
   onCancel: () => void;
 }
 
-export function VehicleTripForm({ vehicleId, onSubmit, onCancel }: Props) {
+const typeLabels: Record<VehicleTripType, string> = {
+  FRETE: 'Frete', ENTREGA: 'Entrega', COLETA: 'Coleta', COMPRA: 'Compra', VISITA: 'Visita', OUTRO: 'Outro',
+};
+
+export function VehicleTripForm({ vehicleId, currentKm, onSubmit, onCancel }: Props) {
   const { token } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
   const [driverId, setDriverId] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [type, setType] = useState<VehicleTripType>('OUTRO');
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [distanceKm, setDistanceKm] = useState('');
+  const [startKm, setStartKm] = useState(String(currentKm));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,15 +52,16 @@ export function VehicleTripForm({ vehicleId, onSubmit, onCancel }: Props) {
         vehicleId,
         driverId: driverId || undefined,
         projectId: projectId || undefined,
+        type,
         origin,
         destination,
         purpose: purpose || undefined,
-        distanceKm: parseFloat(distanceKm) || 0,
+        startKm: parseFloat(startKm) || 0,
         date,
         notes: notes || undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao registrar movimentação');
+      setError(err instanceof Error ? err.message : 'Erro ao abrir viagem');
     } finally {
       setSaving(false);
     }
@@ -76,10 +83,21 @@ export function VehicleTripForm({ vehicleId, onSubmit, onCancel }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label>Quilometragem (km)</Label>
-          <Input type="number" step="0.1" min="0.1" value={distanceKm} onChange={(e) => setDistanceKm(e.target.value)} required />
+          <Label>Tipo</Label>
+          <Select value={type} onValueChange={(v) => setType((v || 'OUTRO') as VehicleTripType)}>
+            <SelectTrigger className="w-full"><SelectValue>{typeLabels[type]}</SelectValue></SelectTrigger>
+            <SelectContent>
+              {(Object.keys(typeLabels) as VehicleTripType[]).map((t) => (
+                <SelectItem key={t} value={t}>{typeLabels[t]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Km Inicial (odômetro)</Label>
+          <Input type="number" step="0.1" min="0" value={startKm} onChange={(e) => setStartKm(e.target.value)} required />
         </div>
         <div className="space-y-2">
           <Label>Data</Label>
@@ -121,7 +139,7 @@ export function VehicleTripForm({ vehicleId, onSubmit, onCancel }: Props) {
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Registrar Movimentação'}</Button>
+        <Button type="submit" disabled={saving}>{saving ? 'Abrindo...' : 'Abrir Viagem'}</Button>
       </div>
     </form>
   );

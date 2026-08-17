@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { computeNextOccurrenceDate } from '../common/recurrence';
 import { CreateFinanceEntryDto } from './dto/create-finance-entry.dto';
 import { UpdateFinanceEntryDto } from './dto/update-finance-entry.dto';
 import { PayFinanceEntryDto } from './dto/pay-finance-entry.dto';
@@ -54,6 +55,7 @@ export class FinanceEntriesService {
         categoryId: dto.categoryId,
         amount: dto.amount,
         dueDate: new Date(dto.dueDate),
+        recurrence: dto.recurrence,
         projectId: dto.projectId,
         supplierId: dto.supplierId,
         clientId: dto.clientId,
@@ -123,6 +125,7 @@ export class FinanceEntriesService {
         categoryId: dto.categoryId,
         amount: dto.amount,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        recurrence: dto.recurrence,
         projectId: dto.projectId,
         supplierId: dto.supplierId,
         clientId: dto.clientId,
@@ -140,7 +143,7 @@ export class FinanceEntriesService {
       throw new BadRequestException('Este lancamento ja foi processado.');
     }
 
-    return this.prisma.client.financeEntry.update({
+    const paid = await this.prisma.client.financeEntry.update({
       where: { id },
       data: {
         status: 'PAID',
@@ -149,6 +152,36 @@ export class FinanceEntriesService {
       },
       include: this.include(),
     });
+
+    // Lancamento recorrente: ao ser pago, gera automaticamente a proxima
+    // ocorrencia (mesma descricao/categoria/valor, vencimento avancado pela
+    // frequencia configurada) para que contas fixas nao precisem ser
+    // recriadas manualmente todo mes.
+    if ((entry.recurrence as string) !== 'NONE') {
+      const nextDueDate = computeNextOccurrenceDate(
+        entry.dueDate,
+        entry.recurrence,
+      );
+      if (nextDueDate) {
+        await this.prisma.client.financeEntry.create({
+          data: {
+            type: entry.type,
+            description: entry.description,
+            categoryId: entry.categoryId,
+            amount: entry.amount,
+            dueDate: nextDueDate,
+            recurrence: entry.recurrence,
+            recurrenceOf: entry.id,
+            projectId: entry.projectId,
+            supplierId: entry.supplierId,
+            clientId: entry.clientId,
+            notes: entry.notes,
+          },
+        });
+      }
+    }
+
+    return paid;
   }
 
   async cancel(id: string) {

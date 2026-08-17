@@ -1,12 +1,29 @@
 import { calculateLaborRoleEffectiveRate } from './labor-rate';
+import { calculateMaterialReferencePrice } from './material-price';
 
 export function calculateCompositionUnitCost(
   composition: any,
   salarioMinimo: number,
 ) {
   const materialCost = composition.materials.reduce(
-    (sum: number, item: any) =>
-      sum + Number(item.coefficient) * Number(item.material.unitCost),
+    (sum: number, item: any) => {
+      const { referencePrice } = calculateMaterialReferencePrice(
+        {
+          unitCost: Number(item.material.unitCost),
+          referenceMode: item.material.referenceMode,
+          manualQuoteId: item.material.manualQuoteId,
+        },
+        (item.material.quotes ?? []).map((q: any) => ({
+          id: q.id,
+          price: Number(q.price),
+          quantity: Number(q.quantity),
+          freight: Number(q.freight),
+          freightModality: q.freightModality,
+          validUntil: q.validUntil,
+        })),
+      );
+      return sum + Number(item.coefficient) * referencePrice;
+    },
     0,
   );
   const laborCost = composition.labor.reduce((sum: number, item: any) => {

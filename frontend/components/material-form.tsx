@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Material, MaterialInput } from '@/lib/api';
 
 interface MaterialFormProps {
@@ -19,6 +20,12 @@ const emptyForm: MaterialInput = {
   unit: '',
   unitCost: 0,
   supplier: '',
+  referenceMode: 'MANUAL',
+};
+
+const referenceModeLabels: Record<string, string> = {
+  MANUAL: 'Manual (usa o custo unitário abaixo)',
+  AUTO: 'Automático (usa a cotação de menor custo posto)',
 };
 
 export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormProps) {
@@ -35,6 +42,8 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
         unit: initialData.unit,
         unitCost: initialData.unitCost,
         supplier: initialData.supplier || '',
+        referenceMode: initialData.referenceMode,
+        manualQuoteId: initialData.manualQuoteId,
       });
     }
   }, [initialData]);
@@ -116,6 +125,20 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
           value={form.supplier}
           onChange={(e) => updateField('supplier', e.target.value)}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Preço de Referência</Label>
+        <Select value={form.referenceMode} onValueChange={(v) => updateField('referenceMode', v as any)}>
+          <SelectTrigger>
+            <SelectValue>{referenceModeLabels[form.referenceMode]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="MANUAL">{referenceModeLabels.MANUAL}</SelectItem>
+            <SelectItem value="AUTO">{referenceModeLabels.AUTO}</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Controla o preço usado em orçamentos e composições. Gerencie as cotações no botão &quot;Cotações&quot; da listagem.</p>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

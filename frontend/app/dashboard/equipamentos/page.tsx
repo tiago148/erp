@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
 import {
   api, Vehicle, VehicleInput, WorkSite, WorkSiteInput, Tool, ToolInput, MoveToolInput,
-  VehicleTrip, VehicleTripInput, VehicleMaintenance, VehicleMaintenanceInput,
+  VehicleTrip, VehicleTripInput, VehicleTripType, CloseVehicleTripInput, VehicleMaintenance, VehicleMaintenanceInput,
   ToolMaintenance, ToolMaintenanceInput, TrackedDocument, TrackedDocumentInput,
+  MaintenancePlan, MaintenancePlanInput, MaintenanceTargetType,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -19,9 +20,11 @@ import { WorkSiteForm } from '@/components/work-site-form';
 import { ToolForm } from '@/components/tool-form';
 import { MoveToolForm } from '@/components/move-tool-form';
 import { VehicleTripForm } from '@/components/vehicle-trip-form';
+import { VehicleTripCloseForm } from '@/components/vehicle-trip-close-form';
 import { VehicleMaintenanceForm } from '@/components/vehicle-maintenance-form';
 import { ToolMaintenanceForm } from '@/components/tool-maintenance-form';
 import { DocumentForm } from '@/components/document-form';
+import { MaintenancePlanForm } from '@/components/maintenance-plan-form';
 import { Plus, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 
 function fmtCurrency(v: number) {
@@ -289,6 +292,10 @@ function VehicleSelector({ vehicles, vehicleId, onChange }: { vehicles: Vehicle[
   );
 }
 
+const tripTypeLabels: Record<VehicleTripType, string> = {
+  FRETE: 'Frete', ENTREGA: 'Entrega', COLETA: 'Coleta', COMPRA: 'Compra', VISITA: 'Visita', OUTRO: 'Outro',
+};
+
 function VehicleTripsTab() {
   const { token } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -296,6 +303,7 @@ function VehicleTripsTab() {
   const [trips, setTrips] = useState<VehicleTrip[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState<VehicleTrip | undefined>();
 
   useEffect(() => { if (token) api.listVehicles(token).then(setVehicles); }, [token]);
 
@@ -312,7 +320,20 @@ function VehicleTripsTab() {
     await api.createVehicleTrip(token, data);
     setOpen(false);
     load();
+  }
+
+  async function handleClose(data: CloseVehicleTripInput) {
+    if (!token || !closing) return;
+    await api.closeVehicleTrip(token, closing.id, data);
+    setClosing(undefined);
+    load();
     api.listVehicles(token).then(setVehicles);
+  }
+
+  async function handleDelete(trip: VehicleTrip) {
+    if (!token || !confirm(`Excluir a viagem aberta "${trip.origin} → ${trip.destination}"?`)) return;
+    await api.deleteVehicleTrip(token, trip.id);
+    load();
   }
 
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
@@ -321,7 +342,7 @@ function VehicleTripsTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-end gap-3">
         <VehicleSelector vehicles={vehicles} vehicleId={vehicleId} onChange={setVehicleId} />
-        <Button disabled={!vehicleId} onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Nova Movimentação</Button>
+        <Button disabled={!vehicleId} onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Abrir Viagem</Button>
       </div>
 
       {selectedVehicle && <p className="text-sm text-muted-foreground">KM atual: <span className="font-medium">{selectedVehicle.currentKm.toLocaleString('pt-BR')} km</span></p>}
@@ -333,24 +354,37 @@ function VehicleTripsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead><TableHead>Origem</TableHead><TableHead>Destino</TableHead>
-                <TableHead>Finalidade</TableHead><TableHead>Motorista</TableHead><TableHead>Projeto</TableHead><TableHead>KM</TableHead>
+                <TableHead>Data</TableHead><TableHead>Tipo</TableHead><TableHead>Origem</TableHead><TableHead>Destino</TableHead>
+                <TableHead>Motorista</TableHead><TableHead>Projeto</TableHead><TableHead>KM</TableHead>
+                <TableHead>Pedágio</TableHead><TableHead>Status</TableHead><TableHead className="w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
               ) : trips.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhuma movimentação registrada.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nenhuma viagem registrada.</TableCell></TableRow>
               ) : trips.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell>{fmtDate(t.date)}</TableCell>
+                  <TableCell>{tripTypeLabels[t.type]}</TableCell>
                   <TableCell>{t.origin}</TableCell>
                   <TableCell>{t.destination}</TableCell>
-                  <TableCell>{t.purpose || '-'}</TableCell>
                   <TableCell>{t.driver?.name || '-'}</TableCell>
                   <TableCell>{t.project?.name || '-'}</TableCell>
-                  <TableCell className="font-medium">{t.distanceKm} km</TableCell>
+                  <TableCell className="font-medium">{t.status === 'CLOSED' ? `${t.distanceKm} km` : '-'}</TableCell>
+                  <TableCell>{t.status === 'CLOSED' && t.tollCost > 0 ? fmtCurrency(t.tollCost) : '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={t.status === 'OPEN' ? 'warning' : 'success'}>{t.status === 'OPEN' ? 'Aberta' : 'Fechada'}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {t.status === 'OPEN' && (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setClosing(t)}>Fechar</Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(t)}><Trash2 size={16} /></Button>
+                      </div>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -360,8 +394,15 @@ function VehicleTripsTab() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Nova Movimentação</DialogTitle></DialogHeader>
-          {vehicleId && <VehicleTripForm vehicleId={vehicleId} onSubmit={handleSubmit} onCancel={() => setOpen(false)} />}
+          <DialogHeader><DialogTitle>Abrir Viagem</DialogTitle></DialogHeader>
+          {vehicleId && selectedVehicle && <VehicleTripForm vehicleId={vehicleId} currentKm={selectedVehicle.currentKm} onSubmit={handleSubmit} onCancel={() => setOpen(false)} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!closing} onOpenChange={(v) => !v && setClosing(undefined)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Fechar Viagem</DialogTitle></DialogHeader>
+          {closing && <VehicleTripCloseForm trip={closing} onSubmit={handleClose} onCancel={() => setClosing(undefined)} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -568,15 +609,116 @@ function ToolMaintenancesTab() {
   );
 }
 
+const maintenanceLevelVariant: Record<string, 'success' | 'warning' | 'danger'> = {
+  OK: 'success', ATENCAO: 'warning', VENCIDO: 'danger',
+};
+const maintenanceLevelLabels: Record<string, string> = {
+  OK: 'Em dia', ATENCAO: 'Atenção', VENCIDO: 'Vencida',
+};
+const maintenanceTargetTypeLabels: Record<MaintenanceTargetType, string> = { VEHICLE: 'Veículo', TOOL: 'Ferramenta' };
+
+function MaintenancePlansTab() {
+  const { token } = useAuth();
+  const [plans, setPlans] = useState<MaintenancePlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<MaintenancePlan | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setPlans(await api.listMaintenancePlans(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleSubmit(data: MaintenancePlanInput) {
+    if (!token) return;
+    if (editing) await api.updateMaintenancePlan(token, editing.id, data);
+    else await api.createMaintenancePlan(token, data);
+    setOpen(false);
+    setEditing(undefined);
+    load();
+  }
+
+  async function handleMarkServiced(plan: MaintenancePlan) {
+    if (!token || !confirm(`Registrar que a revisão "${plan.name}" foi executada agora?`)) return;
+    await api.markMaintenancePlanServiced(token, plan.id);
+    load();
+  }
+
+  async function handleDelete(plan: MaintenancePlan) {
+    if (!token || !confirm(`Excluir o plano de revisão "${plan.name}"?`)) return;
+    await api.deleteMaintenancePlan(token, plan.id);
+    load();
+  }
+
+  function nextDueLabel(plan: MaintenancePlan) {
+    if (plan.intervalType === 'KM') {
+      return plan.nextDueKm !== null ? `${plan.nextDueKm.toLocaleString('pt-BR')} km${plan.kmRemaining !== null ? ` (faltam ${plan.kmRemaining.toLocaleString('pt-BR')} km)` : ''}` : '-';
+    }
+    return plan.nextDueDate ? `${fmtDate(plan.nextDueDate)}${plan.daysRemaining !== null ? ` (${plan.daysRemaining} dia(s))` : ''}` : '-';
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Novo Plano de Revisão</Button>
+      </div>
+
+      <div className="border rounded-md bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Bem</TableHead><TableHead>Revisão</TableHead><TableHead>Intervalo</TableHead>
+              <TableHead>Próxima</TableHead><TableHead>Status</TableHead><TableHead className="w-32">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : plans.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum plano de revisão cadastrado.</TableCell></TableRow>
+            ) : plans.map((plan) => (
+              <TableRow key={plan.id}>
+                <TableCell className="font-medium">{plan.targetLabel} <span className="text-xs text-muted-foreground">({maintenanceTargetTypeLabels[plan.targetType]})</span></TableCell>
+                <TableCell>{plan.name}</TableCell>
+                <TableCell className="text-muted-foreground">{plan.intervalType === 'KM' ? `${plan.intervalKm?.toLocaleString('pt-BR')} km` : `${plan.intervalMonths} mês(es)`}</TableCell>
+                <TableCell className="text-sm">{nextDueLabel(plan)}</TableCell>
+                <TableCell><Badge variant={maintenanceLevelVariant[plan.level]}>{maintenanceLevelLabels[plan.level]}</Badge></TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleMarkServiced(plan)}>Feito</Button>
+                    <Button variant="ghost" size="icon" onClick={() => { setEditing(plan); setOpen(true); }}><Pencil size={16} /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(plan)}><Trash2 size={16} /></Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(undefined); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Plano de Revisão' : 'Novo Plano de Revisão'}</DialogTitle></DialogHeader>
+          <MaintenancePlanForm initialData={editing} onSubmit={handleSubmit} onCancel={() => { setOpen(false); setEditing(undefined); }} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function MaintenancesTab() {
-  const [equipmentType, setEquipmentType] = useState<'vehicle' | 'tool'>('vehicle');
+  const [equipmentType, setEquipmentType] = useState<'vehicle' | 'tool' | 'plans'>('vehicle');
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button variant={equipmentType === 'vehicle' ? 'default' : 'outline'} size="sm" onClick={() => setEquipmentType('vehicle')}>Veículos</Button>
         <Button variant={equipmentType === 'tool' ? 'default' : 'outline'} size="sm" onClick={() => setEquipmentType('tool')}>Ferramentas</Button>
+        <Button variant={equipmentType === 'plans' ? 'default' : 'outline'} size="sm" onClick={() => setEquipmentType('plans')}>Revisões</Button>
       </div>
-      {equipmentType === 'vehicle' ? <VehicleMaintenancesTab /> : <ToolMaintenancesTab />}
+      {equipmentType === 'vehicle' ? <VehicleMaintenancesTab /> : equipmentType === 'tool' ? <ToolMaintenancesTab /> : <MaintenancePlansTab />}
     </div>
   );
 }

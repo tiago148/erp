@@ -103,7 +103,12 @@ export function BudgetForm({ initialData, onSaved }: Props) {
         setTaxaCapitalPct(s.defaultTaxaCapitalPct);
       }
     });
-    api.listFixedExpenses(token).then((expenses) => setFixedExpensesTotal(expenses.reduce((s, e) => s + e.amount, 0)));
+    Promise.all([api.listFixedExpenses(token), api.listAssets(token)]).then(([expenses, assets]) => {
+      setFixedExpensesTotal(
+        expenses.reduce((s, e) => s + e.amount, 0) +
+        assets.reduce((s, a) => s + a.totalMonthlyCost, 0),
+      );
+    });
   }, [token]);
 
 function applyWorkSiteDistance(workSiteId: string) {

@@ -5,12 +5,20 @@
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { round2 } from '../common/money';
+import { BudgetsService } from '../budgets/budgets.service';
+import { ProjectBillingService } from '../project-billing/project-billing.service';
+import { AuditService, Actor } from '../audit/audit.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly budgetsService: BudgetsService,
+    private readonly projectBillingService: ProjectBillingService,
+    private readonly auditService: AuditService,
+  ) {}
 
   private include() {
     return {
@@ -36,18 +44,6 @@ export class ProjectsService {
     let responsibleEmployeeId = dto.responsibleEmployeeId;
 
     if (dto.budgetId) {
-      const budget = await this.prisma.client.budget.findUnique({
-        where: { id: dto.budgetId },
-        include: {
-          materialItems: true,
-          laborItems: true,
-          travelItems: { include: { vehicle: true } },
-          otherItems: true,
-        },
-      });
-
-      if (!budget) throw new NotFoundException('Orcamento nao encontrado.');
-
       const existingProject = await this.prisma.client.project.findUnique({
         where: { budgetId: dto.budgetId },
       });
@@ -56,28 +52,13 @@ export class ProjectsService {
           'Este orcamento ja possui um projeto vinculado.',
         );
 
-      const materialsTotal = budget.materialItems.reduce(
-        (s, i) => s + Number(i.quantity) * Number(i.unitCost),
-        0,
-      );
-      const laborTotal = budget.laborItems.reduce(
-        (s, i) => s + Number(i.hours) * Number(i.hourlyRate),
-        0,
-      );
-      const travelTotal = budget.travelItems.reduce((s, i) => {
-        const liters =
-          (Number(i.distanceKm) * 2 * i.trips) /
-          Number(i.vehicle.avgConsumption);
-        return s + liters * Number(i.fuelPrice);
-      }, 0);
-      const otherTotal = budget.otherItems.reduce(
-        (s, i) => s + Number(i.amount),
-        0,
-      );
-      const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal;
-      const base = subtotal * (1 + Number(budget.bdiPct) / 100);
+      // Reaproveita BudgetsService.findOne() em vez de recalcular o total
+      // aqui: garante que o valor do projeto sempre bata com o preco de
+      // venda real do orcamento (formula gross-up do Bloco K), em vez de
+      // ficar preso a uma formula antiga baseada em BDI.
+      const budget = await this.budgetsService.findOne(dto.budgetId);
 
-      budgetAmount = round2(base);
+      budgetAmount = budget.totals.total;
       clientId = budget.clientId;
       if (!responsibleEmployeeId)
         responsibleEmployeeId = budget.employeeId ?? undefined;
@@ -126,17 +107,58 @@ export class ProjectsService {
     return project;
   }
 
-  async update(id: string, dto: UpdateProjectDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateProjectDto, actor?: Actor) {
+    const existing = await this.findOne(id);
 
     const data: any = { ...dto };
     if (dto.startDate) data.startDate = new Date(dto.startDate);
     if (dto.endDate) data.endDate = new Date(dto.endDate);
 
-    return this.prisma.client.project.update({
+    const project = await this.prisma.client.project.update({
       where: { id },
       data,
       include: this.include(),
+    });
+
+    const justCompleted =
+      (dto.status as string) === 'COMPLETED' &&
+      (existing.status as string) !== 'COMPLETED';
+    if (justCompleted) {
+      await this.autoInvoiceRemaining(project, actor);
+    }
+
+    return project;
+  }
+
+  // Ao concluir uma obra, fatura automaticamente o saldo do valor do
+  // orcamento que ainda nao tinha sido faturado manualmente — sem isso,
+  // concluir a obra nao gerava nenhum lancamento financeiro, e o usuario
+  // via "o dinheiro nao entrou" mesmo apos terminar o trabalho.
+  private async autoInvoiceRemaining(project: any, actor?: Actor) {
+    const invoicedItems = await this.prisma.client.projectBillingItem.findMany({
+      where: { projectId: project.id, status: 'INVOICED' },
+    });
+    const alreadyInvoiced = invoicedItems.reduce(
+      (sum, item) => sum + Number(item.amount),
+      0,
+    );
+    const remaining = round2(Number(project.budgetAmount) - alreadyInvoiced);
+    if (remaining <= 0.01) return;
+
+    const item = await this.projectBillingService.create({
+      projectId: project.id,
+      description: `Faturamento automático — conclusão da obra ${project.number}`,
+      amount: remaining,
+      plannedDate: new Date().toISOString(),
+    });
+    await this.projectBillingService.invoice(item.id);
+
+    await this.auditService.log({
+      actor,
+      action: 'PROJECT_AUTO_BILLING',
+      entity: 'Project',
+      entityId: project.id,
+      details: `Obra ${project.number} concluída: faturamento automático de ${remaining} gerado.`,
     });
   }
 

@@ -47,5 +47,7 @@ export class UpdateSettingsDto {
   @IsOptional() @IsNumber() @Min(1) @Max(100) overheadOccupancyPct?: number;
   @IsOptional() @IsInt() @Min(1) overheadWorkDaysPerMonth?: number;
   @IsOptional() @IsNumber() @Min(0) overheadAvgDirectCost?: number;
+  @IsOptional() @IsInt() @Min(1) overheadSimultaneousProjects?: number;
   @IsOptional() @IsBoolean() overheadAutoApply?: boolean;
+  @IsOptional() @IsNumber() @Min(0) assetOpportunityCostPct?: number;
 }

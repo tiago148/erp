@@ -38,6 +38,17 @@ import { CostCompositionsModule } from './cost-compositions/cost-compositions.mo
 import { AuditModule } from './audit/audit.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ProjectPhasesModule } from './project-phases/project-phases.module';
+import { MaterialQuotesModule } from './material-quotes/material-quotes.module';
+import { AssetsModule } from './assets/assets.module';
+import { PriceAdjustmentsModule } from './price-adjustments/price-adjustments.module';
+import { ClientContactsModule } from './client-contacts/client-contacts.module';
+import { MaintenancePlansModule } from './maintenance-plans/maintenance-plans.module';
+import { StorageModule } from './storage/storage.module';
+import { FinanceAttachmentsModule } from './finance-attachments/finance-attachments.module';
+import { ScrapSalesModule } from './scrap-sales/scrap-sales.module';
+import { PlaybooksModule } from './playbooks/playbooks.module';
+import { ChecklistsModule } from './checklists/checklists.module';
+import { LessonsLearnedModule } from './lessons-learned/lessons-learned.module';
 
 @Module({
   imports: [
@@ -78,6 +89,17 @@ import { ProjectPhasesModule } from './project-phases/project-phases.module';
     CostCompositionsModule,
     DocumentsModule,
     ProjectPhasesModule,
+    MaterialQuotesModule,
+    AssetsModule,
+    PriceAdjustmentsModule,
+    ClientContactsModule,
+    MaintenancePlansModule,
+    StorageModule,
+    FinanceAttachmentsModule,
+    ScrapSalesModule,
+    PlaybooksModule,
+    ChecklistsModule,
+    LessonsLearnedModule,
   ],
   controllers: [AppController],
   providers: [AppService],

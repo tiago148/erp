@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, FinanceCategory, FinanceEntry, FinanceEntryInput, FinanceEntryType, Project, Supplier, Client } from '@/lib/api';
+import { api, FinanceCategory, FinanceEntry, FinanceEntryInput, FinanceEntryType, RecurrenceFrequency, Project, Supplier, Client } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,24 +11,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface Props {
   initialData?: FinanceEntry;
+  defaultType?: FinanceEntryType;
   onSubmit: (data: FinanceEntryInput) => Promise<void>;
   onCancel: () => void;
 }
 
 const typeLabels: Record<FinanceEntryType, string> = { INCOME: 'Receita', EXPENSE: 'Despesa' };
+const recurrenceLabels: Record<RecurrenceFrequency, string> = {
+  NONE: 'Não se repete', WEEKLY: 'Semanal', MONTHLY: 'Mensal', YEARLY: 'Anual',
+};
 
-export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
+export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel }: Props) {
   const { token } = useAuth();
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
-  const [type, setType] = useState<FinanceEntryType>(initialData?.type || 'EXPENSE');
+  const [type, setType] = useState<FinanceEntryType>(initialData?.type || defaultType || 'EXPENSE');
   const [description, setDescription] = useState(initialData?.description || '');
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '');
   const [amount, setAmount] = useState(initialData ? String(initialData.amount) : '');
   const [dueDate, setDueDate] = useState(initialData?.dueDate?.slice(0, 10) || '');
+  const [recurrence, setRecurrence] = useState<RecurrenceFrequency>(initialData?.recurrence || 'NONE');
   const [projectId, setProjectId] = useState(initialData?.projectId || '');
   const [supplierId, setSupplierId] = useState(initialData?.supplierId || '');
   const [clientId, setClientId] = useState(initialData?.clientId || '');
@@ -63,6 +68,7 @@ export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
         categoryId,
         amount: parseFloat(amount) || 0,
         dueDate,
+        recurrence,
         projectId: projectId || undefined,
         supplierId: supplierId || undefined,
         clientId: clientId || undefined,
@@ -116,7 +122,7 @@ export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
         <Input value={description} onChange={(e) => setDescription(e.target.value)} required />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>Valor</Label>
           <Input type="number" step="0.01" min="0.01" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={locked} required />
@@ -125,7 +131,22 @@ export function FinanceEntryForm({ initialData, onSubmit, onCancel }: Props) {
           <Label>Vencimento</Label>
           <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={locked} required />
         </div>
+        <div className="space-y-2">
+          <Label>Recorrência</Label>
+          <Select value={recurrence} onValueChange={(v) => setRecurrence(v as RecurrenceFrequency)}>
+            <SelectTrigger className="w-full"><SelectValue>{recurrenceLabels[recurrence]}</SelectValue></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="NONE">{recurrenceLabels.NONE}</SelectItem>
+              <SelectItem value="WEEKLY">{recurrenceLabels.WEEKLY}</SelectItem>
+              <SelectItem value="MONTHLY">{recurrenceLabels.MONTHLY}</SelectItem>
+              <SelectItem value="YEARLY">{recurrenceLabels.YEARLY}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+      {recurrence !== 'NONE' && (
+        <p className="text-xs text-muted-foreground -mt-2">Ao marcar este lançamento como pago/recebido, a próxima ocorrência é criada automaticamente com o mesmo valor, avançando o vencimento pela frequência escolhida.</p>
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">

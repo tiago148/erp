@@ -13,6 +13,13 @@ export enum FinanceEntryType {
   EXPENSE = 'EXPENSE',
 }
 
+export enum RecurrenceFrequency {
+  NONE = 'NONE',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}
+
 export class CreateFinanceEntryDto {
   @IsEnum(FinanceEntryType) type: FinanceEntryType;
 
@@ -23,6 +30,8 @@ export class CreateFinanceEntryDto {
   @IsNumber() @Min(0.01) amount: number;
 
   @IsDateString() dueDate: string;
+
+  @IsOptional() @IsEnum(RecurrenceFrequency) recurrence?: RecurrenceFrequency;
 
   @IsOptional() @IsString() projectId?: string;
   @IsOptional() @IsString() supplierId?: string;

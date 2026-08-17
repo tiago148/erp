@@ -1,10 +1,16 @@
 ﻿import {
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
 } from 'class-validator';
+
+export enum MaterialReferenceMode {
+  MANUAL = 'MANUAL',
+  AUTO = 'AUTO',
+}
 
 export class CreateMaterialDto {
   @IsOptional()
@@ -30,4 +36,12 @@ export class CreateMaterialDto {
   @IsOptional()
   @IsString()
   supplier?: string;
+
+  @IsOptional()
+  @IsEnum(MaterialReferenceMode)
+  referenceMode?: MaterialReferenceMode;
+
+  @IsOptional()
+  @IsString()
+  manualQuoteId?: string;
 }

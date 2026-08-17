@@ -5,5 +5,6 @@ import { ProjectBillingService } from './project-billing.service';
 @Module({
   controllers: [ProjectBillingController],
   providers: [ProjectBillingService],
+  exports: [ProjectBillingService],
 })
 export class ProjectBillingModule {}

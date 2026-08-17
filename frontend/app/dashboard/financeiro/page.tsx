@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
 import {
   api, FinanceCategory, FinanceCategoryInput, FinanceEntry, FinanceEntryInput,
-  FinanceEntryType, FinanceEntryStatus, Project, ProjectBillingItem, ProjectBillingItemInput,
-  ProjectBillingStatus,
+  FinanceEntryType, FinanceEntryStatus, RecurrenceFrequency, Project, ProjectBillingItem, ProjectBillingItemInput,
+  ProjectBillingStatus, Settings,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FinanceCategoryForm } from '@/components/finance-category-form';
 import { FinanceEntryForm } from '@/components/finance-entry-form';
+import { FinanceAttachmentUploader } from '@/components/finance-attachment-uploader';
 import { ProjectBillingItemForm } from '@/components/project-billing-item-form';
 import { FinanceImportWizard } from '@/components/finance-import-wizard';
+import { PrintDocument, PrintHeader, PrintSectionTitle, PrintFooter } from '@/components/print-document';
+import { usePrint } from '@/lib/use-print';
 import { downloadCsv } from '@/lib/export-csv';
-import { Plus, Pencil, Trash2, Check, X, Receipt, AlertTriangle, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, Receipt, AlertTriangle, Download, Paperclip, Printer } from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -44,6 +47,139 @@ const statusColors: Record<FinanceEntryStatus, string> = {
   PAID: 'bg-success/15 text-success',
   CANCELLED: 'bg-destructive/15 text-destructive',
 };
+const recurrenceLabels: Record<RecurrenceFrequency, string> = {
+  NONE: '-', WEEKLY: 'Semanal', MONTHLY: 'Mensal', YEARLY: 'Anual',
+};
+
+function PayablesReceivablesTab({ type }: { type: FinanceEntryType }) {
+  const { token } = useAuth();
+  const [items, setItems] = useState<FinanceEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<FinanceEntry | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      setItems(await api.listFinanceEntries(token, { type, status: 'PENDING' }));
+    } finally {
+      setLoading(false);
+    }
+  }, [token, type]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleSubmit(data: FinanceEntryInput) {
+    if (!token) return;
+    if (editing) await api.updateFinanceEntry(token, editing.id, data);
+    else await api.createFinanceEntry(token, data);
+    setOpen(false);
+    setEditing(undefined);
+    load();
+  }
+
+  async function handlePay(entry: FinanceEntry) {
+    if (!token || !confirm(`Confirmar ${type === 'INCOME' ? 'recebimento' : 'pagamento'} de "${entry.description}" no valor de ${fmt(entry.amount)}?`)) return;
+    await api.payFinanceEntry(token, entry.id);
+    load();
+  }
+
+  async function handleCancel(entry: FinanceEntry) {
+    if (!token || !confirm(`Cancelar o lançamento "${entry.description}"?`)) return;
+    await api.cancelFinanceEntry(token, entry.id);
+    load();
+  }
+
+  function vinculo(entry: FinanceEntry) {
+    return entry.project?.name || entry.supplier?.name || entry.client?.name || '-';
+  }
+
+  const now = new Date();
+  const todayKey = now.toISOString().slice(0, 10);
+  const in7Key = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const overdue = items.filter((e) => e.dueDate.slice(0, 10) < todayKey);
+  const dueSoon = items.filter((e) => e.dueDate.slice(0, 10) >= todayKey && e.dueDate.slice(0, 10) <= in7Key);
+  const totalPending = items.reduce((s, e) => s + e.amount, 0);
+  const overdueTotal = overdue.reduce((s, e) => s + e.amount, 0);
+  const dueSoonTotal = dueSoon.reduce((s, e) => s + e.amount, 0);
+  const recurringCount = items.filter((e) => e.recurrence !== 'NONE').length;
+
+  const actionLabel = type === 'INCOME' ? 'Receber' : 'Pagar';
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Total Pendente</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold">{fmt(totalPending)}</p><p className="text-xs text-muted-foreground">{items.length} lançamento(s)</p></CardContent>
+        </Card>
+        <Card className={overdue.length > 0 ? 'border-destructive/40' : undefined}>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Vencidas</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold text-destructive">{fmt(overdueTotal)}</p><p className="text-xs text-muted-foreground">{overdue.length} lançamento(s)</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Vence em 7 dias</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold text-warning">{fmt(dueSoonTotal)}</p><p className="text-xs text-muted-foreground">{dueSoon.length} lançamento(s)</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Recorrentes</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold">{recurringCount}</p></CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Nova Conta a {actionLabel}</Button>
+      </div>
+
+      <div className="border rounded-md bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Vencimento</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead>
+              <TableHead>Vínculo</TableHead><TableHead>Recorrência</TableHead><TableHead>Valor</TableHead>
+              <TableHead className="w-32">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhuma conta pendente.</TableCell></TableRow>
+            ) : items.map((entry) => {
+              const isOverdue = entry.dueDate.slice(0, 10) < todayKey;
+              return (
+                <TableRow key={entry.id} className={isOverdue ? 'bg-destructive/5' : undefined}>
+                  <TableCell className={isOverdue ? 'text-destructive font-medium' : undefined}>{fmtDate(entry.dueDate)}</TableCell>
+                  <TableCell className="font-medium">{entry.description}</TableCell>
+                  <TableCell>{entry.category?.name || '-'}</TableCell>
+                  <TableCell>{vinculo(entry)}</TableCell>
+                  <TableCell>{recurrenceLabels[entry.recurrence]}</TableCell>
+                  <TableCell className="font-semibold">{fmt(entry.amount)}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" title={actionLabel} onClick={() => handlePay(entry)}><Check size={16} /></Button>
+                      <Button variant="ghost" size="icon" title="Editar" onClick={() => { setEditing(entry); setOpen(true); }}><Pencil size={16} /></Button>
+                      <Button variant="ghost" size="icon" title="Cancelar" onClick={() => handleCancel(entry)}><X size={16} /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(undefined); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Lançamento' : `Nova Conta a ${actionLabel}`}</DialogTitle></DialogHeader>
+          <FinanceEntryForm initialData={editing} defaultType={type} onSubmit={handleSubmit} onCancel={() => { setOpen(false); setEditing(undefined); }} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function EntriesTab() {
   const { token } = useAuth();
@@ -51,6 +187,7 @@ function EntriesTab() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FinanceEntry | undefined>();
+  const [attaching, setAttaching] = useState<FinanceEntry | undefined>();
   const [typeFilter, setTypeFilter] = useState<FinanceEntryType | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<FinanceEntryStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
@@ -157,7 +294,10 @@ function EntriesTab() {
             ) : items.map((entry) => (
               <TableRow key={entry.id}>
                 <TableCell>{fmtDate(entry.dueDate)}</TableCell>
-                <TableCell className="font-medium">{entry.description}</TableCell>
+                <TableCell className="font-medium">
+                  {entry.description}
+                  {entry.recurrence !== 'NONE' && <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-info/15 text-info">{recurrenceLabels[entry.recurrence]}</span>}
+                </TableCell>
                 <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${typeColors[entry.type]}`}>{typeLabels[entry.type]}</span></TableCell>
                 <TableCell>{entry.category?.name || '-'}</TableCell>
                 <TableCell>{vinculo(entry)}</TableCell>
@@ -168,6 +308,7 @@ function EntriesTab() {
                     {entry.status === 'PENDING' && (
                       <Button variant="ghost" size="icon" title={entry.type === 'INCOME' ? 'Receber' : 'Pagar'} onClick={() => handlePay(entry)}><Check size={16} /></Button>
                     )}
+                    <Button variant="ghost" size="icon" title="Anexos (nota fiscal)" onClick={() => setAttaching(entry)}><Paperclip size={16} /></Button>
                     <Button variant="ghost" size="icon" title="Editar" onClick={() => { setEditing(entry); setOpen(true); }}><Pencil size={16} /></Button>
                     {entry.status === 'PENDING' && (
                       <>
@@ -182,6 +323,13 @@ function EntriesTab() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!attaching} onOpenChange={(v) => !v && setAttaching(undefined)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Anexos — {attaching?.description}</DialogTitle></DialogHeader>
+          {attaching && <FinanceAttachmentUploader financeEntryId={attaching.id} />}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
@@ -402,16 +550,144 @@ function monthLabel(date: Date) {
   return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 }
 
-function CashFlowTab() {
+const dreePeriodLabels: Record<string, string> = {
+  mes: 'Este mês', '3m': 'Últimos 3 meses', ano: 'Este ano', tudo: 'Todo o período',
+};
+
+function DreTab() {
   const { token } = useAuth();
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<'mes' | '3m' | 'ano' | 'tudo'>('mes');
+  const [printing, setPrinting] = usePrint<boolean>();
 
   useEffect(() => {
     if (!token) return;
     setLoading(true);
     api.listFinanceEntries(token).then((data) => { setEntries(data); setLoading(false); });
   }, [token]);
+  useEffect(() => { if (token) api.getSettings(token).then(setSettings); }, [token]);
+
+  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
+
+  const now = new Date();
+  const periodStart = period === 'tudo' ? null
+    : period === 'ano' ? new Date(now.getFullYear(), 0, 1)
+    : period === '3m' ? new Date(now.getFullYear(), now.getMonth() - 2, 1)
+    : new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const paid = entries.filter((e): e is FinanceEntry & { paidAt: string } => e.status === 'PAID' && !!e.paidAt);
+  const inPeriod = periodStart ? paid.filter((e) => new Date(e.paidAt) >= periodStart) : paid;
+
+  function byCategory(type: FinanceEntryType) {
+    const map = new Map<string, number>();
+    for (const e of inPeriod.filter((x) => x.type === type)) {
+      map.set(e.category.name, (map.get(e.category.name) || 0) + (e.paidAmount ?? e.amount));
+    }
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }
+
+  const incomeByCategory = byCategory('INCOME');
+  const expenseByCategory = byCategory('EXPENSE');
+  const totalReceitas = incomeByCategory.reduce((s, c) => s + c.value, 0);
+  const totalDespesas = expenseByCategory.reduce((s, c) => s + c.value, 0);
+  const resultado = totalReceitas - totalDespesas;
+  const margem = totalReceitas > 0 ? (resultado / totalReceitas) * 100 : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="w-56">
+          <Select value={period} onValueChange={(v) => setPeriod((v || 'mes') as typeof period)}>
+            <SelectTrigger className="w-full"><SelectValue>{dreePeriodLabels[period]}</SelectValue></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mes">Este mês</SelectItem>
+              <SelectItem value="3m">Últimos 3 meses</SelectItem>
+              <SelectItem value="ano">Este ano</SelectItem>
+              <SelectItem value="tudo">Todo o período</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button variant="outline" onClick={() => setPrinting(true)}><Printer size={16} className="mr-2" />Gerar PDF</Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Receitas</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-success">{fmt(totalReceitas)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Despesas</CardTitle></CardHeader><CardContent><p className="text-xl font-bold text-destructive">{fmt(totalDespesas)}</p></CardContent></Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Resultado</CardTitle></CardHeader>
+          <CardContent><p className={`text-xl font-bold ${resultado >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(resultado)} <span className="text-xs text-muted-foreground font-normal">({margem.toFixed(1)}%)</span></p></CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="border rounded-md bg-card p-4">
+          <p className="font-semibold text-sm mb-2">Receitas por categoria</p>
+          {incomeByCategory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma receita no período.</p>
+          ) : incomeByCategory.map((c) => (
+            <div key={c.name} className="flex justify-between text-sm py-1 border-b last:border-0"><span>{c.name}</span><span className="font-medium">{fmt(c.value)}</span></div>
+          ))}
+        </div>
+        <div className="border rounded-md bg-card p-4">
+          <p className="font-semibold text-sm mb-2">Despesas por categoria</p>
+          {expenseByCategory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma despesa no período.</p>
+          ) : expenseByCategory.map((c) => (
+            <div key={c.name} className="flex justify-between text-sm py-1 border-b last:border-0"><span>{c.name}</span><span className="font-medium">{fmt(c.value)}</span></div>
+          ))}
+        </div>
+      </div>
+
+      {printing && (
+        <PrintDocument>
+          <PrintHeader
+            settings={settings}
+            docTitle="DEMONSTRATIVO DE RESULTADO"
+            docSubtitle={<>{dreePeriodLabels[period]}<br />Emitido em {new Date().toLocaleDateString('pt-BR')}</>}
+          />
+          <PrintSectionTitle>Receitas</PrintSectionTitle>
+          <table className="w-full text-sm border-collapse">
+            <tbody>
+              {incomeByCategory.map((c) => (
+                <tr key={c.name} className="border-b"><td className="py-1">{c.name}</td><td className="text-right">{fmt(c.value)}</td></tr>
+              ))}
+              <tr className="font-semibold"><td className="py-1.5">Total de Receitas</td><td className="text-right">{fmt(totalReceitas)}</td></tr>
+            </tbody>
+          </table>
+          <PrintSectionTitle>Despesas</PrintSectionTitle>
+          <table className="w-full text-sm border-collapse">
+            <tbody>
+              {expenseByCategory.map((c) => (
+                <tr key={c.name} className="border-b"><td className="py-1">{c.name}</td><td className="text-right">{fmt(c.value)}</td></tr>
+              ))}
+              <tr className="font-semibold"><td className="py-1.5">Total de Despesas</td><td className="text-right">{fmt(totalDespesas)}</td></tr>
+            </tbody>
+          </table>
+          <div className="flex justify-between text-base py-2 mt-2 font-bold border-t-2 border-black">
+            <span>RESULTADO LÍQUIDO ({margem.toFixed(1)}%)</span><span>{fmt(resultado)}</span>
+          </div>
+          <PrintFooter settings={settings} />
+        </PrintDocument>
+      )}
+    </div>
+  );
+}
+
+function CashFlowTab() {
+  const { token } = useAuth();
+  const [entries, setEntries] = useState<FinanceEntry[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = usePrint<boolean>();
+
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
+    api.listFinanceEntries(token).then((data) => { setEntries(data); setLoading(false); });
+  }, [token]);
+  useEffect(() => { if (token) api.getSettings(token).then(setSettings); }, [token]);
 
   if (loading) return <p className="text-muted-foreground">Carregando...</p>;
 
@@ -472,7 +748,10 @@ function CashFlowTab() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Fluxo de Caixa Mensal</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Fluxo de Caixa Mensal</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setPrinting(true)}><Printer size={14} className="mr-2" />Gerar PDF</Button>
+        </CardHeader>
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -491,6 +770,34 @@ function CashFlowTab() {
           </div>
         </CardContent>
       </Card>
+
+      {printing && (
+        <PrintDocument>
+          <PrintHeader
+            settings={settings}
+            docTitle="FLUXO DE CAIXA"
+            docSubtitle={<>Projeção de 7 meses<br />Emitido em {new Date().toLocaleDateString('pt-BR')}</>}
+          />
+          <table className="w-full text-sm border-collapse mt-2">
+            <thead>
+              <tr className="border-b font-semibold text-left">
+                <th className="py-1">Mês</th><th className="text-right">Recebido</th><th className="text-right">Pago</th>
+                <th className="text-right">Previsto (receita)</th><th className="text-right">Previsto (despesa)</th><th className="text-right">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthly.map((m) => (
+                <tr key={m.mes} className="border-b">
+                  <td className="py-1">{m.mes}</td><td className="text-right">{fmt(m.Recebido)}</td><td className="text-right">{fmt(m.Pago)}</td>
+                  <td className="text-right">{fmt(m['Previsto (receita)'])}</td><td className="text-right">{fmt(m['Previsto (despesa)'])}</td>
+                  <td className="text-right font-medium">{fmt(m.Recebido - m.Pago)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <PrintFooter settings={settings} />
+        </PrintDocument>
+      )}
     </div>
   );
 }
@@ -502,15 +809,21 @@ export default function FinanceiroPage() {
         <h1 className="text-2xl font-bold">Financeiro</h1>
         <p className="text-muted-foreground">Lançamentos, contas a pagar e a receber.</p>
       </div>
-      <Tabs defaultValue="lancamentos">
+      <Tabs defaultValue="a-pagar">
         <TabsList>
+          <TabsTrigger value="a-pagar">Contas a Pagar</TabsTrigger>
+          <TabsTrigger value="a-receber">Contas a Receber</TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+          <TabsTrigger value="dre">DRE</TabsTrigger>
           <TabsTrigger value="fluxo-caixa">Fluxo de Caixa</TabsTrigger>
           <TabsTrigger value="faturamento">Faturamento</TabsTrigger>
           <TabsTrigger value="categorias">Categorias</TabsTrigger>
           <TabsTrigger value="importar">Importar CSV</TabsTrigger>
         </TabsList>
+        <TabsContent value="a-pagar"><PayablesReceivablesTab type="EXPENSE" /></TabsContent>
+        <TabsContent value="a-receber"><PayablesReceivablesTab type="INCOME" /></TabsContent>
         <TabsContent value="lancamentos"><EntriesTab /></TabsContent>
+        <TabsContent value="dre"><DreTab /></TabsContent>
         <TabsContent value="fluxo-caixa"><CashFlowTab /></TabsContent>
         <TabsContent value="faturamento"><BillingTab /></TabsContent>
         <TabsContent value="categorias"><CategoriesTab /></TabsContent>

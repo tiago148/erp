@@ -30,10 +30,10 @@ enum Role {
 }
 
 model Client {
-  id             String         @id @default(uuid())
-  type           ClientType     @default(INDIVIDUAL)
+  id             String          @id @default(uuid())
+  type           ClientType      @default(INDIVIDUAL)
   name           String
-  document       String         @unique
+  document       String          @unique
   email          String?
   phone          String?
   address        String?
@@ -45,8 +45,9 @@ model Client {
   workSites      WorkSite[]
   projects       Project[]
   financeEntries FinanceEntry[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  contacts       ClientContact[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   @@map("clients")
 }
@@ -54,6 +55,26 @@ model Client {
 enum ClientType {
   INDIVIDUAL
   COMPANY
+}
+
+model ClientContact {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  role      String?
+  phone     String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("client_contacts")
+}
+
+enum MaterialReferenceMode {
+  MANUAL
+  AUTO
 }
 
 model Material {
@@ -64,16 +85,42 @@ model Material {
   unit             String
   unitCost         Decimal                   @db.Decimal(12, 2)
   supplier         String?
+  referenceMode    MaterialReferenceMode     @default(MANUAL)
+  manualQuoteId    String?
   budgetItems      BudgetMaterialItem[]
   stockItem        StockItem?
   purchaseItems    PurchaseOrderItem[]
   surpluses        MaterialSurplus[]
   quotationItems   QuotationItem[]
   compositionItems CostCompositionMaterial[]
+  quotes           MaterialQuote[]
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
   @@map("materials")
+}
+
+enum FreightModality {
+  FOB
+  CIF
+}
+
+model MaterialQuote {
+  id              String          @id @default(uuid())
+  materialId      String
+  material        Material        @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  supplierId      String
+  supplier        Supplier        @relation(fields: [supplierId], references: [id])
+  price           Decimal         @db.Decimal(12, 2)
+  quantity        Decimal         @default(1) @db.Decimal(12, 3)
+  freight         Decimal         @default(0) @db.Decimal(12, 2)
+  freightModality FreightModality @default(FOB)
+  validUntil      DateTime
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("material_quotes")
 }
 
 model LaborRole {
@@ -113,21 +160,41 @@ model Vehicle {
   @@map("vehicles")
 }
 
+enum VehicleTripType {
+  FRETE
+  ENTREGA
+  COLETA
+  COMPRA
+  VISITA
+  OUTRO
+}
+
+enum VehicleTripStatus {
+  OPEN
+  CLOSED
+}
+
 model VehicleTrip {
-  id          String    @id @default(uuid())
+  id          String            @id @default(uuid())
   vehicleId   String
-  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   driverId    String?
-  driver      Employee? @relation(fields: [driverId], references: [id])
+  driver      Employee?         @relation(fields: [driverId], references: [id])
   projectId   String?
-  project     Project?  @relation(fields: [projectId], references: [id])
+  project     Project?          @relation(fields: [projectId], references: [id])
+  type        VehicleTripType   @default(OUTRO)
   origin      String
   destination String
   purpose     String?
-  distanceKm  Decimal   @db.Decimal(10, 2)
-  date        DateTime  @default(now())
+  startKm     Decimal?          @db.Decimal(10, 2)
+  endKm       Decimal?          @db.Decimal(10, 2)
+  distanceKm  Decimal           @default(0) @db.Decimal(10, 2)
+  tollCost    Decimal           @default(0) @db.Decimal(10, 2)
+  status      VehicleTripStatus @default(CLOSED)
+  date        DateTime          @default(now())
+  closedAt    DateTime?
   notes       String?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime          @default(now())
 
   @@map("vehicle_trips")
 }
@@ -405,6 +472,37 @@ model TrackedDocument {
   @@map("tracked_documents")
 }
 
+enum MaintenanceTargetType {
+  VEHICLE
+  TOOL
+}
+
+enum MaintenanceIntervalType {
+  KM
+  MONTHS
+}
+
+model MaintenancePlan {
+  id                 String                  @id @default(uuid())
+  targetType         MaintenanceTargetType
+  targetId           String
+  targetLabel        String
+  name               String
+  intervalType       MaintenanceIntervalType
+  intervalKm         Decimal?                @db.Decimal(10, 2)
+  intervalMonths     Int?
+  alertThresholdKm   Decimal?                @db.Decimal(10, 2)
+  alertThresholdDays Int?                    @default(15)
+  lastServiceDate    DateTime?
+  lastServiceKm      Decimal?                @db.Decimal(10, 2)
+  notes              String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([targetType, targetId])
+  @@map("maintenance_plans")
+}
+
 model ToolMaintenance {
   id             String        @id @default(uuid())
   toolId         String
@@ -530,6 +628,7 @@ model Supplier {
   purchaseOrders     PurchaseOrder[]
   financeEntries     FinanceEntry[]
   quotationProposals QuotationProposal[]
+  materialQuotes     MaterialQuote[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -577,22 +676,62 @@ enum SurplusStatus {
   PENDING
   RETURNED_TO_STOCK
   KEPT_AT_PROJECT
+  SOLD_AS_SCRAP
+}
+
+enum SurplusShape {
+  CHAPA
+  BARRA_TUBO
+  FIO
+  OUTRO
+}
+
+enum SurplusDestination {
+  ESTOQUE
+  RETALHO
+  SUCATA
 }
 
 model MaterialSurplus {
-  id         String        @id @default(uuid())
-  projectId  String
-  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  materialId String
-  material   Material      @relation(fields: [materialId], references: [id])
-  quantity   Decimal       @db.Decimal(12, 2)
-  status     SurplusStatus @default(PENDING)
-  notes      String?
-  resolvedAt DateTime?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id          String              @id @default(uuid())
+  projectId   String
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  materialId  String
+  material    Material            @relation(fields: [materialId], references: [id])
+  quantity    Decimal             @db.Decimal(12, 2)
+  shape       SurplusShape?
+  alloy       String?
+  length      Decimal?            @db.Decimal(10, 2)
+  width       Decimal?            @db.Decimal(10, 2)
+  unitValue   Decimal?            @db.Decimal(12, 2)
+  location    String?
+  destination SurplusDestination?
+  status      SurplusStatus       @default(PENDING)
+  notes       String?
+  resolvedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  scrapSales  ScrapSale[]
 
   @@map("material_surpluses")
+}
+
+model ScrapSale {
+  id             String           @id @default(uuid())
+  surplusId      String?
+  surplus        MaterialSurplus? @relation(fields: [surplusId], references: [id])
+  description    String
+  weightKg       Decimal?         @db.Decimal(10, 2)
+  pricePerKg     Decimal?         @db.Decimal(10, 2)
+  totalValue     Decimal          @db.Decimal(12, 2)
+  buyerName      String?
+  saleDate       DateTime         @default(now())
+  financeEntryId String?          @unique
+  financeEntry   FinanceEntry?    @relation(fields: [financeEntryId], references: [id])
+  notes          String?
+  createdAt      DateTime         @default(now())
+
+  @@map("scrap_sales")
 }
 
 enum QuotationStatus {
@@ -639,33 +778,35 @@ model QuotationProposal {
 }
 
 model Settings {
-  id                       String         @id @default(uuid())
-  companyName              String         @default("")
-  companyDocument          String?
-  companyIe                String?
-  companyAddress           String?
-  companyPhone             String?
-  companyEmail             String?
-  defaultRegime            TaxRegime      @default(SIMPLES)
-  defaultBdiPct            Decimal        @default(20) @db.Decimal(5, 2)
-  defaultLucroPct          Decimal        @default(15) @db.Decimal(5, 2)
-  defaultContingenciaPct   Decimal        @default(0) @db.Decimal(5, 2)
-  defaultTaxaCapitalPct    Decimal        @default(1.5) @db.Decimal(5, 2)
-  defaultChargesPct        Decimal        @default(0) @db.Decimal(5, 2)
-  salarioMinimo            Decimal        @default(1518) @db.Decimal(10, 2)
-  defaultFuelPrice         Decimal        @default(6) @db.Decimal(8, 2)
-  budgetPrefix             String         @default("ORC")
-  projectPrefix            String         @default("PRJ")
-  marginHealthyPct         Decimal        @default(20) @db.Decimal(5, 2)
-  marginWarningPct         Decimal        @default(10) @db.Decimal(5, 2)
-  overheadMethod           OverheadMethod @default(DAY)
-  overheadFuncCount        Int?           @default(5)
-  overheadHoursPerMonth    Int?           @default(176)
-  overheadOccupancyPct     Decimal        @default(72) @db.Decimal(5, 2)
-  overheadWorkDaysPerMonth Int?           @default(22)
-  overheadAvgDirectCost    Decimal?       @db.Decimal(12, 2)
-  overheadAutoApply        Boolean        @default(false)
-  updatedAt                DateTime       @updatedAt
+  id                           String         @id @default(uuid())
+  companyName                  String         @default("")
+  companyDocument              String?
+  companyIe                    String?
+  companyAddress               String?
+  companyPhone                 String?
+  companyEmail                 String?
+  defaultRegime                TaxRegime      @default(SIMPLES)
+  defaultBdiPct                Decimal        @default(20) @db.Decimal(5, 2)
+  defaultLucroPct              Decimal        @default(15) @db.Decimal(5, 2)
+  defaultContingenciaPct       Decimal        @default(0) @db.Decimal(5, 2)
+  defaultTaxaCapitalPct        Decimal        @default(1.5) @db.Decimal(5, 2)
+  defaultChargesPct            Decimal        @default(0) @db.Decimal(5, 2)
+  salarioMinimo                Decimal        @default(1518) @db.Decimal(10, 2)
+  defaultFuelPrice             Decimal        @default(6) @db.Decimal(8, 2)
+  budgetPrefix                 String         @default("ORC")
+  projectPrefix                String         @default("PRJ")
+  marginHealthyPct             Decimal        @default(20) @db.Decimal(5, 2)
+  marginWarningPct             Decimal        @default(10) @db.Decimal(5, 2)
+  overheadMethod               OverheadMethod @default(DAY)
+  overheadFuncCount            Int?           @default(5)
+  overheadHoursPerMonth        Int?           @default(176)
+  overheadOccupancyPct         Decimal        @default(72) @db.Decimal(5, 2)
+  overheadWorkDaysPerMonth     Int?           @default(22)
+  overheadAvgDirectCost        Decimal?       @db.Decimal(12, 2)
+  overheadSimultaneousProjects Int            @default(1)
+  overheadAutoApply            Boolean        @default(false)
+  assetOpportunityCostPct      Decimal        @default(1) @db.Decimal(5, 2)
+  updatedAt                    DateTime       @updatedAt
 
   @@map("settings")
 }
@@ -697,6 +838,39 @@ model FixedExpense {
 enum FixedExpenseType {
   FIXED
   SEMI_VARIABLE
+}
+
+model Asset {
+  id               String   @id @default(uuid())
+  name             String
+  category         String?
+  acquisitionValue Decimal  @db.Decimal(12, 2)
+  acquisitionDate  DateTime
+  usefulLifeMonths Int
+  residualValue    Decimal  @default(0) @db.Decimal(12, 2)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("assets")
+}
+
+enum PriceAdjustmentTarget {
+  LABOR_ROLE
+  MATERIAL
+  FIXED_EXPENSE
+}
+
+model PriceAdjustment {
+  id             String                @id @default(uuid())
+  target         PriceAdjustmentTarget
+  percentage     Decimal               @db.Decimal(6, 2)
+  categoryFilter String?
+  itemsAffected  Int
+  actorEmail     String?
+  createdAt      DateTime              @default(now())
+
+  @@map("price_adjustments")
 }
 
 enum CnhType {
@@ -807,6 +981,13 @@ enum FinanceEntryStatus {
   CANCELLED
 }
 
+enum RecurrenceFrequency {
+  NONE
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 model FinanceCategory {
   id        String           @id @default(uuid())
   name      String
@@ -830,6 +1011,8 @@ model FinanceEntry {
   paidAt          DateTime?
   paidAmount      Decimal?            @db.Decimal(12, 2)
   status          FinanceEntryStatus  @default(PENDING)
+  recurrence      RecurrenceFrequency @default(NONE)
+  recurrenceOf    String?
   projectId       String?
   project         Project?            @relation(fields: [projectId], references: [id])
   supplierId      String?
@@ -848,11 +1031,26 @@ model FinanceEntry {
   maintenance     VehicleMaintenance?
   toolMaintenance ToolMaintenance?
   fixedExpense    FixedExpense?
+  scrapSale       ScrapSale?
+  attachments     FinanceAttachment[]
   notes           String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   @@map("finance_entries")
+}
+
+model FinanceAttachment {
+  id             String       @id @default(uuid())
+  financeEntryId String
+  financeEntry   FinanceEntry @relation(fields: [financeEntryId], references: [id], onDelete: Cascade)
+  fileName       String
+  storagePath    String
+  mimeType       String
+  size           Int
+  createdAt      DateTime     @default(now())
+
+  @@map("finance_attachments")
 }
 
 enum ProjectBillingStatus {
@@ -919,4 +1117,56 @@ model AuditLog {
   @@index([createdAt])
   @@index([action])
   @@map("audit_logs")
+}
+
+model Playbook {
+  id                 String   @id @default(uuid())
+  code               String?
+  title              String
+  category           String
+  objective          String?
+  executor           String?
+  requirements       String?
+  steps              String[] @default([])
+  acceptanceCriteria String?
+  commonErrors       String?
+  standardTime       String?
+  compositionId      String?
+  compositionLabel   String?
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("playbooks")
+}
+
+model Checklist {
+  id        String   @id @default(uuid())
+  title     String
+  context   String
+  items     String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("checklists")
+}
+
+model LessonLearned {
+  id                    String   @id @default(uuid())
+  date                  DateTime
+  projectId             String?
+  projectLabel          String?
+  category              String
+  whatHappened          String
+  rootCause             String?
+  estimatedCost         Decimal? @db.Decimal(12, 2)
+  hoursLost             Decimal? @db.Decimal(6, 2)
+  actionTaken           String
+  responsibleEmployeeId String?
+  responsibleLabel      String?
+  becameProcedure       Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("lessons_learned")
 }

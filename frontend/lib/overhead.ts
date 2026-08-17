@@ -8,6 +8,7 @@ type OverheadSettings = Pick<
   | 'overheadOccupancyPct'
   | 'overheadWorkDaysPerMonth'
   | 'overheadAvgDirectCost'
+  | 'overheadSimultaneousProjects'
   | 'overheadAutoApply'
 >;
 
@@ -22,8 +23,9 @@ export function computeIndirectCost(
   const occupancy = settings.overheadOccupancyPct / 100;
 
   if (settings.overheadMethod === 'DAY') {
+    const simultaneousProjects = Math.max(1, settings.overheadSimultaneousProjects ?? 1);
     const productiveDays = (settings.overheadWorkDaysPerMonth ?? 22) * occupancy;
-    const ratePerDay = productiveDays > 0 ? fixedTotal / productiveDays : 0;
+    const ratePerDay = productiveDays > 0 ? fixedTotal / productiveDays / simultaneousProjects : 0;
     return ratePerDay * projectDays;
   }
   if (settings.overheadMethod === 'HOUR') {

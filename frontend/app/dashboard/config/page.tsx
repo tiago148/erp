@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Settings, AuditLog } from '@/lib/api';
+import { api, Settings, AuditLog, PriceAdjustment, PriceAdjustmentTarget } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,7 @@ const actionLabels: Record<string, string> = {
   FIXED_EXPENSE_DELETE: 'Despesa fixa excluída',
   USER_MODULES_UPDATE: 'Módulos de usuário alterados',
   BACKUP_RESTORE: 'Backup restaurado',
+  PRICE_ADJUSTMENT: 'Reajuste em bloco',
 };
 
 const actionVariants: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'accent'> = {
@@ -44,6 +45,7 @@ const actionVariants: Record<string, 'success' | 'danger' | 'warning' | 'info' |
   FIXED_EXPENSE_DELETE: 'danger',
   USER_MODULES_UPDATE: 'accent',
   BACKUP_RESTORE: 'danger',
+  PRICE_ADJUSTMENT: 'warning',
 };
 
 function formatDateTime(value: string) {
@@ -116,6 +118,125 @@ function AuditTab() {
 }
 
 const RESTORE_CONFIRMATION_PHRASE = 'RESTAURAR';
+
+const priceAdjustmentTargetLabels: Record<PriceAdjustmentTarget, string> = {
+  LABOR_ROLE: 'Mão de Obra (taxa/hora)',
+  MATERIAL: 'Materiais (custo unitário)',
+  FIXED_EXPENSE: 'Despesas Fixas (valor mensal)',
+};
+
+function PriceAdjustmentsCard() {
+  const { token } = useAuth();
+  const [history, setHistory] = useState<PriceAdjustment[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [target, setTarget] = useState<PriceAdjustmentTarget>('MATERIAL');
+  const [percentage, setPercentage] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageIsError, setMessageIsError] = useState(false);
+
+  const loadHistory = useCallback(async () => {
+    if (!token) return;
+    setLoadingHistory(true);
+    try {
+      setHistory(await api.listPriceAdjustments(token));
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [token]);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  async function handleApply() {
+    if (!token) return;
+    const pct = parseFloat(percentage);
+    if (!pct) { setMessageIsError(true); setMessage('Informe um percentual diferente de zero.'); return; }
+    setMessage('');
+    setMessageIsError(false);
+    setSaving(true);
+    try {
+      const result = await api.createPriceAdjustment(token, {
+        target,
+        percentage: pct,
+        categoryFilter: categoryFilter || undefined,
+      });
+      setMessage(`Reajuste aplicado a ${result.itemsAffected} item(ns).`);
+      setPercentage('');
+      setCategoryFilter('');
+      loadHistory();
+    } catch (err) {
+      setMessageIsError(true);
+      setMessage(err instanceof Error ? err.message : 'Erro ao aplicar reajuste');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">Reajustar em Bloco</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Aplica um percentual de aumento (ou redução, com valor negativo) sobre toda uma categoria de preços de uma vez —
+          útil para repassar dissídio de mão de obra, reajuste de fornecedor ou correção de despesas fixas.
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>O que reajustar</Label>
+            <Select value={target} onValueChange={(v) => setTarget((v || 'MATERIAL') as PriceAdjustmentTarget)}>
+              <SelectTrigger><SelectValue>{priceAdjustmentTargetLabels[target]}</SelectValue></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(priceAdjustmentTargetLabels) as PriceAdjustmentTarget[]).map((t) => (
+                  <SelectItem key={t} value={t}>{priceAdjustmentTargetLabels[t]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Percentual (%)</Label>
+            <Input type="number" step="0.1" placeholder="Ex: 5 ou -3" value={percentage} onChange={(e) => setPercentage(e.target.value)} />
+          </div>
+          {target !== 'LABOR_ROLE' && (
+            <div className="space-y-2">
+              <Label>Categoria (opcional — deixe em branco para todos)</Label>
+              <Input value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} />
+            </div>
+          )}
+        </div>
+        {message && <p className={`text-sm ${messageIsError ? 'text-destructive' : 'text-success'}`}>{message}</p>}
+        <Button onClick={handleApply} disabled={saving}>{saving ? 'Aplicando...' : 'Aplicar Reajuste'}</Button>
+
+        <div className="border rounded-md bg-card mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead><TableHead>Alvo</TableHead><TableHead>Percentual</TableHead>
+                <TableHead>Categoria</TableHead><TableHead>Itens</TableHead><TableHead>Usuário</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingHistory ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              ) : history.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum reajuste em bloco aplicado ainda.</TableCell></TableRow>
+              ) : history.map((h) => (
+                <TableRow key={h.id}>
+                  <TableCell className="text-muted-foreground">{formatDateTime(h.createdAt)}</TableCell>
+                  <TableCell>{priceAdjustmentTargetLabels[h.target]}</TableCell>
+                  <TableCell className={`font-mono ${h.percentage >= 0 ? 'text-success' : 'text-destructive'}`}>{h.percentage > 0 ? '+' : ''}{h.percentage}%</TableCell>
+                  <TableCell className="text-muted-foreground">{h.categoryFilter || 'Todas'}</TableCell>
+                  <TableCell>{h.itemsAffected}</TableCell>
+                  <TableCell className="text-muted-foreground">{h.actorEmail || '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function RestoreBackupCard() {
   const { token } = useAuth();
@@ -395,6 +516,8 @@ export default function ConfigPage() {
           <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar Configurações'}</Button>
         )}
       </form>
+
+      {isAdmin && <PriceAdjustmentsCard />}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Backup</CardTitle></CardHeader>

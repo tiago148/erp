@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, EppDelivery, EppInput, DdsRecord, DdsInput, Training, TrainingInput, Employee } from '@/lib/api';
+import { api, EppDelivery, EppInput, DdsRecord, DdsInput, Training, TrainingInput, Employee, Settings } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,7 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EppForm } from '@/components/epp-form';
 import { DdsForm } from '@/components/dds-form';
 import { TrainingForm } from '@/components/training-form';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { PrintDocument, PrintHeader, PrintSectionTitle, PrintSignatures, PrintFooter } from '@/components/print-document';
+import { usePrint } from '@/lib/use-print';
+import { Plus, Trash2, AlertTriangle, Printer } from 'lucide-react';
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
@@ -30,8 +32,10 @@ function isExpired(expiresAt?: string) {
 function EppTab() {
   const { token } = useAuth();
   const [items, setItems] = useState<EppDelivery[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [printing, setPrinting] = usePrint<Employee>();
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -40,6 +44,7 @@ function EppTab() {
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (token) api.getSettings(token).then(setSettings); }, [token]);
 
   async function handleSubmit(data: EppInput) {
     if (!token) return;
@@ -54,6 +59,10 @@ function EppTab() {
     load();
   }
 
+  const printingDeliveries = printing
+    ? items.filter((i) => i.employeeId === printing.id).sort((a, b) => a.deliveredAt.localeCompare(b.deliveredAt))
+    : [];
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -62,7 +71,7 @@ function EppTab() {
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
-            <TableRow><TableHead>Funcionário</TableHead><TableHead>Item</TableHead><TableHead>Data</TableHead><TableHead>Assinado</TableHead><TableHead className="w-16">Ações</TableHead></TableRow>
+            <TableRow><TableHead>Funcionário</TableHead><TableHead>Item</TableHead><TableHead>Data</TableHead><TableHead>Assinado</TableHead><TableHead className="w-24">Ações</TableHead></TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
@@ -79,7 +88,12 @@ function EppTab() {
                     {item.signed ? 'Sim' : 'Pendente'}
                   </span>
                 </TableCell>
-                <TableCell><Button variant="ghost" size="icon" onClick={() => handleDelete(item)}><Trash2 size={16} /></Button></TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" title="Ficha de EPI (PDF)" onClick={() => setPrinting(item.employee)}><Printer size={16} /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}><Trash2 size={16} /></Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -91,6 +105,40 @@ function EppTab() {
           <EppForm onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
+
+      {printing && (
+        <PrintDocument>
+          <PrintHeader
+            settings={settings}
+            docTitle={<>FICHA DE CONTROLE DE EPI<div className="text-[9px] text-gray-500 font-normal mt-1">Conforme NR-06 · Portaria 3.214/78</div></>}
+          />
+          <PrintSectionTitle>Identificação do Trabalhador</PrintSectionTitle>
+          <p className="text-sm leading-relaxed"><strong>Nome:</strong> {printing.name}<br /><strong>Função:</strong> {printing.role}</p>
+          <PrintSectionTitle>Equipamentos Entregues</PrintSectionTitle>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b font-semibold text-left"><th className="py-1">Data</th><th>EPI</th><th>Observações</th><th className="w-36">Assinatura</th></tr>
+            </thead>
+            <tbody>
+              {printingDeliveries.length === 0 ? (
+                <tr><td colSpan={4} className="text-center py-4 text-gray-500">Nenhuma entrega registrada</td></tr>
+              ) : printingDeliveries.map((d) => (
+                <tr key={d.id} className="border-b">
+                  <td className="py-1">{formatDate(d.deliveredAt)}</td><td>{d.itemName}</td><td>{d.notes || '—'}</td><td className="h-8"></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <PrintSectionTitle>Termo de Responsabilidade</PrintSectionTitle>
+          <p className="text-[10px] leading-relaxed text-justify text-gray-700">
+            Declaro ter recebido gratuitamente os Equipamentos de Proteção Individual acima relacionados, bem como treinamento sobre seu uso, guarda e conservação.
+            Comprometo-me a utilizá-los durante toda a jornada de trabalho, a comunicar qualquer alteração que os torne impróprios para uso e a devolvê-los quando solicitado.
+            Estou ciente de que o não cumprimento constitui ato faltoso, nos termos do art. 158 da CLT e da NR-06.
+          </p>
+          <PrintSignatures left={printing.name} right={settings?.companyName || 'Empresa'} />
+          <PrintFooter settings={settings} />
+        </PrintDocument>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -33,8 +34,15 @@ export class ProjectsController {
     return this.projectsService.findOne(id);
   }
 
-  @Patch(':id') update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
-    return this.projectsService.update(id, dto);
+  @Patch(':id') update(
+    @Param('id') id: string,
+    @Body() dto: UpdateProjectDto,
+    @Req() req: any,
+  ) {
+    return this.projectsService.update(id, dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Delete(':id')

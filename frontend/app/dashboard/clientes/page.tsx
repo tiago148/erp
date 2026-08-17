@@ -20,7 +20,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ClientForm } from '@/components/client-form';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ClientesPage() {
   const { token } = useAuth();
@@ -143,6 +144,9 @@ export default function ClientesPage() {
                   <TableCell>{client.phone || '-'}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Link href={`/dashboard/clientes/${client.id}`}>
+                        <Button variant="ghost" size="icon" title="Ver detalhes"><Eye size={16} /></Button>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="icon"

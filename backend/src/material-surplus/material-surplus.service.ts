@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { suggestSurplusDestination } from '../common/surplus-classification';
 import { CreateMaterialSurplusDto } from './dto/create-material-surplus.dto';
 
 interface FindAllQuery {
@@ -27,11 +28,22 @@ export class MaterialSurplusService {
     if (!project) throw new NotFoundException('Projeto nao encontrado.');
     if (!material) throw new NotFoundException('Material nao encontrado.');
 
+    const destination =
+      dto.destination ??
+      suggestSurplusDestination(dto.shape, dto.length, dto.width);
+
     return this.prisma.client.materialSurplus.create({
       data: {
         projectId: dto.projectId,
         materialId: dto.materialId,
         quantity: dto.quantity,
+        shape: dto.shape,
+        alloy: dto.alloy,
+        length: dto.length,
+        width: dto.width,
+        unitValue: dto.unitValue,
+        location: dto.location,
+        destination,
         notes: dto.notes,
       },
       include: this.include(),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, FixedExpense, FixedExpenseInput, Settings, OverheadMethod, CostComposition, CostCompositionInput, Budget, FinanceEntry } from '@/lib/api';
+import { api, FixedExpense, FixedExpenseInput, Asset, AssetInput, Settings, OverheadMethod, CostComposition, CostCompositionInput, Budget, FinanceEntry } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { FixedExpenseForm } from '@/components/fixed-expense-form';
+import { AssetForm } from '@/components/asset-form';
 import { CostCompositionForm } from '@/components/cost-composition-form';
 import { computeIndirectCost } from '@/lib/overhead';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
@@ -133,6 +134,122 @@ function FixedExpensesTab() {
   );
 }
 
+function AssetsTab() {
+  const { token } = useAuth();
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Asset | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setAssets(await api.listAssets(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(data: AssetInput) {
+    if (!token) return;
+    await api.createAsset(token, data);
+    setOpen(false);
+    load();
+  }
+
+  async function handleUpdate(data: AssetInput) {
+    if (!token || !editing) return;
+    await api.updateAsset(token, editing.id, data);
+    setOpen(false);
+    setEditing(undefined);
+    load();
+  }
+
+  async function handleDelete(asset: Asset) {
+    if (!token || !confirm(`Excluir o patrimônio "${asset.name}"?`)) return;
+    await api.deleteAsset(token, asset.id);
+    load();
+  }
+
+  const totalMonthlyCost = assets.reduce((s, a) => s + a.totalMonthlyCost, 0);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Veículos, ferramentas e equipamentos também custam dinheiro parados: perdem valor (depreciação) e imobilizam capital
+        que poderia render em outro lugar (custo de oportunidade). Esse custo mensal entra no mesmo pool da taxa administrativa.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Custo Mensal do Patrimônio</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold font-mono text-destructive">{fmt(totalMonthlyCost)}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Valor Contábil Total</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold font-mono">{fmt(assets.reduce((s, a) => s + a.bookValue, 0))}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Bens Cadastrados</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{assets.length}</p></CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Novo Patrimônio</Button>
+      </div>
+
+      <div className="border rounded-md bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Bem</TableHead><TableHead>Categoria</TableHead>
+              <TableHead>Valor Contábil</TableHead><TableHead>Depreciação/mês</TableHead>
+              <TableHead>Custo Oport./mês</TableHead><TableHead>Custo Total/mês</TableHead>
+              <TableHead className="w-24">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : assets.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum patrimônio cadastrado.</TableCell></TableRow>
+            ) : assets.map((asset) => (
+              <TableRow key={asset.id}>
+                <TableCell className="font-medium">
+                  {asset.name}
+                  {asset.isFullyDepreciated && <Badge variant="outline" className="ml-2">totalmente depreciado</Badge>}
+                </TableCell>
+                <TableCell className="text-muted-foreground">{asset.category || '-'}</TableCell>
+                <TableCell className="font-mono">{fmt(asset.bookValue)}</TableCell>
+                <TableCell className="font-mono">{fmt(asset.depreciationContribution)}</TableCell>
+                <TableCell className="font-mono">{fmt(asset.opportunityCostContribution)}</TableCell>
+                <TableCell className="font-mono font-semibold text-destructive">{fmt(asset.totalMonthlyCost)}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => { setEditing(asset); setOpen(true); }}><Pencil size={16} /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(asset)}><Trash2 size={16} /></Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(undefined); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Patrimônio' : 'Novo Patrimônio'}</DialogTitle></DialogHeader>
+          <AssetForm
+            initialData={editing}
+            onSubmit={editing ? handleUpdate : handleCreate}
+            onCancel={() => { setOpen(false); setEditing(undefined); }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 const methodInfo: Record<OverheadMethod, { label: string; description: string }> = {
   DAY: { label: 'R$ por dia de projeto', description: 'Divide a despesa fixa pelos dias úteis produtivos do mês. Cada dia de obra carrega a mesma parcela de estrutura.' },
   HOUR: { label: 'R$ por hora produtiva', description: 'Divide a despesa fixa pelas horas de mão de obra vendáveis no mês.' },
@@ -152,19 +269,24 @@ function OverheadTab() {
   const [occupancyPct, setOccupancyPct] = useState(72);
   const [workDaysPerMonth, setWorkDaysPerMonth] = useState(22);
   const [avgDirectCost, setAvgDirectCost] = useState(0);
+  const [simultaneousProjects, setSimultaneousProjects] = useState(1);
   const [autoApply, setAutoApply] = useState(false);
 
   useEffect(() => {
     if (!token) return;
-    Promise.all([api.getSettings(token), api.listFixedExpenses(token)]).then(([s, expenses]) => {
+    Promise.all([api.getSettings(token), api.listFixedExpenses(token), api.listAssets(token)]).then(([s, expenses, assets]) => {
       setSettings(s);
-      setFixedTotal(expenses.reduce((sum, e) => sum + e.amount, 0));
+      setFixedTotal(
+        expenses.reduce((sum, e) => sum + e.amount, 0) +
+        assets.reduce((sum, a) => sum + a.totalMonthlyCost, 0),
+      );
       setMethod(s.overheadMethod);
       setFuncCount(s.overheadFuncCount ?? 5);
       setHoursPerMonth(s.overheadHoursPerMonth ?? 176);
       setOccupancyPct(s.overheadOccupancyPct);
       setWorkDaysPerMonth(s.overheadWorkDaysPerMonth ?? 22);
       setAvgDirectCost(s.overheadAvgDirectCost ?? 0);
+      setSimultaneousProjects(s.overheadSimultaneousProjects ?? 1);
       setAutoApply(s.overheadAutoApply);
     });
   }, [token]);
@@ -179,11 +301,17 @@ function OverheadTab() {
     overheadOccupancyPct: occupancyPct,
     overheadWorkDaysPerMonth: workDaysPerMonth,
     overheadAvgDirectCost: avgDirectCost,
+    overheadSimultaneousProjects: simultaneousProjects,
     overheadAutoApply: true,
   };
   const ratePerDay = computeIndirectCost(previewSettings, fixedTotal, 0, 0, 1);
   const ratePerHour = computeIndirectCost(previewSettings, fixedTotal, 0, 1, 0);
   const ratePct = avgDirectCost > 0 ? (fixedTotal / avgDirectCost) * 100 : 0;
+
+  const recoveredPerProject = ratePerDay * productiveDays;
+  const recoveredTotal = recoveredPerProject * Math.max(1, simultaneousProjects);
+  const recoveryDiff = recoveredTotal - fixedTotal;
+  const recoveryOk = Math.abs(recoveryDiff) < 0.5;
 
   async function handleSave() {
     if (!token) return;
@@ -197,6 +325,7 @@ function OverheadTab() {
         overheadOccupancyPct: occupancyPct,
         overheadWorkDaysPerMonth: workDaysPerMonth,
         overheadAvgDirectCost: avgDirectCost,
+        overheadSimultaneousProjects: simultaneousProjects,
         overheadAutoApply: autoApply,
       });
       setSettings(updated);
@@ -254,6 +383,13 @@ function OverheadTab() {
                 <Input type="number" min={0} step="0.01" value={avgDirectCost} onChange={(e) => setAvgDirectCost(Number(e.target.value))} />
               </div>
             )}
+            {method === 'DAY' && (
+              <div className="space-y-2">
+                <Label>Obras simultâneas</Label>
+                <Input type="number" min={1} value={simultaneousProjects} onChange={(e) => setSimultaneousProjects(Math.max(1, Number(e.target.value)))} />
+                <p className="text-xs text-muted-foreground">Quantas obras a empresa costuma tocar ao mesmo tempo — o pool de custo fixo do dia é dividido entre elas, senão cada orçamento absorveria a despesa fixa inteira.</p>
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm cursor-pointer pt-1">
               <input type="checkbox" checked={autoApply} onChange={(e) => setAutoApply(e.target.checked)} className="h-4 w-4 accent-primary" />
               Aplicar automaticamente em novos orçamentos
@@ -266,11 +402,22 @@ function OverheadTab() {
         <Card>
           <CardHeader><CardTitle className="text-base">Resultado do Cálculo</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm py-1 border-b"><span className="text-muted-foreground">Despesa fixa mensal</span><span className="font-mono">{fmt(fixedTotal)}</span></div>
+            <div className="flex justify-between text-sm py-1 border-b"><span className="text-muted-foreground">Despesa fixa mensal (inclui patrimônio)</span><span className="font-mono">{fmt(fixedTotal)}</span></div>
             {method === 'DAY' && (
               <>
                 <div className="flex justify-between text-sm py-1 border-b"><span className="text-muted-foreground">Dias produtivos no mês</span><span className="font-mono">{productiveDays.toFixed(1)}</span></div>
+                <div className="flex justify-between text-sm py-1 border-b"><span className="text-muted-foreground">Obras simultâneas</span><span className="font-mono">{Math.max(1, simultaneousProjects)}</span></div>
                 <div className="flex justify-between items-center py-2"><span className="font-medium">Taxa por dia de projeto</span><span className="font-mono text-lg font-bold text-primary">{fmt(ratePerDay)}</span></div>
+
+                <div className="rounded-md bg-muted p-3 mt-2 space-y-1 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Teste de Recuperação</p>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Recuperado por obra no mês</span><span className="font-mono">{fmt(recoveredPerProject)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Recuperado total ({Math.max(1, simultaneousProjects)} obra(s) × dias produtivos)</span><span className="font-mono">{fmt(recoveredTotal)}</span></div>
+                  <div className="flex justify-between font-medium border-t border-border pt-1 mt-1">
+                    <span>{recoveryOk ? '✅ Pool de custo fixo totalmente recuperado' : '⚠️ Diferença em relação à despesa fixa'}</span>
+                    <span className="font-mono">{fmt(recoveryDiff)}</span>
+                  </div>
+                </div>
               </>
             )}
             {method === 'HOUR' && (
@@ -420,8 +567,12 @@ function BreakEvenTab() {
       api.listFinanceEntries(token),
       api.listBudgets(token),
       api.getSettings(token),
-    ]).then(([fe, fin, b, s]) => {
-      setFixedTotal(fe.reduce((sum, e) => sum + e.amount, 0));
+      api.listAssets(token),
+    ]).then(([fe, fin, b, s, assets]) => {
+      setFixedTotal(
+        fe.reduce((sum, e) => sum + e.amount, 0) +
+        assets.reduce((sum, a) => sum + a.totalMonthlyCost, 0),
+      );
       setEntries(fin);
       setBudgets(b);
       setSettings(s);
@@ -529,11 +680,13 @@ export default function CustosPage() {
       <Tabs defaultValue="despesas">
         <TabsList>
           <TabsTrigger value="despesas">Despesas Fixas</TabsTrigger>
+          <TabsTrigger value="patrimonio">Patrimônio</TabsTrigger>
           <TabsTrigger value="taxa">Taxa Administrativa</TabsTrigger>
           <TabsTrigger value="composicoes">Composições</TabsTrigger>
           <TabsTrigger value="equilibrio">Ponto de Equilíbrio</TabsTrigger>
         </TabsList>
         <TabsContent value="despesas"><FixedExpensesTab /></TabsContent>
+        <TabsContent value="patrimonio"><AssetsTab /></TabsContent>
         <TabsContent value="taxa"><OverheadTab /></TabsContent>
         <TabsContent value="composicoes"><CompositionsTab /></TabsContent>
         <TabsContent value="equilibrio"><BreakEvenTab /></TabsContent>

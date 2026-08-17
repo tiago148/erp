@@ -11,7 +11,7 @@ export class CostCompositionsService {
 
   private include() {
     return {
-      materials: { include: { material: true } },
+      materials: { include: { material: { include: { quotes: true } } } },
       labor: { include: { laborRole: true } },
     };
   }

@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { round2 } from '../common/money';
 import { calculateCompositionUnitCost } from '../common/cost-composition';
 import { calculateLaborRoleEffectiveRate } from '../common/labor-rate';
+import { calculateMaterialReferencePrice } from '../common/material-price';
+import { calculateAssetMonthlyCost } from '../common/asset-depreciation';
 import { AuditService, Actor } from '../audit/audit.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -39,6 +41,7 @@ interface OverheadContext {
   occupancyPct: number;
   workDaysPerMonth: number;
   avgDirectCost: number;
+  simultaneousProjects: number;
 }
 
 @Injectable()
@@ -53,15 +56,61 @@ export class BudgetsService {
     return settings ? Number(settings.salarioMinimo) : 1518;
   }
 
+  private async getMaterialReferenceUnitCost(materialId: string) {
+    const material = await this.prisma.client.material.findUnique({
+      where: { id: materialId },
+      include: { quotes: true },
+    });
+    if (!material)
+      throw new NotFoundException('Material nao encontrado: ' + materialId);
+
+    const { referencePrice } = calculateMaterialReferencePrice(
+      {
+        unitCost: Number(material.unitCost),
+        referenceMode: material.referenceMode,
+        manualQuoteId: material.manualQuoteId,
+      },
+      material.quotes.map((q) => ({
+        id: q.id,
+        price: Number(q.price),
+        quantity: Number(q.quantity),
+        freight: Number(q.freight),
+        freightModality: q.freightModality,
+        validUntil: q.validUntil,
+      })),
+    );
+    return referencePrice;
+  }
+
   private async getOverheadContext(): Promise<OverheadContext | null> {
     const settings = await this.prisma.client.settings.findFirst();
     if (!settings || !settings.overheadAutoApply) return null;
 
-    const fixedExpenses = await this.prisma.client.fixedExpense.findMany();
-    const totalFixed = fixedExpenses.reduce(
+    const [fixedExpenses, assets] = await Promise.all([
+      this.prisma.client.fixedExpense.findMany(),
+      this.prisma.client.asset.findMany(),
+    ]);
+    const fixedExpensesTotal = fixedExpenses.reduce(
       (sum, expense) => sum + Number(expense.amount),
       0,
     );
+    // Depreciação + custo de oportunidade do patrimônio entram no mesmo pool
+    // de custo indireto que as despesas fixas — um caminhão parado também
+    // custa dinheiro (perde valor e imobiliza capital), não só o aluguel.
+    const opportunityCostPct = Number(settings.assetOpportunityCostPct);
+    const assetsTotal = assets.reduce((sum, asset) => {
+      const { totalMonthlyCost } = calculateAssetMonthlyCost(
+        {
+          acquisitionValue: Number(asset.acquisitionValue),
+          acquisitionDate: asset.acquisitionDate,
+          usefulLifeMonths: asset.usefulLifeMonths,
+          residualValue: Number(asset.residualValue),
+        },
+        opportunityCostPct,
+      );
+      return sum + totalMonthlyCost;
+    }, 0);
+    const totalFixed = fixedExpensesTotal + assetsTotal;
 
     return {
       method: settings.overheadMethod,
@@ -73,6 +122,7 @@ export class BudgetsService {
       avgDirectCost: settings.overheadAvgDirectCost
         ? Number(settings.overheadAvgDirectCost)
         : 0,
+      simultaneousProjects: settings.overheadSimultaneousProjects ?? 1,
     };
   }
 
@@ -86,9 +136,18 @@ export class BudgetsService {
     const occupancy = overheadCtx.occupancyPct / 100;
 
     if (overheadCtx.method === 'DAY') {
+      // Cada dia de custo fixo é compartilhado entre as obras simultâneas —
+      // sem esse divisor, cada orçamento absorveria o pool inteiro, inflando
+      // o custo indireto quando a empresa toca mais de uma obra ao mesmo tempo.
+      const simultaneousProjects = Math.max(
+        1,
+        overheadCtx.simultaneousProjects,
+      );
       const productiveDays = overheadCtx.workDaysPerMonth * occupancy;
       const ratePerDay =
-        productiveDays > 0 ? overheadCtx.totalFixed / productiveDays : 0;
+        productiveDays > 0
+          ? overheadCtx.totalFixed / productiveDays / simultaneousProjects
+          : 0;
       return ratePerDay * projectDays;
     }
     if (overheadCtx.method === 'HOUR') {
@@ -251,7 +310,9 @@ export class BudgetsService {
           {
             where: { id: item.compositionId },
             include: {
-              materials: { include: { material: true } },
+              materials: {
+                include: { material: { include: { quotes: true } } },
+              },
               labor: { include: { laborRole: true } },
             },
           },
@@ -284,17 +345,13 @@ export class BudgetsService {
 
     const materialItemsData = await Promise.all(
       (dto.materialItems || []).map(async (item) => {
-        const material = await this.prisma.client.material.findUnique({
-          where: { id: item.materialId },
-        });
-        if (!material)
-          throw new NotFoundException(
-            'Material nao encontrado: ' + item.materialId,
-          );
+        const unitCost = await this.getMaterialReferenceUnitCost(
+          item.materialId,
+        );
         return {
           materialId: item.materialId,
           quantity: item.quantity,
-          unitCost: material.unitCost,
+          unitCost: round2(unitCost),
         };
       }),
     );
@@ -433,17 +490,13 @@ export class BudgetsService {
     if (dto.materialItems) {
       const materialItemsData = await Promise.all(
         dto.materialItems.map(async (item) => {
-          const material = await this.prisma.client.material.findUnique({
-            where: { id: item.materialId },
-          });
-          if (!material)
-            throw new NotFoundException(
-              'Material nao encontrado: ' + item.materialId,
-            );
+          const unitCost = await this.getMaterialReferenceUnitCost(
+            item.materialId,
+          );
           return {
             materialId: item.materialId,
             quantity: item.quantity,
-            unitCost: material.unitCost,
+            unitCost: round2(unitCost),
           };
         }),
       );
