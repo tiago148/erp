@@ -5,11 +5,13 @@ import { useAuth } from '@/context/auth-context';
 import {
   api, FinanceCategory, FinanceCategoryInput, FinanceEntry, FinanceEntryInput,
   FinanceEntryType, FinanceEntryStatus, RecurrenceFrequency, Project, ProjectBillingItem, ProjectBillingItemInput,
-  ProjectBillingStatus, Settings,
+  ProjectBillingStatus, Settings, FinanceAccount, FinanceAccountInput, FinanceClosure, TransferFinanceEntryInput,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,13 +20,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FinanceCategoryForm } from '@/components/finance-category-form';
 import { FinanceEntryForm } from '@/components/finance-entry-form';
+import { FinanceAccountForm } from '@/components/finance-account-form';
+import { FinanceTransferForm } from '@/components/finance-transfer-form';
 import { FinanceAttachmentUploader } from '@/components/finance-attachment-uploader';
 import { ProjectBillingItemForm } from '@/components/project-billing-item-form';
 import { FinanceImportWizard } from '@/components/finance-import-wizard';
+import { ProjectFinancialAnalysisView } from '@/components/project-financial-analysis-view';
 import { PrintDocument, PrintHeader, PrintSectionTitle, PrintFooter } from '@/components/print-document';
 import { usePrint } from '@/lib/use-print';
 import { downloadCsv } from '@/lib/export-csv';
-import { Plus, Pencil, Trash2, Check, X, Receipt, AlertTriangle, Download, Paperclip, Printer } from 'lucide-react';
+import {
+  Plus, Pencil, Trash2, Check, X, Receipt, AlertTriangle, Download, Paperclip, Printer,
+  ArrowLeftRight, Lock, Unlock, History,
+} from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -414,6 +422,332 @@ function CategoriesTab() {
   );
 }
 
+const accountTypeLabels: Record<string, string> = { CAIXA: 'Caixa', BANCO: 'Banco' };
+
+function AccountsTab() {
+  const { token } = useAuth();
+  const [items, setItems] = useState<FinanceAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<FinanceAccount | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setItems(await api.listFinanceAccounts(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleSubmit(data: FinanceAccountInput) {
+    if (!token) return;
+    if (editing) await api.updateFinanceAccount(token, editing.id, data);
+    else await api.createFinanceAccount(token, data);
+    setOpen(false);
+    setEditing(undefined);
+    load();
+  }
+
+  async function handleDelete(a: FinanceAccount) {
+    if (!token || !confirm(`Excluir a conta "${a.name}"?`)) return;
+    try {
+      await api.deleteFinanceAccount(token, a.id);
+      load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível excluir esta conta.');
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditing(undefined); setOpen(true); }}><Plus size={16} className="mr-2" />Nova Conta</Button>
+      </div>
+      <div className="border rounded-md bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow><TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead>Saldo inicial</TableHead><TableHead>Status</TableHead><TableHead className="w-24">Ações</TableHead></TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma conta cadastrada.</TableCell></TableRow>
+            ) : items.map((a) => (
+              <TableRow key={a.id}>
+                <TableCell className="font-medium">{a.name}{a.isDefault && <Badge variant="info" className="ml-2">Padrão</Badge>}</TableCell>
+                <TableCell>{accountTypeLabels[a.type]}</TableCell>
+                <TableCell className="font-mono">{fmt(a.initialBalance)}</TableCell>
+                <TableCell>{a.active ? <Badge variant="success">Ativa</Badge> : <Badge variant="outline">Inativa</Badge>}</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setOpen(true); }}><Pencil size={16} /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(a)}><Trash2 size={16} /></Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Conta' : 'Nova Conta'}</DialogTitle></DialogHeader>
+          <FinanceAccountForm initialData={editing} onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const closureStatusLabels: Record<string, string> = { OPEN: 'Aberto', REVIEWING: 'Em Conferência', CLOSED: 'Fechado' };
+const closureStatusVariant: Record<string, 'warning' | 'info' | 'success'> = { OPEN: 'warning', REVIEWING: 'info', CLOSED: 'success' };
+
+function FechamentoTab() {
+  const { token, user } = useAuth();
+  const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
+  const [accountId, setAccountId] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [closure, setClosure] = useState<FinanceClosure | null>(null);
+  const [history, setHistory] = useState<FinanceClosure[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [informedBalance, setInformedBalance] = useState('');
+  const [notes, setNotes] = useState('');
+  const [closing, setClosing] = useState(false);
+  const [error, setError] = useState('');
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [printing, setPrinting] = usePrint<FinanceClosure>();
+  const [settings, setSettings] = useState<Settings | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    api.listFinanceAccounts(token).then((list) => {
+      setAccounts(list);
+      setAccountId((prev) => prev || list.find((a) => a.isDefault)?.id || list[0]?.id || '');
+    });
+    api.getSettings(token).then(setSettings);
+  }, [token]);
+
+  const load = useCallback(async () => {
+    if (!token || !accountId || !date) return;
+    setLoading(true);
+    setError('');
+    try {
+      const [current, hist] = await Promise.all([
+        api.getCurrentFinanceClosure(token, accountId, date),
+        api.listFinanceClosures(token, accountId),
+      ]);
+      setClosure(current);
+      setInformedBalance(current.informedBalance !== null ? String(current.informedBalance) : '');
+      setNotes(current.notes || '');
+      setHistory(hist.filter((h) => h.id !== current.id).slice(0, 8));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar fechamento');
+      setClosure(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, accountId, date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleStartReview() {
+    if (!token || !closure || closure.status !== 'OPEN') return;
+    await api.startReviewFinanceClosure(token, closure.id);
+  }
+
+  async function handleClose() {
+    if (!token || !closure) return;
+    setClosing(true);
+    setError('');
+    try {
+      await api.closeFinanceClosure(token, closure.id, {
+        informedBalance: parseFloat(informedBalance) || 0,
+        notes: notes || undefined,
+      });
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao fechar');
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  async function handleReopen() {
+    if (!token || !closure) return;
+    const reason = prompt('Motivo da reabertura deste fechamento:');
+    if (!reason) return;
+    await api.reopenFinanceClosure(token, closure.id, { reason });
+    load();
+  }
+
+  async function handleTransfer(data: TransferFinanceEntryInput) {
+    if (!token) return;
+    await api.transferFinanceEntry(token, data);
+    setTransferOpen(false);
+    load();
+  }
+
+  const liveDiff = closure && informedBalance !== ''
+    ? Math.round((parseFloat(informedBalance) - closure.expectedBalance) * 100) / 100
+    : null;
+  const hasDifference = liveDiff !== null && liveDiff !== 0;
+  const isClosed = closure?.status === 'CLOSED';
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap justify-between items-end gap-3">
+        <div className="flex gap-3">
+          <div className="space-y-2 w-56">
+            <Label>Conta/Caixa</Label>
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Selecione...">{selectedAccount?.name}</SelectValue></SelectTrigger>
+              <SelectContent>
+                {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Data</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+        </div>
+        <Button variant="outline" onClick={() => setTransferOpen(true)}><ArrowLeftRight size={16} className="mr-2" />Transferir entre Contas</Button>
+      </div>
+
+      {accounts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada — crie uma na aba &quot;Contas&quot;.</p>
+      ) : loading ? (
+        <p className="text-sm text-muted-foreground">Carregando...</p>
+      ) : closure ? (
+        <Card className="max-w-xl">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Fechamento do dia {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}</CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant={closureStatusVariant[closure.status]}>{closureStatusLabels[closure.status]}</Badge>
+              {isClosed && (
+                <Button variant="ghost" size="icon" title="Imprimir comprovante" onClick={() => setPrinting(closure)}><Printer size={16} /></Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><p className="text-muted-foreground">Saldo inicial</p><p className="font-semibold font-mono text-lg">{fmt(closure.initialBalance)}</p></div>
+              <div><p className="text-muted-foreground">Saldo esperado</p><p className="font-semibold font-mono text-lg">{fmt(closure.expectedBalance)}</p></div>
+              <div><p className="text-muted-foreground">Entradas</p><p className="font-medium font-mono text-success">+ {fmt(closure.totalIncome)}</p></div>
+              <div><p className="text-muted-foreground">Saídas</p><p className="font-medium font-mono text-destructive">- {fmt(closure.totalExpense)}</p></div>
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label>Saldo conferido</Label>
+              <Input
+                type="number" step="0.01" placeholder="0,00"
+                value={informedBalance}
+                onChange={(e) => setInformedBalance(e.target.value)}
+                onFocus={handleStartReview}
+                disabled={isClosed}
+                className="text-lg font-mono"
+              />
+            </div>
+
+            {liveDiff !== null && (
+              <div className={`flex items-center justify-between rounded-md p-3 text-sm ${hasDifference ? 'bg-warning/10 border border-warning/30' : 'bg-success/10 border border-success/30'}`}>
+                <span className="flex items-center gap-2">
+                  {hasDifference ? <AlertTriangle size={16} className="text-warning" /> : <Check size={16} className="text-success" />}
+                  {hasDifference ? `Existe uma diferença de ${fmt(Math.abs(liveDiff))}` : 'Tudo conferido'}
+                </span>
+                <span className={`font-mono font-semibold ${hasDifference ? 'text-warning' : 'text-success'}`}>{fmt(liveDiff)}</span>
+              </div>
+            )}
+
+            {!isClosed && hasDifference && (
+              <div className="space-y-2">
+                <Label>Observação / motivo da diferença (obrigatório)</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Ex: falta de troco, despesa não lançada, etc." />
+              </div>
+            )}
+
+            {isClosed && (
+              <div className="text-xs text-muted-foreground space-y-1 border-t pt-3">
+                <p>Fechado por {closure.closedByEmail} em {closure.closedAt && new Date(closure.closedAt).toLocaleString('pt-BR')}</p>
+                {closure.notes && <p>Observação: {closure.notes}</p>}
+                {user?.role === 'ADMIN' && (
+                  <Button variant="outline" size="sm" className="mt-2" onClick={handleReopen}><Unlock size={14} className="mr-2" />Reabrir (admin)</Button>
+                )}
+              </div>
+            )}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            {!isClosed && (
+              <Button className="w-full" disabled={closing || informedBalance === ''} onClick={handleClose}>
+                <Lock size={16} className="mr-2" />
+                {closing ? 'Fechando...' : hasDifference ? 'Fechar mesmo assim' : 'Fechar Caixa'}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {history.length > 0 && (
+        <div className="max-w-xl">
+          <p className="text-sm font-semibold mb-2 flex items-center gap-2"><History size={14} />Histórico recente</p>
+          <div className="border rounded-md bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow><TableHead>Data</TableHead><TableHead>Esperado</TableHead><TableHead>Informado</TableHead><TableHead>Diferença</TableHead><TableHead>Status</TableHead></TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.map((h) => (
+                  <TableRow key={h.id}>
+                    <TableCell>{new Date(h.periodStart).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
+                    <TableCell className="font-mono">{fmt(h.expectedBalance)}</TableCell>
+                    <TableCell className="font-mono">{h.informedBalance !== null ? fmt(h.informedBalance) : '-'}</TableCell>
+                    <TableCell className={`font-mono ${h.difference ? 'text-warning' : ''}`}>{h.difference !== null ? fmt(h.difference) : '-'}</TableCell>
+                    <TableCell><Badge variant={closureStatusVariant[h.status]}>{closureStatusLabels[h.status]}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Transferir entre Contas</DialogTitle></DialogHeader>
+          <FinanceTransferForm accounts={accounts} onSubmit={handleTransfer} onCancel={() => setTransferOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {printing && (
+        <PrintDocument>
+          <PrintHeader
+            settings={settings}
+            docTitle="COMPROVANTE DE FECHAMENTO DE CAIXA"
+            docSubtitle={<>{printing.account.name}<br />{new Date(printing.periodStart).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</>}
+          />
+          <PrintSectionTitle>Movimentação do Período</PrintSectionTitle>
+          <table className="w-full text-sm border-collapse">
+            <tbody>
+              <tr className="border-b"><td className="py-1">Saldo inicial</td><td className="text-right">{fmt(printing.initialBalance)}</td></tr>
+              <tr className="border-b"><td className="py-1">Entradas</td><td className="text-right">+ {fmt(printing.totalIncome)}</td></tr>
+              <tr className="border-b"><td className="py-1">Saídas</td><td className="text-right">- {fmt(printing.totalExpense)}</td></tr>
+              <tr className="border-b font-semibold"><td className="py-1">Saldo esperado</td><td className="text-right">{fmt(printing.expectedBalance)}</td></tr>
+              <tr className="border-b"><td className="py-1">Saldo conferido</td><td className="text-right">{printing.informedBalance !== null ? fmt(printing.informedBalance) : '-'}</td></tr>
+              <tr className="font-bold"><td className="py-1">Diferença</td><td className="text-right">{printing.difference !== null ? fmt(printing.difference) : '-'}</td></tr>
+            </tbody>
+          </table>
+          {printing.notes && (<><PrintSectionTitle>Observações</PrintSectionTitle><p className="text-sm">{printing.notes}</p></>)}
+          <p className="text-xs text-gray-600 mt-4">Fechado por {printing.closedByEmail} em {printing.closedAt && new Date(printing.closedAt).toLocaleString('pt-BR')}</p>
+          <PrintFooter settings={settings} />
+        </PrintDocument>
+      )}
+    </div>
+  );
+}
+
 const billingStatusLabels: Record<ProjectBillingStatus, string> = {
   PLANNED: 'Previsto', INVOICED: 'Faturado', CANCELLED: 'Cancelado',
 };
@@ -675,6 +1009,46 @@ function DreTab() {
   );
 }
 
+function AnaliseObraTab() {
+  const { token } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState('');
+
+  useEffect(() => {
+    if (!token) return;
+    api.listProjects(token).then((all) => {
+      const withBudget = all.filter((p) => !!p.budgetId);
+      setProjects(withBudget);
+      if (withBudget.length > 0) setProjectId((prev) => prev || withBudget[0].id);
+    });
+  }, [token]);
+
+  return (
+    <div className="space-y-4">
+      <div className="max-w-sm space-y-2">
+        <Label>Projeto</Label>
+        <Select value={projectId} onValueChange={setProjectId}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione um projeto">
+              {projects.find((p) => p.id === projectId)?.name}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.number} — {p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {projects.length === 0 && (
+          <p className="text-xs text-warning">Nenhum projeto com orçamento vinculado ainda.</p>
+        )}
+      </div>
+
+      {projectId && <ProjectFinancialAnalysisView projectId={projectId} />}
+    </div>
+  );
+}
+
 function CashFlowTab() {
   const { token } = useAuth();
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
@@ -814,19 +1188,25 @@ export default function FinanceiroPage() {
           <TabsTrigger value="a-pagar">Contas a Pagar</TabsTrigger>
           <TabsTrigger value="a-receber">Contas a Receber</TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+          <TabsTrigger value="fechamento">Fechamento</TabsTrigger>
           <TabsTrigger value="dre">DRE</TabsTrigger>
           <TabsTrigger value="fluxo-caixa">Fluxo de Caixa</TabsTrigger>
+          <TabsTrigger value="obra">Análise por Obra</TabsTrigger>
           <TabsTrigger value="faturamento">Faturamento</TabsTrigger>
           <TabsTrigger value="categorias">Categorias</TabsTrigger>
+          <TabsTrigger value="contas">Contas</TabsTrigger>
           <TabsTrigger value="importar">Importar CSV</TabsTrigger>
         </TabsList>
         <TabsContent value="a-pagar"><PayablesReceivablesTab type="EXPENSE" /></TabsContent>
         <TabsContent value="a-receber"><PayablesReceivablesTab type="INCOME" /></TabsContent>
         <TabsContent value="lancamentos"><EntriesTab /></TabsContent>
+        <TabsContent value="fechamento"><FechamentoTab /></TabsContent>
         <TabsContent value="dre"><DreTab /></TabsContent>
         <TabsContent value="fluxo-caixa"><CashFlowTab /></TabsContent>
+        <TabsContent value="obra"><AnaliseObraTab /></TabsContent>
         <TabsContent value="faturamento"><BillingTab /></TabsContent>
         <TabsContent value="categorias"><CategoriesTab /></TabsContent>
+        <TabsContent value="contas"><AccountsTab /></TabsContent>
         <TabsContent value="importar"><FinanceImportWizard /></TabsContent>
       </Tabs>
     </div>

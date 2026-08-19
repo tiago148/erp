@@ -15,6 +15,8 @@ import {
   CreateBudgetTravelItemDto,
   CreateBudgetOtherItemDto,
   CreateBudgetCompositionItemDto,
+  CreateBudgetServiceItemDto,
+  CreateBudgetRentalItemDto,
 } from './create-budget-item.dto';
 
 export enum BudgetStatus {
@@ -121,4 +123,16 @@ export class CreateBudgetDto {
   @ValidateNested({ each: true })
   @Type(() => CreateBudgetCompositionItemDto)
   compositionItems?: CreateBudgetCompositionItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateBudgetServiceItemDto)
+  serviceItems?: CreateBudgetServiceItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateBudgetRentalItemDto)
+  rentalItems?: CreateBudgetRentalItemDto[];
 }

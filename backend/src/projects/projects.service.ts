@@ -42,6 +42,16 @@ export class ProjectsService {
     let budgetAmount = dto.budgetAmount || 0;
     let clientId = dto.clientId;
     let responsibleEmployeeId = dto.responsibleEmployeeId;
+    // Snapshot congelado do previsto (Previsto x Realizado) -- so e escrito
+    // aqui, na criacao do projeto, e nunca mais tocado por update(). Isso
+    // implementa "previsto permanece congelado apos aprovado" sem precisar
+    // bloquear edicao do orcamento em si.
+    let plannedMaterialCost = 0;
+    let plannedLaborCost = 0;
+    let plannedTravelCost = 0;
+    let plannedOtherCost = 0;
+    let plannedServiceCost = 0;
+    let plannedRentalCost = 0;
 
     if (dto.budgetId) {
       const existingProject = await this.prisma.client.project.findUnique({
@@ -62,6 +72,15 @@ export class ProjectsService {
       clientId = budget.clientId;
       if (!responsibleEmployeeId)
         responsibleEmployeeId = budget.employeeId ?? undefined;
+
+      plannedMaterialCost = budget.totals.materialsTotal;
+      plannedLaborCost = budget.totals.laborTotal;
+      plannedTravelCost = budget.totals.travelTotal;
+      plannedOtherCost = round2(
+        budget.totals.otherTotal + budget.totals.compositionsTotal,
+      );
+      plannedServiceCost = budget.totals.servicesTotal;
+      plannedRentalCost = budget.totals.rentalsTotal;
     }
 
     return this.prisma.client.project.create({
@@ -73,6 +92,12 @@ export class ProjectsService {
         budgetId: dto.budgetId,
         status: dto.status,
         budgetAmount,
+        plannedMaterialCost,
+        plannedLaborCost,
+        plannedTravelCost,
+        plannedOtherCost,
+        plannedServiceCost,
+        plannedRentalCost,
         startDate,
         endDate,
         notes: dto.notes,
@@ -80,6 +105,44 @@ export class ProjectsService {
       },
       include: this.include(),
     });
+  }
+
+  // Manutencao unica, idempotente: preenche o snapshot de previsto dos
+  // projetos que ja existiam antes do Previsto x Realizado e ainda tem os 4
+  // campos zerados, reaproveitando BudgetsService.findOne() em vez de
+  // reimplementar a formula do orcamento.
+  async backfillPlannedCosts() {
+    const candidates = await this.prisma.client.project.findMany({
+      where: {
+        budgetId: { not: null },
+        plannedMaterialCost: 0,
+        plannedLaborCost: 0,
+        plannedTravelCost: 0,
+        plannedOtherCost: 0,
+      },
+    });
+
+    let updated = 0;
+    for (const project of candidates) {
+      if (!project.budgetId) continue;
+      const budget = await this.budgetsService.findOne(project.budgetId);
+      await this.prisma.client.project.update({
+        where: { id: project.id },
+        data: {
+          plannedMaterialCost: budget.totals.materialsTotal,
+          plannedLaborCost: budget.totals.laborTotal,
+          plannedTravelCost: budget.totals.travelTotal,
+          plannedOtherCost: round2(
+            budget.totals.otherTotal + budget.totals.compositionsTotal,
+          ),
+          plannedServiceCost: budget.totals.servicesTotal,
+          plannedRentalCost: budget.totals.rentalsTotal,
+        },
+      });
+      updated += 1;
+    }
+
+    return { checked: candidates.length, updated };
   }
 
   findAll(search?: string) {

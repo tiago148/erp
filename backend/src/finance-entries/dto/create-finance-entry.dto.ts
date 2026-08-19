@@ -33,6 +33,7 @@ export class CreateFinanceEntryDto {
 
   @IsOptional() @IsEnum(RecurrenceFrequency) recurrence?: RecurrenceFrequency;
 
+  @IsOptional() @IsString() accountId?: string;
   @IsOptional() @IsString() projectId?: string;
   @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() clientId?: string;

@@ -21,6 +21,10 @@ import {
   Calculator,
   LineChart,
   Library,
+  Scale,
+  Handshake,
+  Container,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -63,6 +67,8 @@ export const navGroups: NavGroup[] = [
       { label: 'Funcionários', href: '/dashboard/funcionarios', icon: UserCog },
       { label: 'Mão de Obra', href: '/dashboard/mao-de-obra', icon: HardHat },
       { label: 'Materiais', href: '/dashboard/materiais', icon: Boxes },
+      { label: 'Serviços de Terceiros', href: '/dashboard/servicos-terceiros', icon: Handshake },
+      { label: 'Aluguéis e Locações', href: '/dashboard/alugueis', icon: Container },
     ],
   },
   {
@@ -89,6 +95,8 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: 'Relatórios', href: '/dashboard/relatorios', icon: BarChart3 },
       { label: 'Indicadores', href: '/dashboard/indicadores', icon: LineChart },
+      { label: 'Previsto x Realizado', href: '/dashboard/previsto-realizado', icon: Scale },
+      { label: 'Viabilidade Comparada', href: '/dashboard/viabilidade-comparada', icon: TrendingUp },
     ],
   },
   { id: 'automacoes', label: 'Automações', items: [{ label: 'Automações', href: '/dashboard/automacoes', icon: Zap }] },

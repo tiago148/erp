@@ -34,4 +34,9 @@ export class CreateLaborRoleDto {
   @IsNumber()
   @Min(0)
   noturnoPct?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  beneficioHora?: number;
 }

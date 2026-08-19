@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService, Actor } from '../audit/audit.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
+import { computeSocialCharges } from '../common/social-charges';
+import { round2 } from '../common/money';
 
 const RESTORE_CONFIRMATION_PHRASE = 'RESTAURAR';
 
@@ -58,6 +60,36 @@ export class SettingsService {
     }
 
     return updated;
+  }
+
+  async applyEncargos(actor?: Actor) {
+    const settings = await this.get();
+    const result = computeSocialCharges({
+      grupoA:
+        (settings.encargosGrupoA as { nome: string; pct: number }[]) ?? [],
+      grupoB:
+        (settings.encargosGrupoB as { nome: string; pct: number }[]) ?? [],
+      beneficios:
+        (settings.encargosBeneficios as { nome: string; valorMes: number }[]) ??
+        [],
+      horasProdMes: Number(settings.encargosHorasProdMes),
+    });
+
+    const { count } = await this.prisma.client.laborRole.updateMany({
+      data: {
+        chargesPct: round2(result.encargosPct),
+        beneficioHora: round2(result.beneficioHora),
+      },
+    });
+
+    await this.auditService.log({
+      actor,
+      action: 'SOCIAL_CHARGES_APPLIED',
+      entity: 'LaborRole',
+      details: `Encargos ${round2(result.encargosPct)}% e beneficio R$ ${round2(result.beneficioHora)}/h aplicados a ${count} funcao(oes).`,
+    });
+
+    return { ...result, affected: count };
   }
 
   async exportBackup() {

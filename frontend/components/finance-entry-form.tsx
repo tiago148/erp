@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, FinanceCategory, FinanceEntry, FinanceEntryInput, FinanceEntryType, RecurrenceFrequency, Project, Supplier, Client } from '@/lib/api';
+import { api, FinanceCategory, FinanceEntry, FinanceEntryInput, FinanceEntryType, RecurrenceFrequency, Project, Supplier, Client, FinanceAccount } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,7 @@ const recurrenceLabels: Record<RecurrenceFrequency, string> = {
 export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel }: Props) {
   const { token } = useAuth();
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
+  const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -34,6 +35,7 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
   const [amount, setAmount] = useState(initialData ? String(initialData.amount) : '');
   const [dueDate, setDueDate] = useState(initialData?.dueDate?.slice(0, 10) || '');
   const [recurrence, setRecurrence] = useState<RecurrenceFrequency>(initialData?.recurrence || 'NONE');
+  const [accountId, setAccountId] = useState(initialData?.accountId || '');
   const [projectId, setProjectId] = useState(initialData?.projectId || '');
   const [supplierId, setSupplierId] = useState(initialData?.supplierId || '');
   const [clientId, setClientId] = useState(initialData?.clientId || '');
@@ -46,6 +48,10 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
     api.listProjects(token).then(setProjects);
     api.listSuppliers(token).then(setSuppliers);
     api.listClients(token).then(setClients);
+    api.listFinanceAccounts(token).then((list) => {
+      setAccounts(list);
+      setAccountId((prev) => prev || list.find((a) => a.isDefault)?.id || '');
+    });
   }, [token]);
 
   useEffect(() => {
@@ -69,6 +75,7 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
         amount: parseFloat(amount) || 0,
         dueDate,
         recurrence,
+        accountId: accountId || undefined,
         projectId: projectId || undefined,
         supplierId: supplierId || undefined,
         clientId: clientId || undefined,
@@ -147,6 +154,16 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
       {recurrence !== 'NONE' && (
         <p className="text-xs text-muted-foreground -mt-2">Ao marcar este lançamento como pago/recebido, a próxima ocorrência é criada automaticamente com o mesmo valor, avançando o vencimento pela frequência escolhida.</p>
       )}
+
+      <div className="space-y-2">
+        <Label>Conta/Caixa</Label>
+        <Select value={accountId} onValueChange={setAccountId}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Conta padrão">{accounts.find((a) => a.id === accountId)?.name}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}{a.isDefault ? ' (padrão)' : ''}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">

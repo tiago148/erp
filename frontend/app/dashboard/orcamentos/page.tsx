@@ -163,6 +163,8 @@ function BudgetProposalPrint({ budget, settings }: { budget: Budget; settings: S
       {row('Mão de Obra', t.laborTotal)}
       {row('Serviços Compostos', t.compositionsTotal)}
       {row('Deslocamento', t.travelTotal)}
+      {row('Serviços de Terceiros', t.servicesTotal)}
+      {row('Aluguéis e Locações', t.rentalsTotal)}
       {row('Outros Custos', t.otherTotal)}
       <div className="flex justify-between text-sm py-0.5 font-semibold border-t mt-1 pt-1"><span>Subtotal</span><span>{formatCurrency(t.subtotal)}</span></div>
       {row('Custos Indiretos', t.indirectCostValue)}

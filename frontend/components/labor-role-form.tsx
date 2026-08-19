@@ -21,6 +21,7 @@ const emptyForm: LaborRoleInput = {
   periculosidade: false,
   insalubridadePct: 0,
   noturnoPct: 0,
+  beneficioHora: 0,
 };
 
 const insalubridadeOptions = [
@@ -51,6 +52,7 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
         periculosidade: initialData.periculosidade,
         insalubridadePct: initialData.insalubridadePct,
         noturnoPct: initialData.noturnoPct,
+        beneficioHora: initialData.beneficioHora,
       });
     }
   }, [initialData]);
@@ -80,6 +82,7 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
       periculosidade: form.periculosidade || false,
       insalubridadePct: form.insalubridadePct || 0,
       noturnoPct: form.noturnoPct || 0,
+      beneficioHora: form.beneficioHora || 0,
     },
     salarioMinimo,
   );
@@ -166,6 +169,20 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
         </div>
       </div>
 
+      <div className="space-y-2">
+        <Label>Benefício por Hora (R$)</Label>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={form.beneficioHora}
+          onChange={(e) => updateField('beneficioHora', parseFloat(e.target.value) || 0)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Vale-transporte, vale-refeição e demais benefícios, já convertidos para R$/hora. Normalmente preenchido em lote pela aba &quot;Encargos Sociais&quot;.
+        </p>
+      </div>
+
       <div className="rounded-md bg-muted p-3 space-y-1 text-sm">
         <div className="flex justify-between"><span>Hora-base</span><span>{fmt(rate.baseRate)}</span></div>
         {rate.periculosidadeValue > 0 && (
@@ -177,7 +194,10 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
         {rate.noturnoValue > 0 && (
           <div className="flex justify-between text-warning"><span>Adicional Noturno</span><span>{fmt(rate.noturnoValue)}</span></div>
         )}
-        <div className="flex justify-between font-medium border-t border-border pt-1 mt-1"><span>Encargos ({form.chargesPct || 0}%)</span><span>{fmt(rate.effectiveHourlyRate - rate.rateWithAdditions)}</span></div>
+        <div className="flex justify-between font-medium border-t border-border pt-1 mt-1"><span>Encargos ({form.chargesPct || 0}%)</span><span>{fmt(rate.rateWithAdditions * ((form.chargesPct || 0) / 100))}</span></div>
+        {rate.beneficioHora > 0 && (
+          <div className="flex justify-between"><span>Benefício/hora</span><span>{fmt(rate.beneficioHora)}</span></div>
+        )}
         <div className="flex justify-between font-bold border-t border-border pt-2 mt-2">
           <span>Taxa/hora efetiva</span>
           <span>{fmt(rate.effectiveHourlyRate)}</span>

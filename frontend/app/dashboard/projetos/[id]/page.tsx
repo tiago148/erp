@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProjectPhaseForm } from '@/components/project-phase-form';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
+import { PrevistoRealizadoCard } from '@/components/previsto-realizado-card';
+import { ProjectFinancialAnalysisView } from '@/components/project-financial-analysis-view';
+import { ArrowLeft, Plus, Pencil, Trash2, LineChart as LineChartIcon } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot, ReferenceLine,
 } from 'recharts';
@@ -78,6 +80,7 @@ export default function ProjetoDetailPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectPhase | undefined>();
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!token || !id) return;
@@ -131,10 +134,14 @@ export default function ProjetoDetailPage() {
         <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/projetos')}>
           <ArrowLeft size={18} />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">{project.number} — {project.name}</h1>
           <p className="text-muted-foreground">{project.client.name} · {statusLabels[project.status]}</p>
         </div>
+        <Button variant="outline" onClick={() => setAnalysisOpen(true)}>
+          <LineChartIcon size={16} className="mr-2" />
+          Análise Financeira
+        </Button>
       </div>
 
       <Card>
@@ -223,6 +230,8 @@ export default function ProjetoDetailPage() {
         </CardContent>
       </Card>
 
+      <PrevistoRealizadoCard projectId={id} />
+
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(undefined); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editing ? 'Editar Etapa' : 'Nova Etapa'}</DialogTitle></DialogHeader>
@@ -232,6 +241,13 @@ export default function ProjetoDetailPage() {
             onSubmit={editing ? handleUpdate : handleCreate}
             onCancel={() => { setOpen(false); setEditing(undefined); }}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={analysisOpen} onOpenChange={setAnalysisOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Análise Financeira — {project.number}</DialogTitle></DialogHeader>
+          {analysisOpen && <ProjectFinancialAnalysisView projectId={id} />}
         </DialogContent>
       </Dialog>
     </div>

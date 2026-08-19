@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { FinanceEntriesService } from './finance-entries.service';
 import { CreateFinanceEntryDto } from './dto/create-finance-entry.dto';
 import { UpdateFinanceEntryDto } from './dto/update-finance-entry.dto';
 import { PayFinanceEntryDto } from './dto/pay-finance-entry.dto';
+import { TransferFinanceEntryDto } from './dto/transfer-finance-entry.dto';
 
 @Controller('finance/entries')
 @UseGuards(JwtAuthGuard)
@@ -24,6 +26,16 @@ export class FinanceEntriesController {
 
   @Post() create(@Body() dto: CreateFinanceEntryDto) {
     return this.financeEntriesService.create(dto);
+  }
+
+  @Post('transfer') transfer(
+    @Body() dto: TransferFinanceEntryDto,
+    @Req() req: any,
+  ) {
+    return this.financeEntriesService.transfer(dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Get()
@@ -50,15 +62,23 @@ export class FinanceEntriesController {
   @Patch(':id') update(
     @Param('id') id: string,
     @Body() dto: UpdateFinanceEntryDto,
+    @Req() req: any,
   ) {
-    return this.financeEntriesService.update(id, dto);
+    return this.financeEntriesService.update(id, dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Post(':id/pay') pay(
     @Param('id') id: string,
     @Body() dto: PayFinanceEntryDto,
+    @Req() req: any,
   ) {
-    return this.financeEntriesService.pay(id, dto);
+    return this.financeEntriesService.pay(id, dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Post(':id/cancel') cancel(@Param('id') id: string) {

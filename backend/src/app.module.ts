@@ -7,6 +7,8 @@ import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { MaterialsModule } from './materials/materials.module';
 import { LaborRolesModule } from './labor-roles/labor-roles.module';
+import { ThirdPartyServicesModule } from './third-party-services/third-party-services.module';
+import { RentalEquipmentModule } from './rental-equipment/rental-equipment.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { WorkSitesModule } from './work-sites/work-sites.module';
@@ -49,6 +51,10 @@ import { ScrapSalesModule } from './scrap-sales/scrap-sales.module';
 import { PlaybooksModule } from './playbooks/playbooks.module';
 import { ChecklistsModule } from './checklists/checklists.module';
 import { LessonsLearnedModule } from './lessons-learned/lessons-learned.module';
+import { FinanceAccountsModule } from './finance-accounts/finance-accounts.module';
+import { FinanceClosuresModule } from './finance-closures/finance-closures.module';
+import { PrevistoRealizadoModule } from './previsto-realizado/previsto-realizado.module';
+import { ProjectFinancialAnalysisModule } from './project-financial-analysis/project-financial-analysis.module';
 
 @Module({
   imports: [
@@ -59,6 +65,8 @@ import { LessonsLearnedModule } from './lessons-learned/lessons-learned.module';
     ClientsModule,
     MaterialsModule,
     LaborRolesModule,
+    ThirdPartyServicesModule,
+    RentalEquipmentModule,
     VehiclesModule,
     BudgetsModule,
     WorkSitesModule,
@@ -100,6 +108,10 @@ import { LessonsLearnedModule } from './lessons-learned/lessons-learned.module';
     PlaybooksModule,
     ChecklistsModule,
     LessonsLearnedModule,
+    FinanceAccountsModule,
+    FinanceClosuresModule,
+    PrevistoRealizadoModule,
+    ProjectFinancialAnalysisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

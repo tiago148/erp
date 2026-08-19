@@ -340,6 +340,7 @@ export default function ConfigPage() {
         defaultTaxaCapitalPct: settings.defaultTaxaCapitalPct,
         defaultChargesPct: settings.defaultChargesPct,
         defaultFuelPrice: settings.defaultFuelPrice,
+        discountRatePct: settings.discountRatePct,
         budgetPrefix: settings.budgetPrefix,
         projectPrefix: settings.projectPrefix,
         marginHealthyPct: settings.marginHealthyPct,
@@ -473,6 +474,13 @@ export default function ConfigPage() {
               <div className="space-y-2">
                 <Label>Preço de Combustível Padrão (R$/l)</Label>
                 <Input type="number" step="0.01" disabled={!isAdmin} value={settings.defaultFuelPrice} onChange={(e) => set('defaultFuelPrice', parseFloat(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>TMA Padrão (% ao ano)</Label>
+                <Input type="number" step="0.5" disabled={!isAdmin} value={settings.discountRatePct} onChange={(e) => set('discountRatePct', parseFloat(e.target.value) || 0)} />
+                <p className="text-xs text-muted-foreground">Taxa mínima de atratividade usada no cálculo de VPL/TIR na Análise Financeira de Projeto.</p>
               </div>
             </div>
           </CardContent>

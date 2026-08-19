@@ -33,6 +33,16 @@ export class SettingsController {
     });
   }
 
+  @Post('encargos/apply')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  applyEncargos(@Req() req: any) {
+    return this.settingsService.applyEncargos({
+      userId: req.user.userId,
+      email: req.user.email,
+    });
+  }
+
   @Get('backup')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')

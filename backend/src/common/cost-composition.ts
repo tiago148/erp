@@ -34,6 +34,7 @@ export function calculateCompositionUnitCost(
         periculosidade: item.laborRole.periculosidade,
         insalubridadePct: Number(item.laborRole.insalubridadePct),
         noturnoPct: Number(item.laborRole.noturnoPct),
+        beneficioHora: Number(item.laborRole.beneficioHora),
       },
       salarioMinimo,
     );

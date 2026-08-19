@@ -131,6 +131,7 @@ model LaborRole {
   periculosidade   Boolean                @default(false)
   insalubridadePct Decimal                @default(0) @db.Decimal(5, 2)
   noturnoPct       Decimal                @default(0) @db.Decimal(5, 2)
+  beneficioHora    Decimal                @default(0) @db.Decimal(10, 2)
   budgetItems      BudgetLaborItem[]
   compositionItems CostCompositionLabor[]
   createdAt        DateTime               @default(now())
@@ -259,6 +260,8 @@ model Budget {
   travelItems          BudgetTravelItem[]
   otherItems           BudgetOtherItem[]
   compositionItems     BudgetCompositionItem[]
+  serviceItems         BudgetServiceItem[]
+  rentalItems          BudgetRentalItem[]
   project              Project?
   financeEntries       FinanceEntry[]
   createdAt            DateTime                @default(now())
@@ -313,6 +316,72 @@ model BudgetOtherItem {
   amount      Decimal @db.Decimal(12, 2)
 
   @@map("budget_other_items")
+}
+
+model ThirdPartyService {
+  id           String              @id @default(uuid())
+  name         String
+  category     String
+  unit         String
+  unitPrice    Decimal             @db.Decimal(12, 2)
+  supplier     String?
+  leadTimeDays Int?
+  active       Boolean             @default(true)
+  budgetItems  BudgetServiceItem[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("third_party_services")
+}
+
+model BudgetServiceItem {
+  id                  String            @id @default(uuid())
+  budgetId            String
+  budget              Budget            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  thirdPartyServiceId String
+  thirdPartyService   ThirdPartyService @relation(fields: [thirdPartyServiceId], references: [id])
+  quantity            Decimal           @db.Decimal(12, 2)
+  unitPrice           Decimal           @db.Decimal(12, 2)
+
+  @@map("budget_service_items")
+}
+
+enum RentalBillingUnit {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  EVENT
+}
+
+model RentalEquipment {
+  id               String             @id @default(uuid())
+  name             String
+  category         String
+  billingUnit      RentalBillingUnit  @default(DAY)
+  unitPrice        Decimal            @db.Decimal(12, 2)
+  mobilizationCost Decimal            @default(0) @db.Decimal(12, 2)
+  minimumPeriod    Int                @default(1)
+  supplier         String?
+  active           Boolean            @default(true)
+  budgetItems      BudgetRentalItem[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@map("rental_equipment")
+}
+
+model BudgetRentalItem {
+  id                String          @id @default(uuid())
+  budgetId          String
+  budget            Budget          @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  rentalEquipmentId String
+  rentalEquipment   RentalEquipment @relation(fields: [rentalEquipmentId], references: [id])
+  period            Int
+  unitPrice         Decimal         @db.Decimal(12, 2)
+  mobilizationCost  Decimal         @db.Decimal(12, 2)
+
+  @@map("budget_rental_items")
 }
 
 model CostComposition {
@@ -401,6 +470,12 @@ model Project {
   budget                 Budget?              @relation(fields: [budgetId], references: [id])
   status                 ProjectStatus        @default(PLANNING)
   budgetAmount           Decimal              @default(0) @db.Decimal(12, 2)
+  plannedMaterialCost    Decimal              @default(0) @db.Decimal(12, 2)
+  plannedLaborCost       Decimal              @default(0) @db.Decimal(12, 2)
+  plannedTravelCost      Decimal              @default(0) @db.Decimal(12, 2)
+  plannedOtherCost       Decimal              @default(0) @db.Decimal(12, 2)
+  plannedServiceCost     Decimal              @default(0) @db.Decimal(12, 2)
+  plannedRentalCost      Decimal              @default(0) @db.Decimal(12, 2)
   startDate              DateTime?
   endDate                DateTime?
   notes                  String?
@@ -806,6 +881,11 @@ model Settings {
   overheadSimultaneousProjects Int            @default(1)
   overheadAutoApply            Boolean        @default(false)
   assetOpportunityCostPct      Decimal        @default(1) @db.Decimal(5, 2)
+  encargosGrupoA               Json?
+  encargosGrupoB               Json?
+  encargosBeneficios           Json?
+  encargosHorasProdMes         Decimal        @default(176) @db.Decimal(6, 2)
+  discountRatePct              Decimal        @default(12) @db.Decimal(5, 2)
   updatedAt                    DateTime       @updatedAt
 
   @@map("settings")
@@ -970,6 +1050,63 @@ model Task {
   @@map("tasks")
 }
 
+enum FinanceAccountType {
+  CAIXA
+  BANCO
+}
+
+model FinanceAccount {
+  id             String             @id @default(uuid())
+  name           String
+  type           FinanceAccountType @default(CAIXA)
+  initialBalance Decimal            @default(0) @db.Decimal(12, 2)
+  isDefault      Boolean            @default(false)
+  active         Boolean            @default(true)
+  entries        FinanceEntry[]
+  closures       FinanceClosure[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("finance_accounts")
+}
+
+enum ClosurePeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum FinanceClosureStatus {
+  OPEN
+  REVIEWING
+  CLOSED
+}
+
+model FinanceClosure {
+  id              String               @id @default(uuid())
+  accountId       String
+  account         FinanceAccount       @relation(fields: [accountId], references: [id])
+  periodType      ClosurePeriodType    @default(DAILY)
+  periodStart     DateTime
+  periodEnd       DateTime
+  initialBalance  Decimal              @db.Decimal(12, 2)
+  totalIncome     Decimal              @db.Decimal(12, 2)
+  totalExpense    Decimal              @db.Decimal(12, 2)
+  expectedBalance Decimal              @db.Decimal(12, 2)
+  informedBalance Decimal?             @db.Decimal(12, 2)
+  difference      Decimal?             @db.Decimal(12, 2)
+  status          FinanceClosureStatus @default(OPEN)
+  openedByEmail   String?
+  closedByEmail   String?
+  closedAt        DateTime?
+  notes           String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([accountId, periodType, periodStart])
+  @@map("finance_closures")
+}
+
 enum FinanceEntryType {
   INCOME
   EXPENSE
@@ -1013,6 +1150,10 @@ model FinanceEntry {
   status          FinanceEntryStatus  @default(PENDING)
   recurrence      RecurrenceFrequency @default(NONE)
   recurrenceOf    String?
+  accountId       String?
+  account         FinanceAccount?     @relation(fields: [accountId], references: [id])
+  isTransfer      Boolean             @default(false)
+  transferGroupId String?
   projectId       String?
   project         Project?            @relation(fields: [projectId], references: [id])
   supplierId      String?

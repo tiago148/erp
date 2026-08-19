@@ -79,9 +79,26 @@ export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt' | 'r
 export interface LaborRole {
   id: string; name: string; hourlyRate: number; chargesPct: number;
   periculosidade: boolean; insalubridadePct: number; noturnoPct: number;
+  beneficioHora: number;
   effectiveHourlyRate: number; createdAt: string; updatedAt: string;
 }
 export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 'effectiveHourlyRate'>;
+
+export interface ThirdPartyService {
+  id: string; name: string; category: string; unit: string; unitPrice: number;
+  supplier?: string; leadTimeDays?: number; active: boolean;
+  createdAt: string; updatedAt: string;
+}
+export type ThirdPartyServiceInput = Omit<ThirdPartyService, 'id' | 'createdAt' | 'updatedAt'>;
+
+export type RentalBillingUnit = 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'EVENT';
+export interface RentalEquipment {
+  id: string; name: string; category: string; billingUnit: RentalBillingUnit;
+  unitPrice: number; mobilizationCost: number; minimumPeriod: number;
+  supplier?: string; active: boolean;
+  createdAt: string; updatedAt: string;
+}
+export type RentalEquipmentInput = Omit<RentalEquipment, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface Vehicle {
   id: string; name: string; plate: string; type: string; fuelType: string;
@@ -140,9 +157,12 @@ export interface BudgetMaterialItem { id: string; materialId: string; material: 
 export interface BudgetLaborItem { id: string; laborRoleId: string; laborRole: LaborRole; hours: number; hourlyRate: number; }
 export interface BudgetTravelItem { id: string; vehicleId: string; vehicle: Vehicle; distanceKm: number; trips: number; fuelPrice: number; }
 export interface BudgetOtherItem { id: string; description: string; amount: number; }
+export interface BudgetServiceItem { id: string; thirdPartyServiceId: string; thirdPartyService: ThirdPartyService; quantity: number; unitPrice: number; }
+export interface BudgetRentalItem { id: string; rentalEquipmentId: string; rentalEquipment: RentalEquipment; period: number; unitPrice: number; mobilizationCost: number; }
 export interface BudgetTax { name: string; rate: number; value: number; }
 export interface BudgetTotals {
   materialsTotal: number; laborTotal: number; travelTotal: number; otherTotal: number; compositionsTotal: number;
+  servicesTotal: number; rentalsTotal: number;
   subtotal: number; indirectCostValue: number; costWithIndirect: number;
   contingenciaValue: number; custoFinanceiroValue: number; custoTotal: number;
   impostoPct: number; pvCheio: number; taxes: BudgetTax[]; taxTotal: number; impostoReal: number;
@@ -160,7 +180,9 @@ export interface Budget {
   discountPct: number; notes?: string;
   employeeId?: string; employee?: Employee; projectDays?: number;
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
-  otherItems: BudgetOtherItem[]; compositionItems: BudgetCompositionItem[]; totals: BudgetTotals; createdAt: string; updatedAt: string;
+  otherItems: BudgetOtherItem[]; compositionItems: BudgetCompositionItem[];
+  serviceItems: BudgetServiceItem[]; rentalItems: BudgetRentalItem[];
+  totals: BudgetTotals; createdAt: string; updatedAt: string;
 }
 export interface BudgetVersionSummary {
   id: string; number: string; version: number; status: BudgetStatus; createdAt: string;
@@ -174,6 +196,8 @@ export interface BudgetInput {
   laborItems?: { laborRoleId: string; hours: number }[];
   travelItems?: { vehicleId: string; distanceKm: number; trips: number; fuelPrice: number }[];
   otherItems?: { description: string; amount: number }[];
+  serviceItems?: { thirdPartyServiceId: string; quantity: number }[];
+  rentalItems?: { rentalEquipmentId: string; period: number }[];
 }
 
 export interface WorkSite {
@@ -391,9 +415,35 @@ export interface Settings {
   overheadSimultaneousProjects: number;
   overheadAutoApply: boolean;
   assetOpportunityCostPct: number;
+  encargosGrupoA: SocialChargeItem[] | null;
+  encargosGrupoB: SocialChargeItem[] | null;
+  encargosBeneficios: BenefitItem[] | null;
+  encargosHorasProdMes: number;
+  discountRatePct: number;
   updatedAt: string;
 }
 export type SettingsInput = Partial<Omit<Settings, 'id' | 'updatedAt'>>;
+
+export interface MonthlyCashFlowPoint {
+  month: string; income: number; expense: number; net: number; cumulative: number;
+}
+export interface ProjectFinancialAnalysis {
+  projectId: string; number: string; name: string; discountRatePct: number;
+  monthlyFlow: MonthlyCashFlowPoint[];
+  vpl: number;
+  tirMensalPct: number | null; tirAnualPct: number | null;
+  paybackSimplesMeses: number | null; paybackDescontadoMeses: number | null;
+  exposicaoMaxima: number;
+  indiceLucratividade: number | null;
+  dre: { receita: number; custosDiretos: number; resultadoDireto: number; margemDiretaPct: number | null };
+}
+
+export interface SocialChargeItem { nome: string; pct: number; }
+export interface BenefitItem { nome: string; valorMes: number; }
+export interface SocialChargesResult {
+  pctGrupoA: number; pctGrupoB: number; encargosPct: number;
+  beneficiosMes: number; beneficioHora: number; affected: number;
+}
 
 export type FixedExpenseType = 'FIXED' | 'SEMI_VARIABLE';
 export interface FixedExpense {
@@ -671,6 +721,25 @@ export interface FinanceCategory {
 }
 export type FinanceCategoryInput = { name: string; type: FinanceEntryType };
 
+export type FinanceAccountType = 'CAIXA' | 'BANCO';
+export interface FinanceAccount {
+  id: string;
+  name: string;
+  type: FinanceAccountType;
+  initialBalance: number;
+  isDefault: boolean;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface FinanceAccountInput {
+  name: string;
+  type?: FinanceAccountType;
+  initialBalance?: number;
+  isDefault?: boolean;
+  active?: boolean;
+}
+
 export type RecurrenceFrequency = 'NONE' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
 export interface FinanceEntry {
@@ -686,6 +755,9 @@ export interface FinanceEntry {
   status: FinanceEntryStatus;
   recurrence: RecurrenceFrequency;
   recurrenceOf?: string;
+  accountId?: string;
+  account?: FinanceAccount;
+  isTransfer: boolean;
   projectId?: string;
   project?: Project;
   supplierId?: string;
@@ -707,16 +779,88 @@ export interface FinanceEntryInput {
   amount: number;
   dueDate: string;
   recurrence?: RecurrenceFrequency;
+  accountId?: string;
   projectId?: string;
   supplierId?: string;
   clientId?: string;
   purchaseOrderId?: string;
   budgetId?: string;
   notes?: string;
+  overrideReason?: string;
 }
 export interface PayFinanceEntryInput {
   paidAt?: string;
   paidAmount?: number;
+  overrideReason?: string;
+}
+export interface TransferFinanceEntryInput {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  description: string;
+  date?: string;
+}
+
+export type ClosurePeriodType = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+export type FinanceClosureStatus = 'OPEN' | 'REVIEWING' | 'CLOSED';
+export interface FinanceClosure {
+  id: string;
+  accountId: string;
+  account: FinanceAccount;
+  periodType: ClosurePeriodType;
+  periodStart: string;
+  periodEnd: string;
+  initialBalance: number;
+  totalIncome: number;
+  totalExpense: number;
+  expectedBalance: number;
+  informedBalance: number | null;
+  difference: number | null;
+  status: FinanceClosureStatus;
+  openedByEmail?: string;
+  closedByEmail?: string;
+  closedAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CloseFinanceClosureInput {
+  informedBalance: number;
+  notes?: string;
+}
+export interface ReopenFinanceClosureInput {
+  reason: string;
+}
+
+export type ComparisonStatus = 'DENTRO' | 'ATENCAO' | 'POSITIVO';
+export interface ComparisonRow {
+  planned: number;
+  actual: number;
+  diff: number;
+  executionPct: number | null;
+  status: ComparisonStatus;
+}
+export interface MarginComparison {
+  plannedPct: number | null;
+  actualPct: number | null;
+  diffPp: number | null;
+}
+export interface PrevistoRealizado {
+  projectId: string;
+  number: string;
+  name: string;
+  hasBudget: boolean;
+  revenue: ComparisonRow;
+  costs: {
+    material: ComparisonRow;
+    labor: ComparisonRow;
+    vehicles: ComparisonRow;
+    other: ComparisonRow;
+    services: { planned: number };
+    rentals: { planned: number };
+    total: ComparisonRow;
+  };
+  margin: MarginComparison;
 }
 export interface FinanceImportPreview {
   totalRows: number;
@@ -863,6 +1007,28 @@ export const api = {
     request<void>(`/labor-roles/${id}`, { method: 'DELETE', token }),
   bulkAdjustLaborRolePrices: (token: string, data: { percentage: number }) =>
     request<{ adjusted: number }>('/labor-roles/bulk-adjust-price', { method: 'POST', token, body: JSON.stringify(data) }),
+
+  listThirdPartyServices: (token: string, search?: string) =>
+    request<ThirdPartyService[]>(`/third-party-services${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createThirdPartyService: (token: string, data: ThirdPartyServiceInput) =>
+    request<ThirdPartyService>('/third-party-services', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateThirdPartyService: (token: string, id: string, data: Partial<ThirdPartyServiceInput>) =>
+    request<ThirdPartyService>(`/third-party-services/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteThirdPartyService: (token: string, id: string) =>
+    request<void>(`/third-party-services/${id}`, { method: 'DELETE', token }),
+  bulkAdjustThirdPartyServicePrices: (token: string, data: { percentage: number; category?: string }) =>
+    request<{ adjusted: number }>('/third-party-services/bulk-adjust-price', { method: 'POST', token, body: JSON.stringify(data) }),
+
+  listRentalEquipment: (token: string, search?: string) =>
+    request<RentalEquipment[]>(`/rental-equipment${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
+  createRentalEquipment: (token: string, data: RentalEquipmentInput) =>
+    request<RentalEquipment>('/rental-equipment', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateRentalEquipment: (token: string, id: string, data: Partial<RentalEquipmentInput>) =>
+    request<RentalEquipment>(`/rental-equipment/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteRentalEquipment: (token: string, id: string) =>
+    request<void>(`/rental-equipment/${id}`, { method: 'DELETE', token }),
+  bulkAdjustRentalEquipmentPrices: (token: string, data: { percentage: number; category?: string }) =>
+    request<{ adjusted: number }>('/rental-equipment/bulk-adjust-price', { method: 'POST', token, body: JSON.stringify(data) }),
 
   listVehicles: (token: string, search?: string) =>
     request<Vehicle[]>(`/vehicles${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -1041,6 +1207,13 @@ export const api = {
     request<Settings>('/settings', { method: 'GET', token }),
   updateSettings: (token: string, data: SettingsInput) =>
     request<Settings>('/settings', { method: 'PATCH', token, body: JSON.stringify(data) }),
+  applySocialCharges: (token: string) =>
+    request<SocialChargesResult>('/settings/encargos/apply', { method: 'POST', token }),
+
+  getProjectFinancialAnalysis: (token: string, projectId: string, discountRatePct?: number) =>
+    request<ProjectFinancialAnalysis>(`/project-financial-analysis/${projectId}${discountRatePct !== undefined ? `?discountRatePct=${discountRatePct}` : ''}`, { method: 'GET', token }),
+  listProjectFinancialComparison: (token: string) =>
+    request<ProjectFinancialAnalysis[]>('/project-financial-analysis', { method: 'GET', token }),
   getBackupUrl: () => `${API_URL}/settings/backup`,
   restoreBackup: (token: string, confirmationText: string, data: Record<string, unknown>) =>
     request<{ restoredAt: string }>('/settings/restore', { method: 'POST', token, body: JSON.stringify({ confirmationText, data }) }),
@@ -1185,6 +1358,33 @@ export const api = {
     request<FinanceEntry>(`/finance/entries/${id}/cancel`, { method: 'POST', token }),
   deleteFinanceEntry: (token: string, id: string) =>
     request<void>(`/finance/entries/${id}`, { method: 'DELETE', token }),
+  transferFinanceEntry: (token: string, data: TransferFinanceEntryInput) =>
+    request<{ outEntry: FinanceEntry; inEntry: FinanceEntry }>('/finance/entries/transfer', { method: 'POST', token, body: JSON.stringify(data) }),
+
+  listFinanceAccounts: (token: string) =>
+    request<FinanceAccount[]>('/finance-accounts', { method: 'GET', token }),
+  createFinanceAccount: (token: string, data: FinanceAccountInput) =>
+    request<FinanceAccount>('/finance-accounts', { method: 'POST', token, body: JSON.stringify(data) }),
+  updateFinanceAccount: (token: string, id: string, data: Partial<FinanceAccountInput>) =>
+    request<FinanceAccount>(`/finance-accounts/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
+  deleteFinanceAccount: (token: string, id: string) =>
+    request<void>(`/finance-accounts/${id}`, { method: 'DELETE', token }),
+
+  getCurrentFinanceClosure: (token: string, accountId: string, periodStart: string, periodType: ClosurePeriodType = 'DAILY') =>
+    request<FinanceClosure>(`/finance-closures/current?accountId=${accountId}&periodStart=${periodStart}&periodType=${periodType}`, { method: 'GET', token }),
+  listFinanceClosures: (token: string, accountId?: string) =>
+    request<FinanceClosure[]>(`/finance-closures${accountId ? `?accountId=${accountId}` : ''}`, { method: 'GET', token }),
+  startReviewFinanceClosure: (token: string, id: string) =>
+    request<FinanceClosure>(`/finance-closures/${id}/start-review`, { method: 'POST', token }),
+  closeFinanceClosure: (token: string, id: string, data: CloseFinanceClosureInput) =>
+    request<FinanceClosure>(`/finance-closures/${id}/close`, { method: 'POST', token, body: JSON.stringify(data) }),
+  reopenFinanceClosure: (token: string, id: string, data: ReopenFinanceClosureInput) =>
+    request<FinanceClosure>(`/finance-closures/${id}/reopen`, { method: 'POST', token, body: JSON.stringify(data) }),
+
+  getPrevistoRealizadoProject: (token: string, projectId: string) =>
+    request<PrevistoRealizado>(`/previsto-realizado/projects/${projectId}`, { method: 'GET', token }),
+  listPrevistoRealizadoPortfolio: (token: string) =>
+    request<PrevistoRealizado[]>('/previsto-realizado/projects', { method: 'GET', token }),
 
   listFinanceAttachments: (token: string, financeEntryId: string) =>
     request<FinanceAttachment[]>(`/finance/entries/${financeEntryId}/attachments`, { method: 'GET', token }),

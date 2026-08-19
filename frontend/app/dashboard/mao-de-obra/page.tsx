@@ -20,7 +20,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LaborRoleForm } from '@/components/labor-role-form';
+import { SocialChargesTab } from '@/components/social-charges-tab';
 import { Plus, Pencil, Trash2, Percent } from 'lucide-react';
 
 function formatCurrency(value: number) {
@@ -115,91 +117,106 @@ export default function MaoDeObraPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Mão de Obra</h1>
-          <p className="text-muted-foreground">Funções e custos de mão de obra.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
-            <Percent size={16} className="mr-2" />
-            Reajustar Preços em Lote
-          </Button>
-          <Button onClick={openCreateForm}>
-            <Plus size={16} className="mr-2" />
-            Nova Função
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Mão de Obra</h1>
+        <p className="text-muted-foreground">Funções, encargos e custos de mão de obra.</p>
       </div>
 
-      <form onSubmit={handleSearchSubmit} className="flex gap-2 max-w-sm">
-        <Input
-          placeholder="Buscar por função..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Button type="submit" variant="outline">
-          Buscar
-        </Button>
-      </form>
+      <Tabs defaultValue="funcoes">
+        <TabsList>
+          <TabsTrigger value="funcoes">Funções</TabsTrigger>
+          <TabsTrigger value="encargos">Encargos Sociais</TabsTrigger>
+        </TabsList>
 
-      <div className="border rounded-md bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Função</TableHead>
-              <TableHead>Taxa/Hora</TableHead>
-              <TableHead>Encargos</TableHead>
-              <TableHead>Taxa c/ Encargos</TableHead>
-              <TableHead className="w-24">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  Carregando...
-                </TableCell>
-              </TableRow>
-            ) : roles.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  Nenhuma função cadastrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              roles.map((role) => (
-                <TableRow key={role.id}>
-                  <TableCell className="font-medium">{role.name}</TableCell>
-                  <TableCell>{formatCurrency(role.hourlyRate)}</TableCell>
-                  <TableCell>{role.chargesPct}%</TableCell>
-                  <TableCell className="font-semibold">
-                    {formatCurrency(role.effectiveHourlyRate)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditForm(role)}
-                      >
-                        <Pencil size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(role)}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                  </TableCell>
+        <TabsContent value="funcoes" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <form onSubmit={handleSearchSubmit} className="flex gap-2 max-w-sm">
+              <Input
+                placeholder="Buscar por função..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <Button type="submit" variant="outline">
+                Buscar
+              </Button>
+            </form>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
+                <Percent size={16} className="mr-2" />
+                Reajustar Preços em Lote
+              </Button>
+              <Button onClick={openCreateForm}>
+                <Plus size={16} className="mr-2" />
+                Nova Função
+              </Button>
+            </div>
+          </div>
+
+          <div className="border rounded-md bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Função</TableHead>
+                  <TableHead>Taxa/Hora</TableHead>
+                  <TableHead>Encargos</TableHead>
+                  <TableHead>Benefício/Hora</TableHead>
+                  <TableHead>Taxa c/ Encargos</TableHead>
+                  <TableHead className="w-24">Ações</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      Carregando...
+                    </TableCell>
+                  </TableRow>
+                ) : roles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      Nenhuma função cadastrada.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  roles.map((role) => (
+                    <TableRow key={role.id}>
+                      <TableCell className="font-medium">{role.name}</TableCell>
+                      <TableCell>{formatCurrency(role.hourlyRate)}</TableCell>
+                      <TableCell>{role.chargesPct}%</TableCell>
+                      <TableCell>{formatCurrency(role.beneficioHora)}</TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(role.effectiveHourlyRate)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditForm(role)}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(role)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="encargos">
+          <SocialChargesTab />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-2xl">

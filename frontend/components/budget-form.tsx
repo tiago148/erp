@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite, Settings, Employee, CostComposition } from '@/lib/api';
+import { api, Budget, BudgetInput, Client, Material, LaborRole, Vehicle, WorkSite, Settings, Employee, CostComposition, ThirdPartyService, RentalEquipment } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,6 +46,8 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [workSites, setWorkSites] = useState<WorkSite[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [compositions, setCompositions] = useState<CostComposition[]>([]);
+  const [thirdPartyServices, setThirdPartyServices] = useState<ThirdPartyService[]>([]);
+  const [rentalEquipment, setRentalEquipment] = useState<RentalEquipment[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [selectedWorkSiteId, setSelectedWorkSiteId] = useState('');
   const [saving, setSaving] = useState(false);
@@ -85,6 +87,12 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [compositionItems, setCompositionItems] = useState(
     initialData?.compositionItems.map((i) => ({ compositionId: i.compositionId, quantity: i.quantity })) || [],
   );
+  const [serviceItems, setServiceItems] = useState(
+    initialData?.serviceItems.map((i) => ({ thirdPartyServiceId: i.thirdPartyServiceId, quantity: i.quantity })) || [],
+  );
+  const [rentalItems, setRentalItems] = useState(
+    initialData?.rentalItems.map((i) => ({ rentalEquipmentId: i.rentalEquipmentId, period: i.period })) || [],
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -95,6 +103,8 @@ export function BudgetForm({ initialData, onSaved }: Props) {
     api.listWorkSites(token).then(setWorkSites);
     api.listEmployees(token).then(setEmployees);
     api.listCostCompositions(token).then(setCompositions);
+    api.listThirdPartyServices(token).then(setThirdPartyServices);
+    api.listRentalEquipment(token).then(setRentalEquipment);
     api.getSettings(token).then((s) => {
       setSettings(s);
       if (isNewRef.current) {
@@ -143,6 +153,16 @@ function applyWorkSiteDistance(workSiteId: string) {
     return c ? c.costs.unitCost * qty : 0;
   }
 
+  function serviceCost(thirdPartyServiceId: string, qty: number) {
+    const s = thirdPartyServices.find((x) => x.id === thirdPartyServiceId);
+    return s ? s.unitPrice * qty : 0;
+  }
+
+  function rentalCost(rentalEquipmentId: string, period: number) {
+    const r = rentalEquipment.find((x) => x.id === rentalEquipmentId);
+    return r ? r.unitPrice * period + r.mobilizationCost : 0;
+  }
+
  function addTravelItem() {
   const site = workSites.find((w) => w.id === selectedWorkSiteId);
   setTravelItems([
@@ -157,7 +177,9 @@ function applyWorkSiteDistance(workSiteId: string) {
   const travelTotal = travelItems.reduce((s, i) => s + travelCost(i), 0);
   const otherTotal = otherItems.reduce((s, i) => s + i.amount, 0);
   const compositionsTotal = compositionItems.reduce((s, i) => s + compositionCost(i.compositionId, i.quantity), 0);
-  const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal + compositionsTotal;
+  const servicesTotal = serviceItems.reduce((s, i) => s + serviceCost(i.thirdPartyServiceId, i.quantity), 0);
+  const rentalsTotal = rentalItems.reduce((s, i) => s + rentalCost(i.rentalEquipmentId, i.period), 0);
+  const subtotal = materialsTotal + laborTotal + travelTotal + otherTotal + compositionsTotal + servicesTotal + rentalsTotal;
   const indirectCostValue = computeIndirectCost(settings, fixedExpensesTotal, subtotal, laborHours, projectDays);
   const costWithIndirect = subtotal + indirectCostValue;
 
@@ -205,6 +227,8 @@ function applyWorkSiteDistance(workSiteId: string) {
       travelItems,
       otherItems,
       compositionItems,
+      serviceItems,
+      rentalItems,
     };
 
     try {
@@ -526,6 +550,108 @@ function applyWorkSiteDistance(workSiteId: string) {
         ))}
       </div>
 
+      {/* SERVICOS DE TERCEIROS */}
+      <div className="border rounded-md p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <Label className="font-semibold">Serviços de Terceiros</Label>
+          <Button type="button" size="sm" variant="outline" onClick={() =>
+            setServiceItems([...serviceItems, { thirdPartyServiceId: '', quantity: 1 }])
+          }><Plus size={14} className="mr-1" />Adicionar</Button>
+        </div>
+        {serviceItems.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhum serviço de terceiro adicionado.</p>
+        )}
+        {serviceItems.length > 0 && (
+          <div className="flex gap-2 text-xs text-muted-foreground font-medium px-1">
+            <span className="flex-1">Serviço</span>
+            <span className="w-28">Quantidade</span>
+            <span className="w-24">Subtotal</span>
+            <span className="w-9"></span>
+          </div>
+        )}
+        {serviceItems.map((item, idx) => {
+          const selected = thirdPartyServices.find((s) => s.id === item.thirdPartyServiceId);
+          return (
+            <div key={idx} className="flex gap-2 items-center">
+              <Select value={item.thirdPartyServiceId} onValueChange={(v) => {
+                const arr = [...serviceItems]; arr[idx].thirdPartyServiceId = v; setServiceItems(arr);
+              }}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Selecione o serviço">
+                    {selected ? `${selected.name} (${fmt(selected.unitPrice)}/${selected.unit})` : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {thirdPartyServices.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name} ({fmt(s.unitPrice)}/{s.unit})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input type="number" step="0.01" min="0.01" className="w-28" placeholder="Qtd." value={item.quantity}
+                onChange={(e) => { const arr = [...serviceItems]; arr[idx].quantity = parseFloat(e.target.value) || 0; setServiceItems(arr); }} />
+              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(serviceCost(item.thirdPartyServiceId, item.quantity))}</span>
+              <Button type="button" size="icon" variant="ghost" onClick={() => setServiceItems(serviceItems.filter((_, i) => i !== idx))}>
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          );
+        })}
+        {thirdPartyServices.length === 0 && (
+          <p className="text-xs text-warning">Nenhum serviço cadastrado ainda — cadastre em &quot;Serviços de Terceiros&quot; primeiro.</p>
+        )}
+      </div>
+
+      {/* ALUGUEIS E LOCACOES */}
+      <div className="border rounded-md p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <Label className="font-semibold">Aluguéis e Locações</Label>
+          <Button type="button" size="sm" variant="outline" onClick={() =>
+            setRentalItems([...rentalItems, { rentalEquipmentId: '', period: 1 }])
+          }><Plus size={14} className="mr-1" />Adicionar</Button>
+        </div>
+        {rentalItems.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhum aluguel adicionado.</p>
+        )}
+        {rentalItems.length > 0 && (
+          <div className="flex gap-2 text-xs text-muted-foreground font-medium px-1">
+            <span className="flex-1">Equipamento</span>
+            <span className="w-28">Período</span>
+            <span className="w-24">Subtotal</span>
+            <span className="w-9"></span>
+          </div>
+        )}
+        {rentalItems.map((item, idx) => {
+          const selected = rentalEquipment.find((r) => r.id === item.rentalEquipmentId);
+          return (
+            <div key={idx} className="flex gap-2 items-center">
+              <Select value={item.rentalEquipmentId} onValueChange={(v) => {
+                const arr = [...rentalItems]; arr[idx].rentalEquipmentId = v; setRentalItems(arr);
+              }}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Selecione o equipamento">
+                    {selected ? `${selected.name} (${fmt(selected.unitPrice)})` : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {rentalEquipment.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name} ({fmt(r.unitPrice)})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input type="number" step="1" min="1" className="w-28" placeholder="Período" value={item.period}
+                onChange={(e) => { const arr = [...rentalItems]; arr[idx].period = parseInt(e.target.value, 10) || 0; setRentalItems(arr); }} />
+              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(rentalCost(item.rentalEquipmentId, item.period))}</span>
+              <Button type="button" size="icon" variant="ghost" onClick={() => setRentalItems(rentalItems.filter((_, i) => i !== idx))}>
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          );
+        })}
+        {rentalEquipment.length === 0 && (
+          <p className="text-xs text-warning">Nenhum equipamento cadastrado ainda — cadastre em &quot;Aluguéis e Locações&quot; primeiro.</p>
+        )}
+      </div>
+
       {/* REGIME / PRAZO / DESCONTO */}
       <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
@@ -580,7 +706,7 @@ function applyWorkSiteDistance(workSiteId: string) {
 
       {/* RESUMO */}
       <div className="bg-muted rounded-md p-4 space-y-1 text-sm">
-        <div className="flex justify-between"><span>Custo direto (materiais + mão de obra + deslocamento + outros)</span><span>{fmt(subtotal)}</span></div>
+        <div className="flex justify-between"><span>Custo direto (materiais + mão de obra + deslocamento + serviços + aluguéis + outros)</span><span>{fmt(subtotal)}</span></div>
         {indirectCostValue > 0 && (
           <div className="flex justify-between text-warning"><span>Custos Indiretos (taxa administrativa)</span><span>{fmt(indirectCostValue)}</span></div>
         )}

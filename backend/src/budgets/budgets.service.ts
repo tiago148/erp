@@ -82,6 +82,50 @@ export class BudgetsService {
     return referencePrice;
   }
 
+  private async resolveServiceItems(
+    items: { thirdPartyServiceId: string; quantity: number }[],
+  ) {
+    return Promise.all(
+      items.map(async (item) => {
+        const service = await this.prisma.client.thirdPartyService.findUnique(
+          { where: { id: item.thirdPartyServiceId } },
+        );
+        if (!service)
+          throw new NotFoundException(
+            'Servico de terceiro nao encontrado: ' + item.thirdPartyServiceId,
+          );
+        return {
+          thirdPartyServiceId: item.thirdPartyServiceId,
+          quantity: item.quantity,
+          unitPrice: round2(Number(service.unitPrice)),
+        };
+      }),
+    );
+  }
+
+  private async resolveRentalItems(
+    items: { rentalEquipmentId: string; period: number }[],
+  ) {
+    return Promise.all(
+      items.map(async (item) => {
+        const equipment = await this.prisma.client.rentalEquipment.findUnique(
+          { where: { id: item.rentalEquipmentId } },
+        );
+        if (!equipment)
+          throw new NotFoundException(
+            'Equipamento de aluguel nao encontrado: ' +
+              item.rentalEquipmentId,
+          );
+        return {
+          rentalEquipmentId: item.rentalEquipmentId,
+          period: item.period,
+          unitPrice: round2(Number(equipment.unitPrice)),
+          mobilizationCost: round2(Number(equipment.mobilizationCost)),
+        };
+      }),
+    );
+  }
+
   private async getOverheadContext(): Promise<OverheadContext | null> {
     const settings = await this.prisma.client.settings.findFirst();
     if (!settings || !settings.overheadAutoApply) return null;
@@ -201,12 +245,28 @@ export class BudgetsService {
       0,
     );
 
+    const servicesTotal = budget.serviceItems.reduce(
+      (sum: number, item: any) =>
+        sum + Number(item.quantity) * Number(item.unitPrice),
+      0,
+    );
+
+    const rentalsTotal = budget.rentalItems.reduce(
+      (sum: number, item: any) =>
+        sum +
+        Number(item.period) * Number(item.unitPrice) +
+        Number(item.mobilizationCost),
+      0,
+    );
+
     const subtotal =
       materialsTotal +
       laborTotal +
       travelTotal +
       otherTotal +
-      compositionsTotal;
+      compositionsTotal +
+      servicesTotal +
+      rentalsTotal;
     const projectDays = Number(budget.projectDays || 0);
     const indirectCostValue = this.calculateIndirectCost(
       overheadCtx,
@@ -263,6 +323,8 @@ export class BudgetsService {
       travelTotal: round2(travelTotal),
       otherTotal: round2(otherTotal),
       compositionsTotal: round2(compositionsTotal),
+      servicesTotal: round2(servicesTotal),
+      rentalsTotal: round2(rentalsTotal),
       subtotal: round2(subtotal),
       indirectCostValue: round2(indirectCostValue),
       costWithIndirect: round2(costWithIndirect),
@@ -297,6 +359,8 @@ export class BudgetsService {
       travelItems: { include: { vehicle: true } },
       otherItems: true,
       compositionItems: { include: { composition: true } },
+      serviceItems: { include: { thirdPartyService: true } },
+      rentalItems: { include: { rentalEquipment: true } },
     };
   }
 
@@ -372,6 +436,7 @@ export class BudgetsService {
             periculosidade: role.periculosidade,
             insalubridadePct: Number(role.insalubridadePct),
             noturnoPct: Number(role.noturnoPct),
+            beneficioHora: Number(role.beneficioHora),
           },
           salarioMinimo,
         );
@@ -400,6 +465,14 @@ export class BudgetsService {
       salarioMinimo,
     );
 
+    const serviceItemsData = await this.resolveServiceItems(
+      dto.serviceItems || [],
+    );
+
+    const rentalItemsData = await this.resolveRentalItems(
+      dto.rentalItems || [],
+    );
+
     const budget = await this.prisma.client.budget.create({
       data: {
         number,
@@ -421,6 +494,8 @@ export class BudgetsService {
         travelItems: { create: travelItemsData },
         otherItems: { create: otherItemsData },
         compositionItems: { create: compositionItemsData },
+        serviceItems: { create: serviceItemsData },
+        rentalItems: { create: rentalItemsData },
       },
       include: this.include(),
     });
@@ -523,6 +598,7 @@ export class BudgetsService {
               periculosidade: role.periculosidade,
               insalubridadePct: Number(role.insalubridadePct),
               noturnoPct: Number(role.noturnoPct),
+              beneficioHora: Number(role.beneficioHora),
             },
             salarioMinimo,
           );
@@ -574,6 +650,24 @@ export class BudgetsService {
         where: { budgetId: id },
       });
       updateData.compositionItems = { create: compositionItemsData };
+    }
+
+    if (dto.serviceItems) {
+      const serviceItemsData = await this.resolveServiceItems(
+        dto.serviceItems,
+      );
+      await this.prisma.client.budgetServiceItem.deleteMany({
+        where: { budgetId: id },
+      });
+      updateData.serviceItems = { create: serviceItemsData };
+    }
+
+    if (dto.rentalItems) {
+      const rentalItemsData = await this.resolveRentalItems(dto.rentalItems);
+      await this.prisma.client.budgetRentalItem.deleteMany({
+        where: { budgetId: id },
+      });
+      updateData.rentalItems = { create: rentalItemsData };
     }
 
     const budget = await this.prisma.client.budget.update({
@@ -636,6 +730,21 @@ export class BudgetsService {
           compositionId: item.compositionId,
           quantity: item.quantity,
           unitCost: item.unitCost,
+        })),
+      },
+      serviceItems: {
+        create: source.serviceItems.map((item) => ({
+          thirdPartyServiceId: item.thirdPartyServiceId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+      },
+      rentalItems: {
+        create: source.rentalItems.map((item) => ({
+          rentalEquipmentId: item.rentalEquipmentId,
+          period: item.period,
+          unitPrice: item.unitPrice,
+          mobilizationCost: item.mobilizationCost,
         })),
       },
     };

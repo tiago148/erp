@@ -26,6 +26,15 @@ export class ProjectsController {
     return this.projectsService.create(dto);
   }
 
+  // Manutencao unica para projetos criados antes do Previsto x Realizado --
+  // ver ProjectsService.backfillPlannedCosts().
+  @Post('backfill-planned-costs')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  backfillPlannedCosts() {
+    return this.projectsService.backfillPlannedCosts();
+  }
+
   @Get() findAll(@Query('search') search?: string) {
     return this.projectsService.findAll(search);
   }

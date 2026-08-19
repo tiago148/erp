@@ -18,6 +18,7 @@ function withEffectiveRate(role: any, salarioMinimo: number) {
       periculosidade: role.periculosidade,
       insalubridadePct: Number(role.insalubridadePct),
       noturnoPct: Number(role.noturnoPct),
+      beneficioHora: Number(role.beneficioHora),
     },
     salarioMinimo,
   );

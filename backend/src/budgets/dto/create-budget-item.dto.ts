@@ -57,3 +57,23 @@ export class CreateBudgetCompositionItemDto {
   @Min(0.01)
   quantity: number;
 }
+
+export class CreateBudgetServiceItemDto {
+  @IsString()
+  @IsNotEmpty()
+  thirdPartyServiceId: string;
+
+  @IsNumber()
+  @Min(0.01)
+  quantity: number;
+}
+
+export class CreateBudgetRentalItemDto {
+  @IsString()
+  @IsNotEmpty()
+  rentalEquipmentId: string;
+
+  @IsNumber()
+  @Min(1)
+  period: number;
+}

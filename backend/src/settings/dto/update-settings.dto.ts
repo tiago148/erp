@@ -1,4 +1,5 @@
 ﻿import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -50,4 +51,12 @@ export class UpdateSettingsDto {
   @IsOptional() @IsInt() @Min(1) overheadSimultaneousProjects?: number;
   @IsOptional() @IsBoolean() overheadAutoApply?: boolean;
   @IsOptional() @IsNumber() @Min(0) assetOpportunityCostPct?: number;
+  @IsOptional() @IsArray() encargosGrupoA?: { nome: string; pct: number }[];
+  @IsOptional() @IsArray() encargosGrupoB?: { nome: string; pct: number }[];
+  @IsOptional() @IsArray() encargosBeneficios?: {
+    nome: string;
+    valorMes: number;
+  }[];
+  @IsOptional() @IsNumber() @Min(1) encargosHorasProdMes?: number;
+  @IsOptional() @IsNumber() @Min(0) discountRatePct?: number;
 }
