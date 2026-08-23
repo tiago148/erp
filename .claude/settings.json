@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/vehicles)",
+      "Bash(node -e ' *)",
+      "Bash(rm -f /tmp/qa6_*.txt)",
+      "Bash(curl -s -o /dev/null -w \"estoque page: %{http_code}\\\\n\" http://localhost:3000/dashboard/estoque)",
+      "Bash(curl -s -o /dev/null -w \"compras page: %{http_code}\\\\n\" http://localhost:3000/dashboard/compras)"
+    ]
+  }
+}

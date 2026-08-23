@@ -1,0 +1,136 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { api, WorkLog, WorkLogInput } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { WorkLogForm } from '@/components/work-log-form';
+import { Plus, Pencil, Trash2, Cloud, Users, AlertTriangle, Car, Wrench } from 'lucide-react';
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
+export default function DiarioPage() {
+  const { token } = useAuth();
+  const [logs, setLogs] = useState<WorkLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<WorkLog | undefined>();
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try { setLogs(await api.listWorkLogs(token)); } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleSubmit(data: WorkLogInput) {
+    if (!token) return;
+    if (editing) await api.updateWorkLog(token, editing.id, data);
+    else await api.createWorkLog(token, data);
+    setOpen(false);
+    load();
+  }
+
+  async function handleDelete(log: WorkLog) {
+    if (!token || !confirm('Excluir este registro do diário?')) return;
+    await api.deleteWorkLog(token, log.id);
+    load();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Diário de Obra</h1>
+          <p className="text-muted-foreground">Registro diário das atividades em campo.</p>
+        </div>
+        <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
+          <Plus size={16} className="mr-2" />Novo Registro
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-muted-foreground">Carregando...</p>
+      ) : logs.length === 0 ? (
+        <p className="text-muted-foreground">Nenhum registro no diário ainda.</p>
+      ) : (
+        <div className="space-y-4">
+          {logs.map((log) => (
+            <div key={log.id} className="border rounded-md bg-card p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold">{log.project.number} - {log.project.name}</p>
+                  <p className="text-sm text-muted-foreground">{formatDate(log.date)}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => { setEditing(log); setOpen(true); }}><Pencil size={16} /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(log)}><Trash2 size={16} /></Button>
+                </div>
+              </div>
+
+              <div className="flex gap-4 text-sm text-muted-foreground flex-wrap">
+                {log.weather && (
+                  <span className="flex items-center gap-1"><Cloud size={14} />{log.weather}</span>
+                )}
+                {log.employees.length > 0 && (
+                  <span className="flex items-center gap-1"><Users size={14} />{log.employees.length} trabalhador(es)</span>
+                )}
+              </div>
+
+              <p className="text-sm">{log.description}</p>
+
+              {log.employees.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {log.employees.map((e) => (
+                    <span key={e.id} className="px-2 py-0.5 rounded-full text-xs bg-secondary text-secondary-foreground">{e.employee.name}</span>
+                  ))}
+                </div>
+              )}
+
+              {log.noTravel ? (
+                <span className="px-2 py-0.5 rounded-full text-xs bg-secondary text-muted-foreground w-fit">Barracão (sem deslocamento)</span>
+              ) : log.vehicleUsages.length > 0 && (
+                <div className="space-y-1">
+                  {log.vehicleUsages.map((v) => (
+                    <div key={v.id} className="flex items-center gap-2 text-xs text-info">
+                      <Car size={14} />
+                      <span>{v.vehicle.name}</span>
+                      {v.driver && <span className="text-muted-foreground">— motorista: {v.driver.name}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {log.toolsUsed.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap text-xs text-purple-300">
+                  <Wrench size={14} />
+                  {log.toolsUsed.map((t) => (
+                    <span key={t.id} className="px-2 py-0.5 rounded-full bg-purple-500/15">{t.tool.name}</span>
+                  ))}
+                </div>
+              )}
+
+              {log.occurrences && (
+                <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-md p-2 text-sm text-warning">
+                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                  <span>{log.occurrences}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{editing ? 'Editar Registro' : 'Novo Registro do Diário'}</DialogTitle></DialogHeader>
+          <WorkLogForm initialData={editing} onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
