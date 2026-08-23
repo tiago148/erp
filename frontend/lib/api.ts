@@ -267,10 +267,10 @@ export interface StockMovement {
   projectId?: string; project?: Project; notes?: string; movedAt: string;
 }
 export interface StockItem {
-  id: string; materialId: string; material: Material; quantity: number; minQuantity: number;
+  id: string; materialId: string; material: Material; quantity: number; minQuantity: number; location?: string;
   movements: StockMovement[]; createdAt: string; updatedAt: string;
 }
-export interface StockItemInput { materialId: string; quantity: number; minQuantity: number; }
+export interface StockItemInput { materialId: string; quantity: number; minQuantity: number; location?: string; }
 export interface StockMovementInput { type: StockMovementType; quantity: number; projectId?: string; notes?: string; }
 
 export interface WorkLogEmployeeEntry { id: string; employeeId: string; employee: Employee; }
@@ -1149,7 +1149,7 @@ export const api = {
     request<StockItem[]>(`/stock${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
   createStockItem: (token: string, data: StockItemInput) =>
     request<StockItem>('/stock', { method: 'POST', token, body: JSON.stringify(data) }),
-  updateStockItem: (token: string, id: string, data: { minQuantity?: number }) =>
+  updateStockItem: (token: string, id: string, data: { minQuantity?: number; location?: string }) =>
     request<StockItem>(`/stock/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   addStockMovement: (token: string, id: string, data: StockMovementInput) =>
     request<StockItem>(`/stock/${id}/movements`, { method: 'POST', token, body: JSON.stringify(data) }),

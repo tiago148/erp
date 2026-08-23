@@ -627,6 +627,7 @@ model StockItem {
   material    Material        @relation(fields: [materialId], references: [id])
   quantity    Decimal         @default(0) @db.Decimal(12, 2)
   minQuantity Decimal         @default(0) @db.Decimal(12, 2)
+  location    String?
   movements   StockMovement[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

@@ -18,7 +18,7 @@ import { StockMovementForm } from '@/components/stock-movement-form';
 import { MaterialSurplusForm } from '@/components/material-surplus-form';
 import { ScrapSaleForm } from '@/components/scrap-sale-form';
 import { downloadCsv } from '@/lib/export-csv';
-import { Plus, ArrowRightLeft, Trash2, Download, Undo2, PackageCheck, Recycle } from 'lucide-react';
+import { Plus, ArrowRightLeft, Trash2, Download, Undo2, PackageCheck, Recycle, Pencil } from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -29,6 +29,7 @@ function StockPositionTab() {
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<StockItem | undefined>();
   const [moveOpen, setMoveOpen] = useState(false);
   const [moving, setMoving] = useState<StockItem | undefined>();
 
@@ -44,6 +45,13 @@ function StockPositionTab() {
     if (!token) return;
     await api.createStockItem(token, data);
     setOpen(false);
+    load();
+  }
+
+  async function handleUpdate(data: StockItemInput) {
+    if (!token || !editing) return;
+    await api.updateStockItem(token, editing.id, { minQuantity: data.minQuantity, location: data.location });
+    setEditing(undefined);
     load();
   }
 
@@ -71,15 +79,15 @@ function StockPositionTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Material</TableHead><TableHead>Categoria</TableHead>
-              <TableHead>Quantidade</TableHead><TableHead>Mínimo</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-24">Ações</TableHead>
+              <TableHead>Quantidade</TableHead><TableHead>Mínimo</TableHead><TableHead>Localização</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-28">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum item no estoque.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum item no estoque.</TableCell></TableRow>
             ) : items.map((item) => {
               const isLow = item.quantity <= item.minQuantity;
               return (
@@ -88,6 +96,7 @@ function StockPositionTab() {
                   <TableCell>{item.material.category}</TableCell>
                   <TableCell>{item.quantity} {item.material.unit}</TableCell>
                   <TableCell>{item.minQuantity} {item.material.unit}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.location || '-'}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${isLow ? 'bg-destructive/15 text-destructive' : 'bg-success/15 text-success'}`}>
                       {isLow ? 'Estoque Baixo' : 'OK'}
@@ -97,6 +106,9 @@ function StockPositionTab() {
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" title="Movimentar" onClick={() => { setMoving(item); setMoveOpen(true); }}>
                         <ArrowRightLeft size={16} />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Editar mínimo/localização" onClick={() => setEditing(item)}>
+                        <Pencil size={16} />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}><Trash2 size={16} /></Button>
                     </div>
@@ -112,6 +124,13 @@ function StockPositionTab() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Novo Item de Estoque</DialogTitle></DialogHeader>
           <StockItemForm onSubmit={handleCreate} onCancel={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(undefined)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Editar Item de Estoque</DialogTitle></DialogHeader>
+          {editing && <StockItemForm initialData={editing} onSubmit={handleUpdate} onCancel={() => setEditing(undefined)} />}
         </DialogContent>
       </Dialog>
 
