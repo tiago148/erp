@@ -12,25 +12,50 @@ export class PrevistoRealizadoService {
     return settings ? Number(settings.defaultFuelPrice) : 6;
   }
 
-  // Realizado de material: pedidos de compra RECEBIDOS direcionados a este
-  // projeto. Nao ha risco de contar duas vezes com "outros" porque o
-  // FinanceEntry gerado ao receber um pedido nao grava projectId.
+  // Realizado de material: soma duas fontes que nao se sobrepoem.
+  // (1) Pedidos de compra RECEBIDOS direcionados direto a este projeto --
+  //     preco historico real (PurchaseOrderItem.unitCost).
+  // (2) Material que ja estava no estoque geral e foi retirado manualmente
+  //     para este projeto (StockMovement OUT com projectId, source=MANUAL).
+  //     "MANUAL" e o que garante que isso nao dobra a conta com (1): todo
+  //     StockMovement OUT gerado automaticamente ao receber um pedido direto
+  //     a um projeto (purchase-orders.service.ts#receive) nasce com
+  //     source=PURCHASE_ORDER e fica de fora daqui -- so entra a retirada
+  //     manual de um material que chegou por uma compra SEM destinationProjectId
+  //     (foi para o estoque geral) e so depois foi enviado a obra.
+  //     Usa o Material.unitCost atual (StockMovement nao guarda o preco
+  //     pago na compra original que abasteceu o estoque).
   private async actualMaterialCost(projectId: string) {
-    const orders = await this.prisma.client.purchaseOrder.findMany({
-      where: { status: 'RECEIVED', destinationProjectId: projectId },
-      include: { items: true },
-    });
-    return round2(
-      orders.reduce(
-        (sum, order) =>
-          sum +
-          order.items.reduce(
-            (s, item) => s + Number(item.quantity) * Number(item.unitCost),
-            0,
-          ),
-        0,
-      ),
+    const [orders, stockOuts] = await Promise.all([
+      this.prisma.client.purchaseOrder.findMany({
+        where: { status: 'RECEIVED', destinationProjectId: projectId },
+        include: { items: true },
+      }),
+      this.prisma.client.stockMovement.findMany({
+        where: { type: 'OUT', projectId, source: 'MANUAL' },
+        include: { stockItem: { include: { material: true } } },
+      }),
+    ]);
+
+    const fromPurchaseOrders = orders.reduce(
+      (sum, order) =>
+        sum +
+        order.items.reduce(
+          (s, item) => s + Number(item.quantity) * Number(item.unitCost),
+          0,
+        ),
+      0,
     );
+
+    const fromStock = stockOuts.reduce(
+      (sum, movement) =>
+        sum +
+        Number(movement.quantity) *
+          Number(movement.stockItem.material.unitCost),
+      0,
+    );
+
+    return round2(fromPurchaseOrders + fromStock);
   }
 
   // Realizado de mao de obra: diaria de cada funcionario presente em cada

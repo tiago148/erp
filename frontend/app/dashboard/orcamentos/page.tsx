@@ -8,6 +8,7 @@ import { marginBadgeVariant, marginLabel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MarginSimulator } from '@/components/margin-simulator';
 import { PrintDocument, PrintHeader, PrintSectionTitle, PrintFooter, PrintSignatures } from '@/components/print-document';
@@ -265,6 +266,15 @@ export default function OrcamentosPage() {
     setVersions(await api.listBudgetVersions(token, budget.id));
   }
 
+  async function handleStatusChange(budget: Budget, status: BudgetStatus) {
+    if (!token || status === budget.status) return;
+    if (status === 'APPROVED' && !confirm(`Aprovar o orçamento nº ${budget.number}? Um projeto será criado automaticamente a partir dele.`)) {
+      return;
+    }
+    await api.updateBudget(token, budget.id, { status });
+    loadBudgets(search);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -336,11 +346,19 @@ export default function OrcamentosPage() {
                   <TableCell>{budget.client.name}</TableCell>
                   <TableCell>{formatDate(budget.createdAt)}</TableCell>
                   <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[budget.status]}`}
-                    >
-                      {statusLabels[budget.status]}
-                    </span>
+                    <Select value={budget.status} onValueChange={(v) => v && handleStatusChange(budget, v as BudgetStatus)}>
+                      <SelectTrigger
+                        size="sm"
+                        className={`rounded-full border-none px-2.5 py-1 h-auto text-xs font-medium gap-1 ${statusColors[budget.status]}`}
+                      >
+                        <SelectValue>{statusLabels[budget.status]}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(statusLabels) as BudgetStatus[]).map((s) => (
+                          <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="font-semibold font-mono">
                     {formatCurrency(budget.totals.total)}

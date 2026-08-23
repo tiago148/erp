@@ -46,8 +46,11 @@ export class SettingsController {
   @Get('backup')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  exportBackup() {
-    return this.settingsService.exportBackup();
+  exportBackup(@Req() req: any) {
+    return this.settingsService.exportBackup({
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Post('restore')

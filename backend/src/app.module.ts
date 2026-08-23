@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -59,6 +61,15 @@ import { ProjectFinancialAnalysisModule } from './project-financial-analysis/pro
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([
+      {
+        // Limite geral: 100 requisicoes por minuto por IP. Endpoints
+        // sensiveis (login) usam um limite proprio, mais restrito, via
+        // @Throttle no controller.
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -114,6 +125,6 @@ import { ProjectFinancialAnalysisModule } from './project-financial-analysis/pro
     ProjectFinancialAnalysisModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

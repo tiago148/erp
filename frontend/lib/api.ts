@@ -16,6 +16,21 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     },
   });
   if (!response.ok) {
+    // Sessão inválida/expirada numa chamada autenticada: em vez de deixar o
+    // erro estourar sem tratamento em qualquer tela que fez essa chamada
+    // (o que derrubava a página inteira no overlay de erro do Next.js),
+    // encerra a sessão e manda para o login — mesmo efeito do logout().
+    // Só entra em ação quando havia um token (login com senha errada, por
+    // exemplo, não passa token e continua caindo no throw normal abaixo,
+    // pra aparecer como erro no próprio formulário de login).
+    if (response.status === 401 && token && typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+      return new Promise<T>(() => {});
+    }
     const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
     throw new Error(error.message || `Erro ${response.status}`);
   }
@@ -367,22 +382,30 @@ export interface LessonLearnedInput {
 export type QuotationStatus = 'OPEN' | 'CLOSED';
 export interface QuotationProposal {
   id: string; quotationItemId: string; supplierId: string; supplier: Supplier;
-  unitCost: number; isWinner: boolean; notes?: string; createdAt: string;
+  unitCost: number; leadTimeDays?: number; isWinner: boolean; notes?: string; createdAt: string;
 }
 export interface QuotationItem {
   id: string; quotationId: string; materialId: string; material: Material;
   quantity: number; proposals: QuotationProposal[];
 }
 export interface Quotation {
-  id: string; number: string; description?: string; status: QuotationStatus;
+  id: string; number: string; description?: string;
+  projectId?: string; project?: Project; quotedAt: string;
+  status: QuotationStatus;
   items: QuotationItem[]; createdAt: string; updatedAt: string;
 }
 export interface QuotationInput {
   description?: string;
-  items: { materialId: string; quantity: number }[];
+  projectId?: string;
+  quotedAt?: string;
+  items: {
+    materialId: string;
+    quantity: number;
+    proposals?: { supplierId: string; unitCost: number; leadTimeDays?: number; notes?: string }[];
+  }[];
 }
 export interface QuotationItemInput { materialId: string; quantity: number }
-export interface QuotationProposalInput { supplierId: string; unitCost: number; notes?: string }
+export interface QuotationProposalInput { supplierId: string; unitCost: number; leadTimeDays?: number; notes?: string }
 export interface GenerateOrdersResult { orders: PurchaseOrder[]; skippedItems: string[] }
 
 export type OverheadMethod = 'DAY' | 'HOUR' | 'PERCENT';
@@ -787,6 +810,7 @@ export interface FinanceEntryInput {
   budgetId?: string;
   notes?: string;
   overrideReason?: string;
+  markAsFixedExpense?: boolean;
 }
 export interface PayFinanceEntryInput {
   paidAt?: string;
@@ -942,8 +966,6 @@ export interface SearchResults {
 export const api = {
   login: (email: string, password: string) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  register: (name: string, email: string, password: string) =>
-    request<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
   me: (token: string) => request<{ userId: string; email: string; role: string }>('/auth/me', { method: 'GET', token }),
   listUsers: (token: string) => request<ManagedUser[]>('/auth/users', { method: 'GET', token }),
   createUserByAdmin: (token: string, data: CreateUserByAdminInput) =>

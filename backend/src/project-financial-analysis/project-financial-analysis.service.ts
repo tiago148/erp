@@ -43,10 +43,17 @@ export class ProjectFinancialAnalysisService {
   private async collectCashEvents(projectId: string): Promise<CashEvent[]> {
     const fuelPrice = await this.getDefaultFuelPrice();
 
-    const [orders, logs, trips, entries] = await Promise.all([
+    const [orders, stockOuts, logs, trips, entries] = await Promise.all([
       this.prisma.client.purchaseOrder.findMany({
         where: { status: 'RECEIVED', destinationProjectId: projectId },
         include: { items: true },
+      }),
+      // MANUAL apenas -- ver comentario equivalente em
+      // PrevistoRealizadoService.actualMaterialCost sobre por que isso nao
+      // dobra a conta com os pedidos de compra diretos ao projeto acima.
+      this.prisma.client.stockMovement.findMany({
+        where: { type: 'OUT', projectId, source: 'MANUAL' },
+        include: { stockItem: { include: { material: true } } },
       }),
       this.prisma.client.workLog.findMany({
         where: { projectId },
@@ -70,6 +77,13 @@ export class ProjectFinancialAnalysisService {
         0,
       );
       if (cost !== 0) events.push({ date: order.receivedAt, amount: -cost });
+    }
+
+    for (const movement of stockOuts) {
+      const cost =
+        Number(movement.quantity) *
+        Number(movement.stockItem.material.unitCost);
+      if (cost !== 0) events.push({ date: movement.movedAt, amount: -cost });
     }
 
     for (const log of logs) {

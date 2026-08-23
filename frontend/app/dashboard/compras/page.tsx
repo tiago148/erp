@@ -194,15 +194,17 @@ function PurchaseOrdersTab() {
   );
 }
 
-const quotationStatusLabels: Record<string, string> = { OPEN: 'Aberta', CLOSED: 'Fechada' };
-const quotationStatusColors: Record<string, string> = {
-  OPEN: 'bg-warning/15 text-warning',
-  CLOSED: 'bg-success/15 text-success',
-};
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
 
+// Uma linha por item cotado (nao por cotação) — igual ao protótipo, onde
+// cada cotação e um item só. Aqui uma cotação pode ter vários itens, entao
+// achatamos para a tabela ficar com a mesma leitura: Data / Item / Qtd /
+// Propostas / Vencedor / Valor / Economia / Ações.
 function QuotationsTab() {
   const { token } = useAuth();
-  const [items, setItems] = useState<Quotation[]>([]);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -210,7 +212,7 @@ function QuotationsTab() {
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    try { setItems(await api.listQuotations(token)); } finally { setLoading(false); }
+    try { setQuotations(await api.listQuotations(token)); } finally { setLoading(false); }
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
@@ -228,55 +230,69 @@ function QuotationsTab() {
     load();
   }
 
-  const detailQuotation = items.find((q) => q.id === detailId);
+  const detailQuotation = quotations.find((q) => q.id === detailId);
+  const rows = quotations.flatMap((q) => q.items.map((item) => ({ quotation: q, item })));
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Nova Cotação</Button>
+      <div className="flex justify-between items-end gap-4">
+        <p className="text-xs text-muted-foreground max-w-xl">Compare os fornecedores antes de comprar. O sistema aponta o melhor preço e o menor prazo — marque o vencedor e gere o pedido de compra em poucos cliques.</p>
+        <Button onClick={() => setOpen(true)} className="shrink-0"><Plus size={16} className="mr-2" />Nova Cotação</Button>
       </div>
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número</TableHead><TableHead>Descrição</TableHead><TableHead>Itens</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-32">Ações</TableHead>
+              <TableHead>Data</TableHead><TableHead>Item</TableHead><TableHead>Qtd</TableHead><TableHead>Propostas</TableHead>
+              <TableHead>Vencedor</TableHead><TableHead>Valor</TableHead><TableHead>Economia</TableHead><TableHead className="w-32">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma cotação criada.</TableCell></TableRow>
-            ) : items.map((q) => (
-              <TableRow key={q.id}>
-                <TableCell className="font-medium">{q.number}</TableCell>
-                <TableCell>{q.description || '-'}</TableCell>
-                <TableCell>{q.items.length}</TableCell>
-                <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${quotationStatusColors[q.status]}`}>{quotationStatusLabels[q.status]}</span></TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" onClick={() => setDetailId(q.id)}>Gerenciar</Button>
-                    {q.status === 'OPEN' && (
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q)}><Trash2 size={16} /></Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhuma cotação — compare fornecedores antes de comprar.</TableCell></TableRow>
+            ) : rows.map(({ quotation: q, item }) => {
+              const winner = item.proposals.find((p) => p.isWinner) ?? (item.proposals.length ? item.proposals.reduce((a, b) => (b.unitCost < a.unitCost ? b : a)) : undefined);
+              const totals = item.proposals.map((p) => p.unitCost * item.quantity);
+              const economia = totals.length > 1 ? Math.max(...totals) - Math.min(...totals) : 0;
+              return (
+                <TableRow key={item.id}>
+                  <TableCell className="text-muted-foreground">{fmtDate(q.quotedAt)}</TableCell>
+                  <TableCell className="font-medium">{item.material.name}</TableCell>
+                  <TableCell className="font-mono">{item.quantity}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{item.proposals.length} proposta(s)</TableCell>
+                  <TableCell className="font-medium text-success">{winner ? winner.supplier.name : '—'}</TableCell>
+                  <TableCell className="font-mono text-accent-foreground">{winner ? fmt(winner.unitCost * item.quantity) : '—'}</TableCell>
+                  <TableCell className="font-mono text-info">{economia > 0 ? fmt(economia) : '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {q.status === 'CLOSED' ? (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-success/15 text-success">Convertida</span>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => setDetailId(q.id)}>Gerenciar</Button>
+                      )}
+                      {q.status === 'OPEN' && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(q)}><Trash2 size={16} /></Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Nova Cotação</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Cotação de Compra</DialogTitle></DialogHeader>
           <QuotationForm onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Cotação {detailQuotation?.number}</DialogTitle></DialogHeader>
           {detailId && <QuotationDetail quotationId={detailId} onChanged={load} />}
         </DialogContent>

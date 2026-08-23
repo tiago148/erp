@@ -2,7 +2,9 @@
   Body,
   Controller,
   Delete,
+  forwardRef,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
@@ -14,13 +16,18 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { BudgetsService } from './budgets.service';
+import { ProjectsService } from '../projects/projects.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 
 @Controller('budgets')
 @UseGuards(JwtAuthGuard)
 export class BudgetsController {
-  constructor(private readonly budgetsService: BudgetsService) {}
+  constructor(
+    private readonly budgetsService: BudgetsService,
+    @Inject(forwardRef(() => ProjectsService))
+    private readonly projectsService: ProjectsService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateBudgetDto) {
@@ -38,22 +45,33 @@ export class BudgetsController {
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateBudgetDto,
     @Req() req: any,
   ) {
-    return this.budgetsService.update(id, dto, {
-      userId: req.user.userId,
-      email: req.user.email,
-    });
+    const actor = { userId: req.user.userId, email: req.user.email };
+    const wasApproved =
+      (await this.budgetsService.findOne(id)).status === 'APPROVED';
+    const budget = await this.budgetsService.update(id, dto, actor);
+
+    // Aprovar um orcamento vira projeto automaticamente -- sem precisar do
+    // fluxo manual "Novo Projeto > Origem: Orcamento".
+    if (dto.status === 'APPROVED' && !wasApproved) {
+      await this.projectsService.createFromApprovedBudget(id, actor);
+    }
+
+    return budget;
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  remove(@Param('id') id: string) {
-    return this.budgetsService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.budgetsService.remove(id, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 
   @Post(':id/duplicate')

@@ -88,7 +88,10 @@ export class FinanceEntriesController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  remove(@Param('id') id: string) {
-    return this.financeEntriesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.financeEntriesService.remove(id, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 }

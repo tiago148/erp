@@ -6,8 +6,16 @@ import { SerializeDecimalsInterceptor } from './common/serialize-decimals.interc
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // FRONTEND_URL aceita uma ou mais origens separadas por virgula (ex: para
+  // liberar staging e producao ao mesmo tempo), sem precisar editar codigo
+  // a cada novo ambiente.
+  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
   });
 

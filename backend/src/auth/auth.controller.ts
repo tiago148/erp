@@ -10,8 +10,8 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 import { ConfirmAccountDto } from './dto/confirm-account.dto';
@@ -25,11 +25,10 @@ import { Roles } from './decorators/roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
-
+  // Limite bem mais restrito que o global (100/min) especificamente aqui --
+  // login/troca de senha sao o alvo classico de forca bruta/credential
+  // stuffing.
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
@@ -80,6 +79,7 @@ export class AuthController {
     return this.authService.resendConfirmation(dto.email);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('confirm')
   @HttpCode(HttpStatus.OK)
   confirmAccount(@Body() dto: ConfirmAccountDto) {

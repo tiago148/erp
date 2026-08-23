@@ -1,4 +1,6 @@
 ﻿import {
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -8,13 +10,14 @@ import { round2 } from '../common/money';
 import { BudgetsService } from '../budgets/budgets.service';
 import { ProjectBillingService } from '../project-billing/project-billing.service';
 import { AuditService, Actor } from '../audit/audit.service';
-import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectDto, ProjectStatus } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => BudgetsService))
     private readonly budgetsService: BudgetsService,
     private readonly projectBillingService: ProjectBillingService,
     private readonly auditService: AuditService,
@@ -105,6 +108,37 @@ export class ProjectsService {
       },
       include: this.include(),
     });
+  }
+
+  // Disparado pelo BudgetsController quando um orcamento passa a ter status
+  // APPROVED: cria automaticamente o projeto correspondente, sem exigir o
+  // fluxo manual "Novo Projeto > Origem: Orcamento". Idempotente -- se o
+  // orcamento ja tem um projeto vinculado (por ex. aprovado, editado e
+  // salvo de novo), so retorna o projeto existente em vez de duplicar.
+  async createFromApprovedBudget(budgetId: string, actor?: Actor) {
+    const existingProject = await this.prisma.client.project.findUnique({
+      where: { budgetId },
+    });
+    if (existingProject) return existingProject;
+
+    const budget = await this.budgetsService.findOne(budgetId);
+    const project = await this.create({
+      name: `${budget.client.name} — ${budget.number}`,
+      clientId: budget.clientId,
+      budgetId: budget.id,
+      status: ProjectStatus.PLANNING,
+      responsibleEmployeeId: budget.employeeId ?? undefined,
+    });
+
+    await this.auditService.log({
+      actor,
+      action: 'PROJECT_AUTO_CREATE',
+      entity: 'Project',
+      entityId: project.id,
+      details: `Projeto ${project.number} criado automaticamente a partir da aprovacao do orcamento ${budget.number}.`,
+    });
+
+    return project;
   }
 
   // Manutencao unica, idempotente: preenche o snapshot de previsto dos

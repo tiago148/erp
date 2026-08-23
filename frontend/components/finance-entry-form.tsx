@@ -40,6 +40,7 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
   const [supplierId, setSupplierId] = useState(initialData?.supplierId || '');
   const [clientId, setClientId] = useState(initialData?.clientId || '');
   const [notes, setNotes] = useState(initialData?.notes || '');
+  const [markAsFixedExpense, setMarkAsFixedExpense] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,6 +81,7 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
         supplierId: supplierId || undefined,
         clientId: clientId || undefined,
         notes: notes || undefined,
+        markAsFixedExpense: markAsFixedExpense || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar lançamento');
@@ -153,6 +155,22 @@ export function FinanceEntryForm({ initialData, defaultType, onSubmit, onCancel 
       </div>
       {recurrence !== 'NONE' && (
         <p className="text-xs text-muted-foreground -mt-2">Ao marcar este lançamento como pago/recebido, a próxima ocorrência é criada automaticamente com o mesmo valor, avançando o vencimento pela frequência escolhida.</p>
+      )}
+
+      {!initialData && type === 'EXPENSE' && (
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm border rounded-md px-3 py-2 cursor-pointer hover:bg-muted w-fit">
+            <input
+              type="checkbox"
+              checked={markAsFixedExpense}
+              onChange={(e) => setMarkAsFixedExpense(e.target.checked)}
+            />
+            É uma despesa fixa
+          </label>
+          {markAsFixedExpense && (
+            <p className="text-xs text-muted-foreground">Também será cadastrada em &quot;Custos &gt; Despesas Fixas&quot;, entrando no cálculo de custo indireto de orçamentos futuros até que você a remova de lá.</p>
+          )}
+        </div>
       )}
 
       <div className="space-y-2">

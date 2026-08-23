@@ -12,7 +12,6 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { AuditService, Actor } from '../audit/audit.service';
-import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 import { ConfirmAccountDto } from './dto/confirm-account.dto';
@@ -28,28 +27,6 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly auditService: AuditService,
   ) {}
-
-  async register(dto: RegisterDto) {
-    const existingUser = await this.prisma.client.user.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('Este email já está cadastrado.');
-    }
-
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    const user = await this.prisma.client.user.create({
-      data: {
-        name: dto.name,
-        email: dto.email,
-        password: hashedPassword,
-      },
-    });
-
-    return this.buildAuthResponse(user);
-  }
 
   async login(dto: LoginDto) {
     const user = await this.prisma.client.user.findUnique({

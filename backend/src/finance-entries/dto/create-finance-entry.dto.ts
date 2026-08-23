@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -40,4 +41,5 @@ export class CreateFinanceEntryDto {
   @IsOptional() @IsString() purchaseOrderId?: string;
   @IsOptional() @IsString() budgetId?: string;
   @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsBoolean() markAsFixedExpense?: boolean;
 }

@@ -87,9 +87,9 @@ export class BudgetsService {
   ) {
     return Promise.all(
       items.map(async (item) => {
-        const service = await this.prisma.client.thirdPartyService.findUnique(
-          { where: { id: item.thirdPartyServiceId } },
-        );
+        const service = await this.prisma.client.thirdPartyService.findUnique({
+          where: { id: item.thirdPartyServiceId },
+        });
         if (!service)
           throw new NotFoundException(
             'Servico de terceiro nao encontrado: ' + item.thirdPartyServiceId,
@@ -108,13 +108,12 @@ export class BudgetsService {
   ) {
     return Promise.all(
       items.map(async (item) => {
-        const equipment = await this.prisma.client.rentalEquipment.findUnique(
-          { where: { id: item.rentalEquipmentId } },
-        );
+        const equipment = await this.prisma.client.rentalEquipment.findUnique({
+          where: { id: item.rentalEquipmentId },
+        });
         if (!equipment)
           throw new NotFoundException(
-            'Equipamento de aluguel nao encontrado: ' +
-              item.rentalEquipmentId,
+            'Equipamento de aluguel nao encontrado: ' + item.rentalEquipmentId,
           );
         return {
           rentalEquipmentId: item.rentalEquipmentId,
@@ -562,6 +561,11 @@ export class BudgetsService {
 
     if (dto.clientId) updateData.clientId = dto.clientId;
 
+    // Toda a resolucao/validacao (pode lancar NotFoundException para um ID
+    // invalido em qualquer um dos 7 tipos de item) roda ANTES de qualquer
+    // escrita no banco. Assim, se um tipo posterior falhar a validacao, os
+    // tipos anteriores nunca chegam a ser deletados -- evita perder itens
+    // de um tipo por causa de um erro em outro.
     if (dto.materialItems) {
       const materialItemsData = await Promise.all(
         dto.materialItems.map(async (item) => {
@@ -575,9 +579,6 @@ export class BudgetsService {
           };
         }),
       );
-      await this.prisma.client.budgetMaterialItem.deleteMany({
-        where: { budgetId: id },
-      });
       updateData.materialItems = { create: materialItemsData };
     }
 
@@ -609,16 +610,10 @@ export class BudgetsService {
           };
         }),
       );
-      await this.prisma.client.budgetLaborItem.deleteMany({
-        where: { budgetId: id },
-      });
       updateData.laborItems = { create: laborItemsData };
     }
 
     if (dto.travelItems) {
-      await this.prisma.client.budgetTravelItem.deleteMany({
-        where: { budgetId: id },
-      });
       updateData.travelItems = {
         create: dto.travelItems.map((item) => ({
           vehicleId: item.vehicleId,
@@ -630,9 +625,6 @@ export class BudgetsService {
     }
 
     if (dto.otherItems) {
-      await this.prisma.client.budgetOtherItem.deleteMany({
-        where: { budgetId: id },
-      });
       updateData.otherItems = {
         create: dto.otherItems.map((item) => ({
           description: item.description,
@@ -642,38 +634,52 @@ export class BudgetsService {
     }
 
     if (dto.compositionItems) {
-      const compositionItemsData = await this.resolveCompositionItems(
-        dto.compositionItems,
-        salarioMinimo,
-      );
-      await this.prisma.client.budgetCompositionItem.deleteMany({
-        where: { budgetId: id },
-      });
-      updateData.compositionItems = { create: compositionItemsData };
+      updateData.compositionItems = {
+        create: await this.resolveCompositionItems(
+          dto.compositionItems,
+          salarioMinimo,
+        ),
+      };
     }
 
     if (dto.serviceItems) {
-      const serviceItemsData = await this.resolveServiceItems(
-        dto.serviceItems,
-      );
-      await this.prisma.client.budgetServiceItem.deleteMany({
-        where: { budgetId: id },
-      });
-      updateData.serviceItems = { create: serviceItemsData };
+      updateData.serviceItems = {
+        create: await this.resolveServiceItems(dto.serviceItems),
+      };
     }
 
     if (dto.rentalItems) {
-      const rentalItemsData = await this.resolveRentalItems(dto.rentalItems);
-      await this.prisma.client.budgetRentalItem.deleteMany({
-        where: { budgetId: id },
-      });
-      updateData.rentalItems = { create: rentalItemsData };
+      updateData.rentalItems = {
+        create: await this.resolveRentalItems(dto.rentalItems),
+      };
     }
 
-    const budget = await this.prisma.client.budget.update({
-      where: { id },
-      data: updateData,
-      include: this.include(),
+    // Agora sim: apagar os tipos substituidos e escrever tudo numa unica
+    // transacao. Se qualquer passo falhar aqui (o que so aconteceria por
+    // erro de infraestrutura, ja que toda validacao de negocio rodou acima),
+    // a transacao inteira desfaz -- nunca fica com um tipo deletado e outro
+    // nao criado.
+    const budget = await this.prisma.client.$transaction(async (tx) => {
+      if (dto.materialItems)
+        await tx.budgetMaterialItem.deleteMany({ where: { budgetId: id } });
+      if (dto.laborItems)
+        await tx.budgetLaborItem.deleteMany({ where: { budgetId: id } });
+      if (dto.travelItems)
+        await tx.budgetTravelItem.deleteMany({ where: { budgetId: id } });
+      if (dto.otherItems)
+        await tx.budgetOtherItem.deleteMany({ where: { budgetId: id } });
+      if (dto.compositionItems)
+        await tx.budgetCompositionItem.deleteMany({ where: { budgetId: id } });
+      if (dto.serviceItems)
+        await tx.budgetServiceItem.deleteMany({ where: { budgetId: id } });
+      if (dto.rentalItems)
+        await tx.budgetRentalItem.deleteMany({ where: { budgetId: id } });
+
+      return tx.budget.update({
+        where: { id },
+        data: updateData,
+        include: this.include(),
+      });
     });
 
     if (dto.status && (dto.status as string) !== (existing.status as string)) {
@@ -690,9 +696,19 @@ export class BudgetsService {
     return { ...budget, totals: this.calculateTotals(budget, overheadCtx) };
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.client.budget.delete({ where: { id } });
+  async remove(id: string, actor?: Actor) {
+    const existing = await this.findOne(id);
+    const deleted = await this.prisma.client.budget.delete({ where: { id } });
+
+    await this.auditService.log({
+      actor,
+      action: 'BUDGET_DELETE',
+      entity: 'Budget',
+      entityId: id,
+      details: `Nº ${existing.number} v${existing.version}`,
+    });
+
+    return deleted;
   }
 
   private cloneItemsData(source: Awaited<ReturnType<typeof this.findOne>>) {

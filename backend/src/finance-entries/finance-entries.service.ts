@@ -98,7 +98,7 @@ export class FinanceEntriesService {
       accountId = defaultAccount?.id;
     }
 
-    return this.prisma.client.financeEntry.create({
+    const entry = await this.prisma.client.financeEntry.create({
       data: {
         type: dto.type,
         description: dto.description,
@@ -116,6 +116,26 @@ export class FinanceEntriesService {
       },
       include: this.include(),
     });
+
+    // Marca este lancamento tambem como uma despesa fixa recorrente: cria o
+    // catalogo (usado no rateio de custo indireto dos orcamentos) ja
+    // vinculado a este lancamento, em vez de exigir que o usuario cadastre a
+    // mesma despesa duas vezes (uma em Lancamentos, outra em Custos >
+    // Despesas Fixas).
+    if (dto.markAsFixedExpense && (dto.type as string) === 'EXPENSE') {
+      await this.prisma.client.fixedExpense.create({
+        data: {
+          description: entry.description,
+          category: entry.category.name,
+          amount: entry.amount,
+          type: 'FIXED',
+          generatesBill: false,
+          financeEntryId: entry.id,
+        },
+      });
+    }
+
+    return entry;
   }
 
   findAll(query: FindAllQuery = {}) {
@@ -269,14 +289,26 @@ export class FinanceEntriesService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, actor?: Actor) {
     const entry = await this.findOne(id);
     if (entry.status !== 'PENDING') {
       throw new BadRequestException(
         'So e possivel excluir lancamentos pendentes.',
       );
     }
-    return this.prisma.client.financeEntry.delete({ where: { id } });
+    const deleted = await this.prisma.client.financeEntry.delete({
+      where: { id },
+    });
+
+    await this.auditService.log({
+      actor,
+      action: 'FINANCE_ENTRY_DELETE',
+      entity: 'FinanceEntry',
+      entityId: id,
+      details: `${entry.type === 'INCOME' ? 'Receita' : 'Despesa'}: ${entry.description} (${Number(entry.amount).toFixed(2)})`,
+    });
+
+    return deleted;
   }
 
   // Transferencia entre contas proprias: nao e receita nem despesa "de

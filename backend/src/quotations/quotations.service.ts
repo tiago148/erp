@@ -14,6 +14,7 @@ export class QuotationsService {
 
   private include() {
     return {
+      project: true,
       items: {
         include: {
           material: true,
@@ -33,18 +34,58 @@ export class QuotationsService {
 
   async create(dto: CreateQuotationDto) {
     const number = await this.generateNumber();
-    return this.prisma.client.quotation.create({
-      data: {
-        number,
-        description: dto.description,
-        items: {
-          create: dto.items.map((item) => ({
-            materialId: item.materialId,
-            quantity: item.quantity,
-          })),
+    return this.prisma.client.$transaction(async (tx) => {
+      const quotation = await tx.quotation.create({
+        data: {
+          number,
+          description: dto.description,
+          projectId: dto.projectId,
+          quotedAt: dto.quotedAt ? new Date(dto.quotedAt) : undefined,
+          items: {
+            create: dto.items.map((item) => ({
+              materialId: item.materialId,
+              quantity: item.quantity,
+            })),
+          },
         },
-      },
-      include: this.include(),
+        include: { items: true },
+      });
+
+      // Propostas enviadas junto na criacao (fluxo "tudo em uma tela", igual ao
+      // protótipo): cria cada proposta e marca automaticamente a mais barata
+      // como vencedora do item — o usuario ainda pode trocar depois em "Gerenciar".
+      for (let i = 0; i < dto.items.length; i++) {
+        const proposals = (dto.items[i].proposals ?? []).filter(
+          (p) => p.unitCost > 0,
+        );
+        if (proposals.length === 0) continue;
+        const item = quotation.items[i];
+        const created = await Promise.all(
+          proposals.map((p) =>
+            tx.quotationProposal.create({
+              data: {
+                quotationItemId: item.id,
+                supplierId: p.supplierId,
+                unitCost: p.unitCost,
+                leadTimeDays: p.leadTimeDays,
+                notes: p.notes,
+              },
+            }),
+          ),
+        );
+        const cheapest = created.reduce((a, b) =>
+          b.unitCost < a.unitCost ? b : a,
+        );
+        await tx.quotationProposal.update({
+          where: { id: cheapest.id },
+          data: { isWinner: true },
+        });
+      }
+
+      return tx.quotation.findUniqueOrThrow({
+        where: { id: quotation.id },
+        include: this.include(),
+      });
     });
   }
 
@@ -116,6 +157,7 @@ export class QuotationsService {
         quotationItemId: itemId,
         supplierId: dto.supplierId,
         unitCost: dto.unitCost,
+        leadTimeDays: dto.leadTimeDays,
         notes: dto.notes,
       },
     });
@@ -172,6 +214,7 @@ export class QuotationsService {
           number,
           supplierId,
           notes: `Gerado a partir da cotacao ${quotation.number}`,
+          destinationProjectId: quotation.projectId,
           items: {
             create: entries.map(({ item, winner }) => ({
               materialId: item.materialId,

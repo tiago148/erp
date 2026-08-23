@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Material, MaterialInput } from '@/lib/api';
+import { api, Material, MaterialInput, Supplier } from '@/lib/api';
 
 interface MaterialFormProps {
   initialData?: Material;
@@ -29,9 +30,16 @@ const referenceModeLabels: Record<string, string> = {
 };
 
 export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormProps) {
+  const { token } = useAuth();
   const [form, setForm] = useState<MaterialInput>(emptyForm);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!token) return;
+    api.listSuppliers(token).then(setSuppliers);
+  }, [token]);
 
   useEffect(() => {
     if (initialData) {
@@ -121,10 +129,19 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
 
       <div className="space-y-2">
         <Label>Fornecedor</Label>
-        <Input
-          value={form.supplier}
-          onChange={(e) => updateField('supplier', e.target.value)}
-        />
+        <Select value={form.supplier || ''} onValueChange={(v) => updateField('supplier', v ?? undefined)}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione (opcional)...">{form.supplier}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {suppliers.map((s) => (
+              <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {suppliers.length === 0 && (
+          <p className="text-xs text-warning">Nenhum fornecedor cadastrado ainda — cadastre em &quot;Compras &gt; Fornecedores&quot; primeiro.</p>
+        )}
       </div>
 
       <div className="space-y-2">
