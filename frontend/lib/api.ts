@@ -168,7 +168,8 @@ export interface ToolMaintenanceInput {
 export type BudgetStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'NEGOTIATING';
 export type TaxRegime = 'SIMPLES' | 'LUCRO_PRESUMIDO' | 'LUCRO_REAL' | 'MEI';
 
-export interface BudgetMaterialItem { id: string; materialId: string; material: Material; quantity: number; unitCost: number; }
+export interface BudgetMaterialItemMeasure { id: string; lengthM: number; pieces: number; }
+export interface BudgetMaterialItem { id: string; materialId: string; material: Material; quantity: number; unitCost: number; measures: BudgetMaterialItemMeasure[]; }
 export interface BudgetLaborItem { id: string; laborRoleId: string; laborRole: LaborRole; hours: number; hourlyRate: number; }
 export interface BudgetTravelItem { id: string; vehicleId: string; vehicle: Vehicle; distanceKm: number; trips: number; fuelPrice: number; }
 export interface BudgetOtherItem { id: string; description: string; amount: number; }
@@ -207,7 +208,7 @@ export interface BudgetInput {
   bdiPct?: number; lucroPct?: number; contingenciaPct?: number; prazoRecebimentoDias?: number; taxaCapitalPct?: number;
   discountPct?: number; notes?: string; employeeId?: string; projectDays?: number;
   compositionItems?: { compositionId: string; quantity: number }[];
-  materialItems?: { materialId: string; quantity: number }[];
+  materialItems?: { materialId: string; quantity: number; measures?: { lengthM: number; pieces: number }[] }[];
   laborItems?: { laborRoleId: string; hours: number }[];
   travelItems?: { vehicleId: string; distanceKm: number; trips: number; fuelPrice: number }[];
   otherItems?: { description: string; amount: number }[];

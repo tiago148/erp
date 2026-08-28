@@ -11,10 +11,20 @@ import { Badge } from '@/components/ui/badge';
 import { marginBadgeVariant, marginLabel } from '@/lib/utils';
 import { computeIndirectCost } from '@/lib/overhead';
 import { getImpostoPct } from '@/lib/tax-table';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Ruler } from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+interface MaterialMeasureDraft { lengthM: string; pieces: string }
+interface MaterialItemDraft { materialId: string; quantity: number; measures: MaterialMeasureDraft[] }
+
+// Romaneio de corte: quando o item tem medidas lancadas (comprimento + numero
+// de pecas cortadas com aquele comprimento), a quantidade total do item
+// (em metros) e sempre a soma delas -- nunca digitada manualmente.
+function measuresTotal(measures: MaterialMeasureDraft[]) {
+  return measures.reduce((sum, m) => sum + (parseFloat(m.lengthM) || 0) * (parseInt(m.pieces, 10) || 0), 0);
 }
 
 const statusLabels: Record<string, string> = {
@@ -67,8 +77,12 @@ export function BudgetForm({ initialData, onSaved }: Props) {
   const [fixedExpensesTotal, setFixedExpensesTotal] = useState(0);
   const isNewRef = useRef(!initialData);
 
-  const [materialItems, setMaterialItems] = useState(
-    initialData?.materialItems.map((i) => ({ materialId: i.materialId, quantity: i.quantity })) || [],
+  const [materialItems, setMaterialItems] = useState<MaterialItemDraft[]>(
+    initialData?.materialItems.map((i) => ({
+      materialId: i.materialId,
+      quantity: i.quantity,
+      measures: i.measures.map((m) => ({ lengthM: String(m.lengthM), pieces: String(m.pieces) })),
+    })) || [],
   );
   const [laborItems, setLaborItems] = useState(
     initialData?.laborItems.map((i) => ({ laborRoleId: i.laborRoleId, hours: i.hours })) || [],
@@ -222,7 +236,13 @@ function applyWorkSiteDistance(workSiteId: string) {
       discountPct,
       notes,
       projectDays,
-      materialItems,
+      materialItems: materialItems.map((i) => ({
+        materialId: i.materialId,
+        quantity: i.quantity,
+        measures: i.measures.length
+          ? i.measures.map((m) => ({ lengthM: parseFloat(m.lengthM) || 0, pieces: parseInt(m.pieces, 10) || 0 }))
+          : undefined,
+      })),
       laborItems,
       travelItems,
       otherItems,
@@ -365,7 +385,7 @@ function applyWorkSiteDistance(workSiteId: string) {
         <div className="flex justify-between items-center">
           <Label className="font-semibold">Materiais</Label>
           <Button type="button" size="sm" variant="outline" onClick={() =>
-            setMaterialItems([...materialItems, { materialId: '', quantity: 1 }])
+            setMaterialItems([...materialItems, { materialId: '', quantity: 1, measures: [] }])
           }><Plus size={14} className="mr-1" />Adicionar</Button>
         </div>
         {materialItems.length === 0 && (
@@ -376,33 +396,77 @@ function applyWorkSiteDistance(workSiteId: string) {
             <span className="flex-1">Material</span>
             <span className="w-28">Quantidade</span>
             <span className="w-24">Subtotal</span>
-            <span className="w-9"></span>
+            <span className="w-16"></span>
           </div>
         )}
         {materialItems.map((item, idx) => {
           const selected = materials.find((m) => m.id === item.materialId);
+          const hasMeasures = item.measures.length > 0;
+          const effectiveQty = hasMeasures ? measuresTotal(item.measures) : item.quantity;
+
+          function updateMeasures(measures: MaterialMeasureDraft[]) {
+            const arr = [...materialItems];
+            arr[idx] = { ...arr[idx], measures, quantity: measures.length ? measuresTotal(measures) : arr[idx].quantity };
+            setMaterialItems(arr);
+          }
+
           return (
-            <div key={idx} className="flex gap-2 items-center">
-              <Select value={item.materialId} onValueChange={(v) => {
-                const arr = [...materialItems]; arr[idx].materialId = v; setMaterialItems(arr);
-              }}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Selecione o material">
-                    {selected ? `${selected.name} (${fmt(selected.unitCost)}/${selected.unit})` : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {materials.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name} ({fmt(m.unitCost)}/{m.unit})</SelectItem>
+            <div key={idx} className="border rounded-md p-2 space-y-2">
+              <div className="flex gap-2 items-center">
+                <Select value={item.materialId} onValueChange={(v) => {
+                  const arr = [...materialItems]; arr[idx].materialId = v ?? ''; setMaterialItems(arr);
+                }}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione o material">
+                      {selected ? `${selected.name} (${fmt(selected.unitCost)}/${selected.unit})` : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {materials.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name} ({fmt(m.unitCost)}/{m.unit})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="number" step="0.01" min="0.01" className="w-28" placeholder="Qtd." value={effectiveQty}
+                  disabled={hasMeasures} title={hasMeasures ? 'Quantidade calculada a partir das medidas de corte' : undefined}
+                  onChange={(e) => { const arr = [...materialItems]; arr[idx].quantity = parseFloat(e.target.value) || 0; setMaterialItems(arr); }} />
+                <span className="w-24 text-sm text-muted-foreground text-right">{fmt(materialCost(item.materialId, effectiveQty))}</span>
+                <Button type="button" size="icon" variant={hasMeasures ? 'default' : 'ghost'} title="Medidas de corte"
+                  onClick={() => updateMeasures(hasMeasures ? item.measures : [{ lengthM: '', pieces: '1' }])}>
+                  <Ruler size={16} />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" onClick={() => setMaterialItems(materialItems.filter((_, i) => i !== idx))}>
+                  <Trash2 size={16} />
+                </Button>
+              </div>
+
+              {hasMeasures && (
+                <div className="pl-2 space-y-1.5 border-l-2 border-muted ml-1">
+                  <div className="flex gap-2 text-[10px] uppercase tracking-wide text-muted-foreground font-medium px-1">
+                    <span className="w-28">Comprimento (m)</span><span className="w-24">Peças</span><span className="flex-1">Total</span><span className="w-9"></span>
+                  </div>
+                  {item.measures.map((m, mi) => (
+                    <div key={mi} className="flex gap-2 items-center">
+                      <Input type="number" step="0.001" min="0.001" className="w-28" placeholder="Ex: 1,50" value={m.lengthM}
+                        onChange={(e) => { const arr = [...item.measures]; arr[mi] = { ...arr[mi], lengthM: e.target.value }; updateMeasures(arr); }} />
+                      <Input type="number" step="1" min="1" className="w-24" placeholder="Qtd." value={m.pieces}
+                        onChange={(e) => { const arr = [...item.measures]; arr[mi] = { ...arr[mi], pieces: e.target.value }; updateMeasures(arr); }} />
+                      <span className="flex-1 text-sm text-muted-foreground">
+                        {((parseFloat(m.lengthM) || 0) * (parseInt(m.pieces, 10) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m
+                      </span>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => updateMeasures(item.measures.filter((_, i) => i !== mi))}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
-              <Input type="number" step="0.01" min="0.01" className="w-28" placeholder="Qtd." value={item.quantity}
-                onChange={(e) => { const arr = [...materialItems]; arr[idx].quantity = parseFloat(e.target.value) || 0; setMaterialItems(arr); }} />
-              <span className="w-24 text-sm text-muted-foreground text-right">{fmt(materialCost(item.materialId, item.quantity))}</span>
-              <Button type="button" size="icon" variant="ghost" onClick={() => setMaterialItems(materialItems.filter((_, i) => i !== idx))}>
-                <Trash2 size={16} />
-              </Button>
+                  <div className="flex gap-2 items-center">
+                    <Button type="button" size="sm" variant="outline" onClick={() => updateMeasures([...item.measures, { lengthM: '', pieces: '1' }])}>
+                      <Plus size={12} className="mr-1" />Medida
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Total do item: <strong>{effectiveQty.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m</strong></span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

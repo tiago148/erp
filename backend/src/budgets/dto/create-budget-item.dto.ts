@@ -1,4 +1,24 @@
-﻿import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+﻿import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+
+export class CreateBudgetMaterialItemMeasureDto {
+  @IsNumber()
+  @Min(0.001)
+  lengthM: number;
+
+  @IsInt()
+  @Min(1)
+  pieces: number;
+}
 
 export class CreateBudgetMaterialItemDto {
   @IsString()
@@ -8,6 +28,12 @@ export class CreateBudgetMaterialItemDto {
   @IsNumber()
   @Min(0.01)
   quantity: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateBudgetMaterialItemMeasureDto)
+  measures?: CreateBudgetMaterialItemMeasureDto[];
 }
 
 export class CreateBudgetLaborItemDto {

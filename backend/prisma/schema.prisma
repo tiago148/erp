@@ -272,15 +272,30 @@ model Budget {
 }
 
 model BudgetMaterialItem {
-  id         String   @id @default(uuid())
+  id         String                      @id @default(uuid())
   budgetId   String
-  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budget     Budget                      @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   materialId String
-  material   Material @relation(fields: [materialId], references: [id])
-  quantity   Decimal  @db.Decimal(12, 2)
-  unitCost   Decimal  @db.Decimal(12, 2)
+  material   Material                    @relation(fields: [materialId], references: [id])
+  quantity   Decimal                     @db.Decimal(12, 2)
+  unitCost   Decimal                     @db.Decimal(12, 2)
+  measures   BudgetMaterialItemMeasure[]
 
   @@map("budget_material_items")
+}
+
+// Romaneio de corte: quando o material e vendido/cortado por comprimento, o
+// usuario lanca cada medida de peca + quantidade de pecas com aquele
+// comprimento, em vez de digitar a quantidade total (em metros) direto --
+// o total do item vira sum(lengthM * pieces), calculado no backend.
+model BudgetMaterialItemMeasure {
+  id                   String             @id @default(uuid())
+  budgetMaterialItemId String
+  budgetMaterialItem   BudgetMaterialItem @relation(fields: [budgetMaterialItemId], references: [id], onDelete: Cascade)
+  lengthM              Decimal            @db.Decimal(12, 3)
+  pieces               Int
+
+  @@map("budget_material_item_measures")
 }
 
 model BudgetLaborItem {

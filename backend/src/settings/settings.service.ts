@@ -151,7 +151,7 @@ export class SettingsService {
       this.prisma.client.vehicle.findMany({ include: { trips: true } }),
       this.prisma.client.budget.findMany({
         include: {
-          materialItems: true,
+          materialItems: { include: { measures: true } },
           laborItems: true,
           travelItems: true,
           otherItems: true,
@@ -476,7 +476,22 @@ export class SettingsService {
               data: {
                 ...budget,
                 materialItems: {
-                  create: stripFk(materialItems, 'budgetId'),
+                  create: stripFk(materialItems, 'budgetId').map(
+                    (item: any) => {
+                      const { measures, ...rest } = item;
+                      return {
+                        ...rest,
+                        measures: measures?.length
+                          ? {
+                              create: stripFk(
+                                measures,
+                                'budgetMaterialItemId',
+                              ),
+                            }
+                          : undefined,
+                      };
+                    },
+                  ),
                 },
                 laborItems: { create: stripFk(laborItems, 'budgetId') },
                 travelItems: { create: stripFk(travelItems, 'budgetId') },

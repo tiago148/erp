@@ -353,7 +353,7 @@ export class BudgetsService {
     return {
       client: true,
       employee: true,
-      materialItems: { include: { material: true } },
+      materialItems: { include: { material: true, measures: true } },
       laborItems: { include: { laborRole: true } },
       travelItems: { include: { vehicle: true } },
       otherItems: true,
@@ -402,6 +402,22 @@ export class BudgetsService {
     return String(count + 1).padStart(4, '0');
   }
 
+  // Romaneio de corte: quando o item vem com medidas (comprimento + numero
+  // de pecas), a quantidade total (em metros) e sempre derivada delas -- a
+  // quantidade enviada solta pelo cliente e ignorada nesse caso, para o
+  // total nunca poder ficar dessincronizado das medidas lancadas.
+  private resolveMaterialQuantity(item: {
+    quantity: number;
+    measures?: { lengthM: number; pieces: number }[];
+  }) {
+    if (item.measures && item.measures.length > 0) {
+      return round2(
+        item.measures.reduce((sum, m) => sum + m.lengthM * m.pieces, 0),
+      );
+    }
+    return item.quantity;
+  }
+
   async create(dto: CreateBudgetDto) {
     const number = await this.generateNumber();
     const salarioMinimo = await this.getSalarioMinimo();
@@ -413,8 +429,11 @@ export class BudgetsService {
         );
         return {
           materialId: item.materialId,
-          quantity: item.quantity,
+          quantity: this.resolveMaterialQuantity(item),
           unitCost: round2(unitCost),
+          measures: item.measures?.length
+            ? { create: item.measures }
+            : undefined,
         };
       }),
     );
@@ -574,8 +593,11 @@ export class BudgetsService {
           );
           return {
             materialId: item.materialId,
-            quantity: item.quantity,
+            quantity: this.resolveMaterialQuantity(item),
             unitCost: round2(unitCost),
+            measures: item.measures?.length
+              ? { create: item.measures }
+              : undefined,
           };
         }),
       );
@@ -718,6 +740,14 @@ export class BudgetsService {
           materialId: item.materialId,
           quantity: item.quantity,
           unitCost: item.unitCost,
+          measures: item.measures.length
+            ? {
+                create: item.measures.map((m) => ({
+                  lengthM: m.lengthM,
+                  pieces: m.pieces,
+                })),
+              }
+            : undefined,
         })),
       },
       laborItems: {
