@@ -94,7 +94,7 @@ export type MaterialInput = Omit<Material, 'id' | 'createdAt' | 'updatedAt' | 'r
 export interface LaborRole {
   id: string; name: string; hourlyRate: number; chargesPct: number;
   periculosidade: boolean; insalubridadePct: number; noturnoPct: number;
-  beneficioHora: number;
+  beneficioHora: number; ferramentalHora: number;
   effectiveHourlyRate: number; createdAt: string; updatedAt: string;
 }
 export type LaborRoleInput = Omit<LaborRole, 'id' | 'createdAt' | 'updatedAt' | 'effectiveHourlyRate'>;
@@ -198,10 +198,20 @@ export interface Budget {
   materialItems: BudgetMaterialItem[]; laborItems: BudgetLaborItem[]; travelItems: BudgetTravelItem[];
   otherItems: BudgetOtherItem[]; compositionItems: BudgetCompositionItem[];
   serviceItems: BudgetServiceItem[]; rentalItems: BudgetRentalItem[];
+  roteiro?: BudgetRoteiro | null;
   totals: BudgetTotals; createdAt: string; updatedAt: string;
 }
 export interface BudgetVersionSummary {
   id: string; number: string; version: number; status: BudgetStatus; createdAt: string;
+}
+export interface BudgetRoteiro {
+  id: string; budgetId: string; checkedKeys: string[]; infoLevel: 'exec' | 'basico' | 'croqui';
+  siteVisitDone: boolean; completionPct: number; suggestedContingencyPct: number;
+  createdAt: string; updatedAt: string;
+}
+export interface BudgetRoteiroInput {
+  checkedKeys: string[]; infoLevel: 'exec' | 'basico' | 'croqui'; siteVisitDone: boolean;
+  completionPct: number; suggestedContingencyPct: number;
 }
 export interface BudgetInput {
   clientId: string; description?: string; status?: BudgetStatus; regime?: TaxRegime;
@@ -249,12 +259,23 @@ export interface ToolMovement {
   id: string; toolId: string; fromLocation: ToolLocation; toLocation: ToolLocation;
   projectId?: string; project?: Project; responsible?: string; notes?: string; movedAt: string;
 }
+export type ToolCustody = 'SHARED' | 'INDIVIDUAL' | 'FIXED';
+export type ToolChargeStatus = 'ACTIVE' | 'RETURNED' | 'TRANSFERRED';
+export interface ToolCharge {
+  id: string; toolId: string; tool?: Tool; employeeId: string; employee?: Employee;
+  chargedAt: string; returnedAt?: string | null; conditionOut: string; reason: string;
+  returnReason?: string | null; notes?: string | null; status: ToolChargeStatus; createdAt: string;
+}
 export interface Tool {
   id: string; code?: string; name: string; category: string;
   currentLocation: ToolLocation; currentProjectId?: string; currentProject?: Project;
-  notes?: string; movements: ToolMovement[]; createdAt: string; updatedAt: string;
+  custody: ToolCustody; responsibleEmployeeId?: string | null; responsibleEmployee?: Employee | null;
+  acquisitionValue: number;
+  notes?: string; movements: ToolMovement[]; charges?: ToolCharge[]; createdAt: string; updatedAt: string;
 }
-export type ToolInput = Omit<Tool, 'id' | 'currentLocation' | 'currentProjectId' | 'currentProject' | 'movements' | 'createdAt' | 'updatedAt'>;
+export type ToolInput = Omit<Tool, 'id' | 'currentLocation' | 'currentProjectId' | 'currentProject' | 'responsibleEmployee' | 'movements' | 'charges' | 'createdAt' | 'updatedAt'>;
+export interface ChargeToolInput { employeeId: string; chargedAt?: string; conditionOut?: string; reason?: string; notes?: string; }
+export interface ReturnToolChargeInput { returnedAt?: string; returnReason?: string; }
 export interface MoveToolInput {
   toLocation: ToolLocation;
   projectId?: string;
@@ -267,12 +288,45 @@ export interface StockMovement {
   id: string; stockItemId: string; type: StockMovementType; quantity: number;
   projectId?: string; project?: Project; notes?: string; movedAt: string;
 }
+export type AbcClass = 'A' | 'B' | 'C';
 export interface StockItem {
   id: string; materialId: string; material: Material; quantity: number; minQuantity: number; location?: string;
+  addrStreet?: string; addrShelf?: string; addrLevel?: string; addrPosition?: string;
+  abcClass: 'AUTO' | AbcClass; monthlyConsumption?: number | null; leadTimeDays: number; serviceLevelZ: number;
+  reorderPoint: number;
+  abcResolved: AbcClass; monthlyConsumptionResolved: number; reorderPointComputed: number;
   movements: StockMovement[]; createdAt: string; updatedAt: string;
 }
-export interface StockItemInput { materialId: string; quantity: number; minQuantity: number; location?: string; }
+export interface StockItemInput {
+  materialId: string; quantity: number; minQuantity: number; location?: string;
+  addrStreet?: string; addrShelf?: string; addrLevel?: string; addrPosition?: string;
+  abcClass?: 'AUTO' | AbcClass; monthlyConsumption?: number; leadTimeDays?: number; serviceLevelZ?: number;
+}
 export interface StockMovementInput { type: StockMovementType; quantity: number; projectId?: string; notes?: string; }
+
+export interface CyclicCountPlanItem {
+  id: string; name: string; unit: string; address: string; className: AbcClass;
+  systemQty: number; unitCost: number; lastCountDate: string | null; daysSince: number | null; due: boolean;
+}
+export interface CyclicCountPlan {
+  tolerances: Record<AbcClass, number>;
+  frequencies: Record<AbcClass, number>;
+  targets: Record<AbcClass, number>;
+  buckets: { A: CyclicCountPlanItem[]; B: CyclicCountPlanItem[]; C: CyclicCountPlanItem[]; D: CyclicCountPlanItem[] };
+}
+export interface CyclicCountItemRow {
+  id: string; stockItemId: string; className: string; systemQty: number; countedQty: number;
+  diff: number; diffPct: number; adjusted: boolean;
+}
+export interface CyclicCount {
+  id: string; countDate: string; className: string; responsibleId?: string | null; responsible?: Employee | null;
+  totalItems: number; correctItems: number; divergentItems: number; accuracyPct: number;
+  adjustmentValue: number; adjustedItems: number; pendingItems?: string[] | null; items?: CyclicCountItemRow[]; createdAt: string;
+}
+export interface CyclicCountInput {
+  countDate?: string; className: 'A' | 'B' | 'C' | 'D'; responsibleId?: string;
+  items: { stockItemId: string; countedQty: number }[];
+}
 
 export interface WorkLogEmployeeEntry { id: string; employeeId: string; employee: Employee; }
 export interface WorkLogVehicleEntry { id: string; vehicleId: string; vehicle: Vehicle; driverId?: string; driver?: Employee; }
@@ -442,6 +496,7 @@ export interface Settings {
   encargosGrupoA: SocialChargeItem[] | null;
   encargosGrupoB: SocialChargeItem[] | null;
   encargosBeneficios: BenefitItem[] | null;
+  encargosFerramental: ToolingItem[] | null;
   encargosHorasProdMes: number;
   discountRatePct: number;
   updatedAt: string;
@@ -462,11 +517,27 @@ export interface ProjectFinancialAnalysis {
   dre: { receita: number; custosDiretos: number; resultadoDireto: number; margemDiretaPct: number | null };
 }
 
+export interface ReconciliationBridgeLine {
+  label: string; value: number; kind: 'base' | 'sub' | 'add' | 'warn' | 'total';
+}
+export interface ReconciliationAuditItem {
+  level: 'erro' | 'alerta' | 'ok'; title: string; detail: string;
+}
+export interface Reconciliation {
+  period: 'mes' | '3m' | 'ano';
+  caixa: number; gerencial: number; diff: number; diffPct: number;
+  rateioPct: number;
+  bridge: ReconciliationBridgeLine[];
+  audit: ReconciliationAuditItem[];
+}
+
 export interface SocialChargeItem { nome: string; pct: number; }
 export interface BenefitItem { nome: string; valorMes: number; }
+export interface ToolingItem { nome: string; qtd: number; preco: number; vidaMeses: number; }
 export interface SocialChargesResult {
   pctGrupoA: number; pctGrupoB: number; encargosPct: number;
-  beneficiosMes: number; beneficioHora: number; affected: number;
+  beneficiosMes: number; beneficioHora: number;
+  ferramentalMes: number; ferramentalHora: number; affected: number;
 }
 
 export type FixedExpenseType = 'FIXED' | 'SEMI_VARIABLE';
@@ -486,6 +557,7 @@ export interface FixedExpense {
 }
 export type FixedExpenseInput = Omit<FixedExpense, 'id' | 'financeEntryId' | 'createdAt' | 'updatedAt'>;
 
+export type AssetAbsorptionMode = 'INDIRECT' | 'HOURLY' | 'TOOLING';
 export interface Asset {
   id: string;
   name: string;
@@ -494,6 +566,10 @@ export interface Asset {
   acquisitionDate: string;
   usefulLifeMonths: number;
   residualValue: number;
+  absorptionMode: AssetAbsorptionMode;
+  productiveHoursPerYear: number;
+  annualMaintenance: number;
+  operatingCostPerHour: number;
   notes?: string;
   monthlyDepreciation: number;
   accumulatedDepreciation: number;
@@ -502,13 +578,16 @@ export interface Asset {
   depreciationContribution: number;
   opportunityCostContribution: number;
   totalMonthlyCost: number;
+  poolMonthlyCost: number;
+  hourlyMachineCost: number;
   createdAt: string;
   updatedAt: string;
 }
 export type AssetInput = Omit<
   Asset,
   'id' | 'monthlyDepreciation' | 'accumulatedDepreciation' | 'bookValue' | 'isFullyDepreciated'
-  | 'depreciationContribution' | 'opportunityCostContribution' | 'totalMonthlyCost' | 'createdAt' | 'updatedAt'
+  | 'depreciationContribution' | 'opportunityCostContribution' | 'totalMonthlyCost'
+  | 'poolMonthlyCost' | 'hourlyMachineCost' | 'createdAt' | 'updatedAt'
 >;
 
 export type PriceAdjustmentTarget = 'LABOR_ROLE' | 'MATERIAL' | 'FIXED_EXPENSE';
@@ -1105,6 +1184,10 @@ export const api = {
     request<Budget>(`/budgets/${id}/new-version`, { method: 'POST', token }),
   listBudgetVersions: (token: string, id: string) =>
     request<BudgetVersionSummary[]>(`/budgets/${id}/versions`, { method: 'GET', token }),
+  getBudgetRoteiro: (token: string, id: string) =>
+    request<BudgetRoteiro | null>(`/budgets/${id}/roteiro`, { method: 'GET', token }),
+  saveBudgetRoteiro: (token: string, id: string, data: BudgetRoteiroInput) =>
+    request<BudgetRoteiro>(`/budgets/${id}/roteiro`, { method: 'PUT', token, body: JSON.stringify(data) }),
 
   listWorkSites: (token: string, search?: string) =>
     request<WorkSite[]>(`/work-sites${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
@@ -1145,17 +1228,35 @@ export const api = {
     request<Tool>(`/tools/${id}/move`, { method: 'POST', token, body: JSON.stringify(data) }),
   deleteTool: (token: string, id: string) =>
     request<void>(`/tools/${id}`, { method: 'DELETE', token }),
+  listToolCharges: (token: string, params?: { employeeId?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.employeeId) qs.set('employeeId', params.employeeId);
+    if (params?.status) qs.set('status', params.status);
+    const q = qs.toString();
+    return request<ToolCharge[]>(`/tools/charges${q ? `?${q}` : ''}`, { method: 'GET', token });
+  },
+  chargeTool: (token: string, id: string, data: ChargeToolInput) =>
+    request<Tool>(`/tools/${id}/charge`, { method: 'POST', token, body: JSON.stringify(data) }),
+  returnToolCharge: (token: string, chargeId: string, data: ReturnToolChargeInput) =>
+    request<Tool>(`/tools/charges/${chargeId}/return`, { method: 'POST', token, body: JSON.stringify(data) }),
 
   listStockItems: (token: string, search?: string) =>
     request<StockItem[]>(`/stock${search ? `?search=${encodeURIComponent(search)}` : ''}`, { method: 'GET', token }),
   createStockItem: (token: string, data: StockItemInput) =>
     request<StockItem>('/stock', { method: 'POST', token, body: JSON.stringify(data) }),
-  updateStockItem: (token: string, id: string, data: { minQuantity?: number; location?: string }) =>
+  updateStockItem: (token: string, id: string, data: Partial<StockItemInput>) =>
     request<StockItem>(`/stock/${id}`, { method: 'PATCH', token, body: JSON.stringify(data) }),
   addStockMovement: (token: string, id: string, data: StockMovementInput) =>
     request<StockItem>(`/stock/${id}/movements`, { method: 'POST', token, body: JSON.stringify(data) }),
   deleteStockItem: (token: string, id: string) =>
     request<void>(`/stock/${id}`, { method: 'DELETE', token }),
+
+  listCyclicCounts: (token: string) =>
+    request<CyclicCount[]>('/cyclic-counts', { method: 'GET', token }),
+  getCyclicCountPlan: (token: string) =>
+    request<CyclicCountPlan>('/cyclic-counts/plan', { method: 'GET', token }),
+  createCyclicCount: (token: string, data: CyclicCountInput) =>
+    request<CyclicCount>('/cyclic-counts', { method: 'POST', token, body: JSON.stringify(data) }),
 
   listWorkLogs: (token: string, projectId?: string) =>
     request<WorkLog[]>(`/work-logs${projectId ? `?projectId=${projectId}` : ''}`, { method: 'GET', token }),
@@ -1408,6 +1509,9 @@ export const api = {
     request<PrevistoRealizado>(`/previsto-realizado/projects/${projectId}`, { method: 'GET', token }),
   listPrevistoRealizadoPortfolio: (token: string) =>
     request<PrevistoRealizado[]>('/previsto-realizado/projects', { method: 'GET', token }),
+
+  getReconciliation: (token: string, period: 'mes' | '3m' | 'ano' = 'ano') =>
+    request<Reconciliation>(`/reconciliation?period=${period}`, { method: 'GET', token }),
 
   listFinanceAttachments: (token: string, financeEntryId: string) =>
     request<FinanceAttachment[]>(`/finance/entries/${financeEntryId}/attachments`, { method: 'GET', token }),

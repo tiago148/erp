@@ -72,6 +72,13 @@ export class SettingsService {
       beneficios:
         (settings.encargosBeneficios as { nome: string; valorMes: number }[]) ??
         [],
+      ferramental:
+        (settings.encargosFerramental as {
+          nome: string;
+          qtd: number;
+          preco: number;
+          vidaMeses: number;
+        }[]) ?? [],
       horasProdMes: Number(settings.encargosHorasProdMes),
     });
 
@@ -79,6 +86,7 @@ export class SettingsService {
       data: {
         chargesPct: round2(result.encargosPct),
         beneficioHora: round2(result.beneficioHora),
+        ferramentalHora: round2(result.ferramentalHora),
       },
     });
 
@@ -86,7 +94,7 @@ export class SettingsService {
       actor,
       action: 'SOCIAL_CHARGES_APPLIED',
       entity: 'LaborRole',
-      details: `Encargos ${round2(result.encargosPct)}% e beneficio R$ ${round2(result.beneficioHora)}/h aplicados a ${count} funcao(oes).`,
+      details: `Encargos ${round2(result.encargosPct)}%, beneficio R$ ${round2(result.beneficioHora)}/h e ferramental R$ ${round2(result.ferramentalHora)}/h aplicados a ${count} funcao(oes).`,
     });
 
     return { ...result, affected: count };

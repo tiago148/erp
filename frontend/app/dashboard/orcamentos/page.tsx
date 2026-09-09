@@ -342,6 +342,18 @@ export default function OrcamentosPage() {
                         v{budget.version}
                       </button>
                     )}
+                    {budget.roteiro && (
+                      <span
+                        title="Completude do roteiro de levantamento"
+                        className={`ml-1.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          budget.roteiro.completionPct >= 90 ? 'bg-success/15 text-success'
+                            : budget.roteiro.completionPct >= 60 ? 'bg-warning/15 text-warning'
+                            : 'bg-destructive/15 text-destructive'
+                        }`}
+                      >
+                        roteiro {budget.roteiro.completionPct.toFixed(0)}%
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>{budget.client.name}</TableCell>
                   <TableCell>{formatDate(budget.createdAt)}</TableCell>

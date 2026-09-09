@@ -103,7 +103,10 @@ export function PurchaseOrderForm({ onSubmit, onCancel }: Props) {
               {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.number} - {p.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">Deixe em branco para o pedido entrar no estoque geral.</p>
+          <p className="text-xs text-muted-foreground">
+            <strong>Direto para a obra</strong> (escolha o projeto): debita a obra na entrega e não passa pelo estoque.
+            <strong> Para o estoque</strong> (em branco): entra no almoxarifado e vira custo de obra só na requisição. Nunca os dois — seria contar duas vezes.
+          </p>
         </div>
         <div className="space-y-2">
           <Label>Responsável (opcional)</Label>

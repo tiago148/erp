@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, Playbook, PlaybookInput, Checklist, ChecklistInput, LessonLearned, LessonLearnedInput, Settings } from '@/lib/api';
+import { api, Playbook, PlaybookInput, Checklist, ChecklistInput, LessonLearned, LessonLearnedInput, Settings, Budget } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BudgetRoteiro } from '@/components/budget-roteiro';
 import { PlaybookForm, playbookCategoryLabels } from '@/components/playbook-form';
 import { ChecklistForm, checklistContextLabels } from '@/components/checklist-form';
 import { LessonLearnedForm, lessonCategoryLabels } from '@/components/lesson-learned-form';
@@ -371,12 +373,54 @@ function LessonsLearnedSection() {
   );
 }
 
+function BudgetRoteiroSection() {
+  const { token } = useAuth();
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [budgetId, setBudgetId] = useState('');
+
+  useEffect(() => { if (token) api.listBudgets(token).then(setBudgets); }, [token]);
+
+  const selected = budgets.find((b) => b.id === budgetId);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border-l-2 border-primary bg-muted/40 p-3 text-xs leading-relaxed">
+        Roteiro de levantamento vinculado a um orçamento. Selecione a proposta, marque as verificações conforme avança e
+        salve — o percentual de completude e a contingência sugerida ficam registrados no orçamento.
+      </div>
+      <div className="space-y-2 max-w-md">
+        <label className="text-sm font-medium">Orçamento</label>
+        <Select value={budgetId} onValueChange={(v) => setBudgetId(v ?? '')}>
+          <SelectTrigger><SelectValue placeholder="Selecione um orçamento..." /></SelectTrigger>
+          <SelectContent>
+            {budgets.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                #{b.number}{b.version > 1 ? ` v${b.version}` : ''} — {b.client.name}
+                {b.roteiro ? ` · ${b.roteiro.completionPct.toFixed(0)}%` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {selected ? (
+        <BudgetRoteiro
+          budgetId={selected.id}
+          token={token || ''}
+          onSaved={() => { if (token) api.listBudgets(token).then(setBudgets); }}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">Selecione um orçamento para abrir o roteiro.</p>
+      )}
+    </div>
+  );
+}
+
 export default function KnowledgeBasePage() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Base de Conhecimento</h1>
-        <p className="text-muted-foreground">Procedimentos padrão, instruções de máquina, checklists operacionais e lições aprendidas.</p>
+        <p className="text-muted-foreground">Procedimentos padrão, instruções de máquina, checklists operacionais, roteiro de orçamento e lições aprendidas.</p>
       </div>
 
       <Tabs defaultValue="procedimentos">
@@ -384,11 +428,13 @@ export default function KnowledgeBasePage() {
           <TabsTrigger value="procedimentos">Procedimentos</TabsTrigger>
           <TabsTrigger value="maquinas">Máquinas</TabsTrigger>
           <TabsTrigger value="checklists">Checklists</TabsTrigger>
+          <TabsTrigger value="roteiro">Roteiro de Orçamento</TabsTrigger>
           <TabsTrigger value="licoes">Lições Aprendidas</TabsTrigger>
         </TabsList>
         <TabsContent value="procedimentos"><PlaybooksSection machine={false} /></TabsContent>
         <TabsContent value="maquinas"><PlaybooksSection machine={true} /></TabsContent>
         <TabsContent value="checklists"><ChecklistsSection /></TabsContent>
+        <TabsContent value="roteiro"><BudgetRoteiroSection /></TabsContent>
         <TabsContent value="licoes"><LessonsLearnedSection /></TabsContent>
       </Tabs>
     </div>

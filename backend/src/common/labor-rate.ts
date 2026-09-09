@@ -7,6 +7,7 @@ export interface LaborRoleForRate {
   insalubridadePct: number;
   noturnoPct: number;
   beneficioHora?: number;
+  ferramentalHora?: number;
 }
 
 // Adicionais legais somam sobre a hora-base ANTES dos encargos (chargesPct),
@@ -24,11 +25,14 @@ export function calculateLaborRoleEffectiveRate(
     (role.insalubridadePct / 100) * (salarioMinimo / HOURS_PER_MONTH_REFERENCE);
   const noturnoValue = baseRate * (role.noturnoPct / 100);
   const beneficioHora = role.beneficioHora ?? 0;
+  const ferramentalHora = role.ferramentalHora ?? 0;
 
   const rateWithAdditions =
     baseRate + periculosidadeValue + insalubridadeValue + noturnoValue;
   const effectiveHourlyRate =
-    rateWithAdditions * (1 + role.chargesPct / 100) + beneficioHora;
+    rateWithAdditions * (1 + role.chargesPct / 100) +
+    beneficioHora +
+    ferramentalHora;
 
   return {
     baseRate,
@@ -37,6 +41,7 @@ export function calculateLaborRoleEffectiveRate(
     noturnoValue,
     rateWithAdditions,
     beneficioHora,
+    ferramentalHora,
     effectiveHourlyRate,
   };
 }

@@ -57,6 +57,12 @@ export class UpdateSettingsDto {
     nome: string;
     valorMes: number;
   }[];
+  @IsOptional() @IsArray() encargosFerramental?: {
+    nome: string;
+    qtd: number;
+    preco: number;
+    vidaMeses: number;
+  }[];
   @IsOptional() @IsNumber() @Min(1) encargosHorasProdMes?: number;
   @IsOptional() @IsNumber() @Min(0) discountRatePct?: number;
 }

@@ -172,12 +172,50 @@ function AssetsTab() {
 
   const totalMonthlyCost = assets.reduce((s, a) => s + a.totalMonthlyCost, 0);
 
+  const absLabel: Record<string, string> = { INDIRECT: 'Indireto', HOURLY: 'Horário', TOOLING: 'Ferramental' };
+  const absVariant: Record<string, 'info' | 'warning' | 'success'> = { INDIRECT: 'info', HOURLY: 'warning', TOOLING: 'success' };
+  const indirectAssets = assets.filter((a) => a.absorptionMode === 'INDIRECT');
+  const hourlyAssets = assets.filter((a) => a.absorptionMode === 'HOURLY');
+  const toolingAssets = assets.filter((a) => a.absorptionMode === 'TOOLING');
+  const poolIndirect = indirectAssets.reduce((s, a) => s + a.poolMonthlyCost, 0);
+  const poolHourly = hourlyAssets.reduce((s, a) => s + a.poolMonthlyCost, 0);
+  const poolTooling = toolingAssets.reduce((s, a) => s + a.poolMonthlyCost, 0);
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Veículos, ferramentas e equipamentos também custam dinheiro parados: perdem valor (depreciação) e imobilizam capital
-        que poderia render em outro lugar (custo de oportunidade). Esse custo mensal entra no mesmo pool da taxa administrativa.
+        que poderia render em outro lugar (custo de oportunidade). Cada bem entra no preço por <strong>um único caminho</strong>.
       </p>
+
+      <div className="rounded-md border bg-card p-4 space-y-2">
+        <p className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground">Os três caminhos do custo de ativo — sem dupla contagem</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-md border border-info/35 p-3">
+            <p className="text-xs font-bold flex items-center gap-2"><Badge variant="info">Indireto</Badge> Rateio da estrutura</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Barracão, móveis, informática, veículo administrativo. Diluído em todas as obras pela taxa administrativa.</p>
+            <p className="text-lg font-bold font-mono text-info mt-1">{fmt(poolIndirect)}<span className="text-[11px] font-normal text-muted-foreground"> /mês · {indirectAssets.length} bem(ns)</span></p>
+          </div>
+          <div className="rounded-md border border-warning/35 p-3">
+            <p className="text-xs font-bold flex items-center gap-2"><Badge variant="warning">Horário</Badge> Custo direto por hora</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Máquina de porte apropriada por hora na obra: calandra, guilhotina, pórtico, solda de maior valor.</p>
+            <p className="text-lg font-bold font-mono text-warning mt-1">{fmt(poolHourly)}<span className="text-[11px] font-normal text-muted-foreground"> /mês a recuperar · {hourlyAssets.length} bem(ns)</span></p>
+            {hourlyAssets.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {hourlyAssets.map((a) => (
+                  <div key={a.id} className="flex justify-between text-[11px]"><span>{a.name}</span><span className="font-mono text-warning">{fmt(a.hourlyMachineCost)}/h</span></div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="rounded-md border border-success/35 p-3">
+            <p className="text-xs font-bold flex items-center gap-2"><Badge variant="success">Ferramental</Badge> Encargo complementar na hora de MO</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Ferramenta manual e elétrica de uso individual. Somado em R$/hora à mão de obra em Encargos Sociais, sem variar com o salário.</p>
+            <p className="text-lg font-bold font-mono text-success mt-1">{fmt(poolTooling)}<span className="text-[11px] font-normal text-muted-foreground"> /mês · {toolingAssets.length} bem(ns)</span></p>
+          </div>
+        </div>
+        <p className="text-xs text-success">✓ Só bens de absorção indireta entram no pool de rateio. Os demais entram no preço por outro caminho — nenhum custo é cobrado duas vezes.</p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
@@ -202,7 +240,7 @@ function AssetsTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Bem</TableHead><TableHead>Categoria</TableHead>
+              <TableHead>Bem</TableHead><TableHead>Absorção</TableHead><TableHead>Categoria</TableHead>
               <TableHead>Valor Contábil</TableHead><TableHead>Depreciação/mês</TableHead>
               <TableHead>Custo Oport./mês</TableHead><TableHead>Custo Total/mês</TableHead>
               <TableHead className="w-24">Ações</TableHead>
@@ -210,20 +248,23 @@ function AssetsTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : assets.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum patrimônio cadastrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum patrimônio cadastrado.</TableCell></TableRow>
             ) : assets.map((asset) => (
               <TableRow key={asset.id}>
                 <TableCell className="font-medium">
                   {asset.name}
                   {asset.isFullyDepreciated && <Badge variant="outline" className="ml-2">totalmente depreciado</Badge>}
                 </TableCell>
+                <TableCell><Badge variant={absVariant[asset.absorptionMode]}>{absLabel[asset.absorptionMode]}</Badge></TableCell>
                 <TableCell className="text-muted-foreground">{asset.category || '-'}</TableCell>
                 <TableCell className="font-mono">{fmt(asset.bookValue)}</TableCell>
                 <TableCell className="font-mono">{fmt(asset.depreciationContribution)}</TableCell>
                 <TableCell className="font-mono">{fmt(asset.opportunityCostContribution)}</TableCell>
-                <TableCell className="font-mono font-semibold text-destructive">{fmt(asset.totalMonthlyCost)}</TableCell>
+                <TableCell className="font-mono font-semibold text-destructive">
+                  {asset.absorptionMode === 'INDIRECT' ? fmt(asset.totalMonthlyCost) : asset.absorptionMode === 'HOURLY' ? `${fmt(asset.hourlyMachineCost)}/h` : '—'}
+                </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => { setEditing(asset); setOpen(true); }}><Pencil size={16} /></Button>

@@ -8,6 +8,7 @@
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -19,6 +20,7 @@ import { BudgetsService } from './budgets.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { UpsertBudgetRoteiroDto } from './dto/upsert-budget-roteiro.dto';
 
 @Controller('budgets')
 @UseGuards(JwtAuthGuard)
@@ -87,5 +89,22 @@ export class BudgetsController {
   @Get(':id/versions')
   findVersions(@Param('id') id: string) {
     return this.budgetsService.findVersions(id);
+  }
+
+  @Get(':id/roteiro')
+  getRoteiro(@Param('id') id: string) {
+    return this.budgetsService.getRoteiro(id);
+  }
+
+  @Put(':id/roteiro')
+  upsertRoteiro(
+    @Param('id') id: string,
+    @Body() dto: UpsertBudgetRoteiroDto,
+    @Req() req: any,
+  ) {
+    return this.budgetsService.upsertRoteiro(id, dto, {
+      userId: req.user.userId,
+      email: req.user.email,
+    });
   }
 }

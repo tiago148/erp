@@ -22,6 +22,7 @@ const emptyForm: LaborRoleInput = {
   insalubridadePct: 0,
   noturnoPct: 0,
   beneficioHora: 0,
+  ferramentalHora: 0,
 };
 
 const insalubridadeOptions = [
@@ -53,6 +54,7 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
         insalubridadePct: initialData.insalubridadePct,
         noturnoPct: initialData.noturnoPct,
         beneficioHora: initialData.beneficioHora,
+        ferramentalHora: initialData.ferramentalHora,
       });
     }
   }, [initialData]);
@@ -83,6 +85,7 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
       insalubridadePct: form.insalubridadePct || 0,
       noturnoPct: form.noturnoPct || 0,
       beneficioHora: form.beneficioHora || 0,
+      ferramentalHora: form.ferramentalHora || 0,
     },
     salarioMinimo,
   );
@@ -197,6 +200,9 @@ export function LaborRoleForm({ initialData, onSubmit, onCancel }: LaborRoleForm
         <div className="flex justify-between font-medium border-t border-border pt-1 mt-1"><span>Encargos ({form.chargesPct || 0}%)</span><span>{fmt(rate.rateWithAdditions * ((form.chargesPct || 0) / 100))}</span></div>
         {rate.beneficioHora > 0 && (
           <div className="flex justify-between"><span>Benefício/hora</span><span>{fmt(rate.beneficioHora)}</span></div>
+        )}
+        {rate.ferramentalHora > 0 && (
+          <div className="flex justify-between"><span>Ferramental/hora (encargo complementar)</span><span>{fmt(rate.ferramentalHora)}</span></div>
         )}
         <div className="flex justify-between font-bold border-t border-border pt-2 mt-2">
           <span>Taxa/hora efetiva</span>

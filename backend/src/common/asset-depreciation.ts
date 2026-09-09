@@ -44,6 +44,40 @@ export function calculateAssetDepreciation(
   };
 }
 
+export interface HourlyMachineAsset extends AssetForDepreciation {
+  productiveHoursPerYear: number;
+  annualMaintenance: number;
+  operatingCostPerHour: number;
+}
+
+// Custo horario de maquina de porte apropriada por hora de uso na obra
+// (secao V17 do prototipo): (depreciacao + custo de capital ao ano +
+// manutencao ao ano) / horas produtivas ao ano + operacao por hora.
+// Este bem NAO entra no rateio da estrutura.
+export function computeHourlyMachineCost(
+  asset: HourlyMachineAsset,
+  opportunityCostPct: number,
+  now: Date = new Date(),
+) {
+  const dep = calculateAssetDepreciation(asset, now);
+  const depreciationYear = dep.isFullyDepreciated
+    ? 0
+    : dep.monthlyDepreciation * 12;
+  const capitalYear = dep.bookValue * (opportunityCostPct / 100) * 12;
+  const hours = asset.productiveHoursPerYear > 0 ? asset.productiveHoursPerYear : 1;
+  const hourlyRate =
+    (depreciationYear + capitalYear + asset.annualMaintenance) / hours +
+    asset.operatingCostPerHour;
+  return {
+    depreciationYear,
+    capitalYear,
+    annualMaintenance: asset.annualMaintenance,
+    hours,
+    operatingCostPerHour: asset.operatingCostPerHour,
+    hourlyRate,
+  };
+}
+
 export function calculateAssetMonthlyCost(
   asset: AssetForDepreciation,
   opportunityCostPct: number,

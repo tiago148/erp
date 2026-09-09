@@ -39,4 +39,9 @@ export class CreateLaborRoleDto {
   @IsNumber()
   @Min(0)
   beneficioHora?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  ferramentalHora?: number;
 }

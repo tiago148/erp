@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { api, SocialChargeItem, BenefitItem } from '@/lib/api';
+import { api, SocialChargeItem, BenefitItem, ToolingItem } from '@/lib/api';
 import { computeSocialCharges } from '@/lib/social-charges';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,7 @@ export function SocialChargesTab() {
   const [grupoA, setGrupoA] = useState<SocialChargeItem[]>([]);
   const [grupoB, setGrupoB] = useState<SocialChargeItem[]>([]);
   const [beneficios, setBeneficios] = useState<BenefitItem[]>([]);
+  const [ferramental, setFerramental] = useState<ToolingItem[]>([]);
   const [horasProdMes, setHorasProdMes] = useState(176);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +68,7 @@ export function SocialChargesTab() {
       setGrupoA(settings.encargosGrupoA ?? []);
       setGrupoB(settings.encargosGrupoB ?? []);
       setBeneficios(settings.encargosBeneficios ?? []);
+      setFerramental(settings.encargosFerramental ?? []);
       setHorasProdMes(settings.encargosHorasProdMes || 176);
     } finally {
       setLoading(false);
@@ -75,19 +77,21 @@ export function SocialChargesTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const result = computeSocialCharges({ grupoA, grupoB, beneficios, horasProdMes });
+  const result = computeSocialCharges({ grupoA, grupoB, beneficios, ferramental, horasProdMes });
+  const settingsPayload = {
+    encargosGrupoA: grupoA,
+    encargosGrupoB: grupoB,
+    encargosBeneficios: beneficios,
+    encargosFerramental: ferramental,
+    encargosHorasProdMes: horasProdMes,
+  };
 
   async function handleSave() {
     if (!token) return;
     setSaving(true);
     setMessage('');
     try {
-      await api.updateSettings(token, {
-        encargosGrupoA: grupoA,
-        encargosGrupoB: grupoB,
-        encargosBeneficios: beneficios,
-        encargosHorasProdMes: horasProdMes,
-      });
+      await api.updateSettings(token, settingsPayload);
       setMessage('Configuração salva.');
     } finally {
       setSaving(false);
@@ -100,14 +104,9 @@ export function SocialChargesTab() {
     setApplying(true);
     setMessage('');
     try {
-      await api.updateSettings(token, {
-        encargosGrupoA: grupoA,
-        encargosGrupoB: grupoB,
-        encargosBeneficios: beneficios,
-        encargosHorasProdMes: horasProdMes,
-      });
+      await api.updateSettings(token, settingsPayload);
       const applied = await api.applySocialCharges(token);
-      setMessage(`Aplicado a ${applied.affected} função(ões): encargos ${applied.encargosPct.toFixed(2)}% · benefício ${fmt(applied.beneficioHora)}/hora.`);
+      setMessage(`Aplicado a ${applied.affected} função(ões): encargos ${applied.encargosPct.toFixed(2)}% · benefício ${fmt(applied.beneficioHora)}/h · ferramental ${fmt(applied.ferramentalHora)}/h.`);
     } finally {
       setApplying(false);
     }
@@ -201,9 +200,39 @@ export function SocialChargesTab() {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle className="text-base">Encargos complementares — ferramental e EPI por função</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Metodologia SINAPI: o custo de ferramenta manual e EPI de uso individual <strong>não é percentual sobre o salário</strong>.
+            Custo horário = (preço × quantidade) ÷ vida útil em meses ÷ horas produtivas no mês, somado à hora sem variar com a remuneração.
+          </p>
+          <div className="grid grid-cols-[1fr_70px_90px_80px_36px] gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+            <span>Item</span><span>Qtd</span><span>Preço</span><span>Vida (m)</span><span />
+          </div>
+          {ferramental.map((item, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_70px_90px_80px_36px] gap-2 items-center">
+              <Input placeholder="Ex: Esmerilhadeira 4½&quot;" value={item.nome} onChange={(e) => setFerramental(ferramental.map((it, i) => i === idx ? { ...it, nome: e.target.value } : it))} />
+              <Input type="number" step="1" min="0" value={item.qtd} onChange={(e) => setFerramental(ferramental.map((it, i) => i === idx ? { ...it, qtd: parseFloat(e.target.value) || 0 } : it))} />
+              <Input type="number" step="0.01" min="0" value={item.preco} onChange={(e) => setFerramental(ferramental.map((it, i) => i === idx ? { ...it, preco: parseFloat(e.target.value) || 0 } : it))} />
+              <Input type="number" step="1" min="1" value={item.vidaMeses} onChange={(e) => setFerramental(ferramental.map((it, i) => i === idx ? { ...it, vidaMeses: parseFloat(e.target.value) || 1 } : it))} />
+              <Button type="button" size="icon" variant="ghost" onClick={() => setFerramental(ferramental.filter((_, i) => i !== idx))}><Trash2 size={16} /></Button>
+            </div>
+          ))}
+          <Button type="button" size="sm" variant="outline" onClick={() => setFerramental([...ferramental, { nome: '', qtd: 1, preco: 0, vidaMeses: 36 }])}>
+            <Plus size={14} className="mr-1" />Adicionar item
+          </Button>
+          <div className="flex justify-between text-sm font-medium border-t pt-2 mt-2">
+            <span>Ferramental por funcionário</span>
+            <span>{fmt(result.ferramentalMes)}/mês · {fmt(result.ferramentalHora)}/h</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardContent className="pt-6 space-y-2">
           <div className="flex justify-between text-sm"><span>Total Benefícios/mês</span><span>{fmt(result.beneficiosMes)}</span></div>
           <div className="flex justify-between text-sm"><span>Benefício/hora</span><span>{fmt(result.beneficioHora)}</span></div>
+          <div className="flex justify-between text-sm"><span>Ferramental/hora (encargo complementar)</span><span>{fmt(result.ferramentalHora)}</span></div>
           <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
             <span>Encargos Sociais</span><span>{result.encargosPct.toFixed(2)}%</span>
           </div>

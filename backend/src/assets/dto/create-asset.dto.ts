@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -32,6 +33,25 @@ export class CreateAssetDto {
   @IsNumber()
   @Min(0)
   residualValue?: number;
+
+  @IsOptional()
+  @IsIn(['INDIRECT', 'HOURLY', 'TOOLING'])
+  absorptionMode?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  productiveHoursPerYear?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  annualMaintenance?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  operatingCostPerHour?: number;
 
   @IsOptional()
   @IsString()

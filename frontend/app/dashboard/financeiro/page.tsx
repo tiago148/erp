@@ -25,6 +25,7 @@ import { FinanceTransferForm } from '@/components/finance-transfer-form';
 import { FinanceAttachmentUploader } from '@/components/finance-attachment-uploader';
 import { ProjectBillingItemForm } from '@/components/project-billing-item-form';
 import { FinanceImportWizard } from '@/components/finance-import-wizard';
+import { ReconciliationTab } from '@/components/reconciliation-tab';
 import { ProjectFinancialAnalysisView } from '@/components/project-financial-analysis-view';
 import { PrintDocument, PrintHeader, PrintSectionTitle, PrintFooter } from '@/components/print-document';
 import { usePrint } from '@/lib/use-print';
@@ -1192,6 +1193,7 @@ export default function FinanceiroPage() {
           <TabsTrigger value="dre">DRE</TabsTrigger>
           <TabsTrigger value="fluxo-caixa">Fluxo de Caixa</TabsTrigger>
           <TabsTrigger value="obra">Análise por Obra</TabsTrigger>
+          <TabsTrigger value="conciliacao">Conciliação</TabsTrigger>
           <TabsTrigger value="faturamento">Faturamento</TabsTrigger>
           <TabsTrigger value="categorias">Categorias</TabsTrigger>
           <TabsTrigger value="contas">Contas</TabsTrigger>
@@ -1204,6 +1206,7 @@ export default function FinanceiroPage() {
         <TabsContent value="dre"><DreTab /></TabsContent>
         <TabsContent value="fluxo-caixa"><CashFlowTab /></TabsContent>
         <TabsContent value="obra"><AnaliseObraTab /></TabsContent>
+        <TabsContent value="conciliacao"><ReconciliationTab /></TabsContent>
         <TabsContent value="faturamento"><BillingTab /></TabsContent>
         <TabsContent value="categorias"><CategoriesTab /></TabsContent>
         <TabsContent value="contas"><AccountsTab /></TabsContent>

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToolChargePanel } from '@/components/tool-charge-panel';
 import { EppForm } from '@/components/epp-form';
 import { DdsForm } from '@/components/dds-form';
 import { TrainingForm } from '@/components/training-form';
@@ -298,10 +299,12 @@ export default function SegurancaPage() {
           <TabsTrigger value="epi">EPI</TabsTrigger>
           <TabsTrigger value="dds">DDS</TabsTrigger>
           <TabsTrigger value="treinamentos">Treinamentos</TabsTrigger>
+          <TabsTrigger value="carga">Carga do Funcionário</TabsTrigger>
         </TabsList>
         <TabsContent value="epi"><EppTab /></TabsContent>
         <TabsContent value="dds"><DdsTab /></TabsContent>
         <TabsContent value="treinamentos"><TrainingsTab /></TabsContent>
+        <TabsContent value="carga"><ToolChargePanel /></TabsContent>
       </Tabs>
     </div>
   );

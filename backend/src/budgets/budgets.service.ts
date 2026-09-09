@@ -141,7 +141,13 @@ export class BudgetsService {
     // de custo indireto que as despesas fixas — um caminhão parado também
     // custa dinheiro (perde valor e imobiliza capital), não só o aluguel.
     const opportunityCostPct = Number(settings.assetOpportunityCostPct);
-    const assetsTotal = assets.reduce((sum, asset) => {
+    // Apenas bens de absorcao INDIRETA entram no pool de rateio da estrutura.
+    // Maquinas de custo horario e ferramental individual entram no preco por
+    // outros caminhos (custo direto por hora / encargo complementar), e contar
+    // aqui tambem seria dupla contagem (secao V17 do prototipo).
+    const assetsTotal = assets
+      .filter((asset) => (asset.absorptionMode ?? 'INDIRECT') === 'INDIRECT')
+      .reduce((sum, asset) => {
       const { totalMonthlyCost } = calculateAssetMonthlyCost(
         {
           acquisitionValue: Number(asset.acquisitionValue),
@@ -360,7 +366,47 @@ export class BudgetsService {
       compositionItems: { include: { composition: true } },
       serviceItems: { include: { thirdPartyService: true } },
       rentalItems: { include: { rentalEquipment: true } },
+      roteiro: true,
     };
+  }
+
+  async getRoteiro(budgetId: string) {
+    await this.findOne(budgetId);
+    return this.prisma.client.budgetRoteiro.findUnique({ where: { budgetId } });
+  }
+
+  async upsertRoteiro(
+    budgetId: string,
+    dto: {
+      checkedKeys: string[];
+      infoLevel: string;
+      siteVisitDone: boolean;
+      completionPct: number;
+      suggestedContingencyPct: number;
+    },
+    actor?: Actor,
+  ) {
+    await this.findOne(budgetId);
+    const data = {
+      checkedKeys: dto.checkedKeys,
+      infoLevel: dto.infoLevel,
+      siteVisitDone: dto.siteVisitDone,
+      completionPct: dto.completionPct,
+      suggestedContingencyPct: dto.suggestedContingencyPct,
+    };
+    const saved = await this.prisma.client.budgetRoteiro.upsert({
+      where: { budgetId },
+      create: { budgetId, ...data },
+      update: data,
+    });
+    await this.auditService.log({
+      actor,
+      action: 'BUDGET_ROTEIRO_UPSERT',
+      entity: 'BudgetRoteiro',
+      entityId: saved.id,
+      details: `Orcamento ${budgetId} - ${dto.completionPct.toFixed(0)}% levantado`,
+    });
+    return saved;
   }
 
   private async resolveCompositionItems(
@@ -455,6 +501,7 @@ export class BudgetsService {
             insalubridadePct: Number(role.insalubridadePct),
             noturnoPct: Number(role.noturnoPct),
             beneficioHora: Number(role.beneficioHora),
+            ferramentalHora: Number(role.ferramentalHora),
           },
           salarioMinimo,
         );
@@ -622,6 +669,7 @@ export class BudgetsService {
               insalubridadePct: Number(role.insalubridadePct),
               noturnoPct: Number(role.noturnoPct),
               beneficioHora: Number(role.beneficioHora),
+              ferramentalHora: Number(role.ferramentalHora),
             },
             salarioMinimo,
           );

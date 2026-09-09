@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
 import {
   api, StockItem, StockItemInput, StockMovementInput, MaterialSurplus, MaterialSurplusInput,
-  ScrapSale, ScrapSaleInput, Tool, Project,
+  ScrapSale, ScrapSaleInput, Tool, Project, CyclicCount, CyclicCountPlan, CyclicCountInput, Employee,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -17,8 +17,10 @@ import { StockItemForm } from '@/components/stock-item-form';
 import { StockMovementForm } from '@/components/stock-movement-form';
 import { MaterialSurplusForm } from '@/components/material-surplus-form';
 import { ScrapSaleForm } from '@/components/scrap-sale-form';
+import { CyclicCountForm } from '@/components/cyclic-count-form';
+import { abcBadgeClass, effectiveClass, stockAddress, CLASS_ACCURACY_TARGET } from '@/lib/abc';
 import { downloadCsv } from '@/lib/export-csv';
-import { Plus, ArrowRightLeft, Trash2, Download, Undo2, PackageCheck, Recycle, Pencil } from 'lucide-react';
+import { Plus, ArrowRightLeft, Trash2, Download, Undo2, PackageCheck, Recycle, Pencil, ClipboardCheck } from 'lucide-react';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -50,7 +52,12 @@ function StockPositionTab() {
 
   async function handleUpdate(data: StockItemInput) {
     if (!token || !editing) return;
-    await api.updateStockItem(token, editing.id, { minQuantity: data.minQuantity, location: data.location });
+    await api.updateStockItem(token, editing.id, {
+      minQuantity: data.minQuantity, location: data.location,
+      addrStreet: data.addrStreet, addrShelf: data.addrShelf, addrLevel: data.addrLevel, addrPosition: data.addrPosition,
+      abcClass: data.abcClass, monthlyConsumption: data.monthlyConsumption,
+      leadTimeDays: data.leadTimeDays, serviceLevelZ: data.serviceLevelZ,
+    });
     setEditing(undefined);
     load();
   }
@@ -78,25 +85,34 @@ function StockPositionTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Material</TableHead><TableHead>Categoria</TableHead>
-              <TableHead>Quantidade</TableHead><TableHead>Mínimo</TableHead><TableHead>Localização</TableHead>
+              <TableHead className="w-12">Cls</TableHead><TableHead>Material</TableHead><TableHead>Categoria</TableHead>
+              <TableHead>Quantidade</TableHead><TableHead>Mínimo</TableHead><TableHead>Endereço</TableHead>
               <TableHead>Status</TableHead><TableHead className="w-28">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum item no estoque.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhum item no estoque.</TableCell></TableRow>
             ) : items.map((item) => {
               const isLow = item.quantity <= item.minQuantity;
+              const cls = effectiveClass(item);
+              const addr = stockAddress(item);
               return (
                 <TableRow key={item.id}>
+                  <TableCell>
+                    <span className={`inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold font-mono ${abcBadgeClass[cls]}`}>{cls}</span>
+                  </TableCell>
                   <TableCell className="font-medium">{item.material.name}</TableCell>
                   <TableCell>{item.material.category}</TableCell>
                   <TableCell>{item.quantity} {item.material.unit}</TableCell>
                   <TableCell>{item.minQuantity} {item.material.unit}</TableCell>
-                  <TableCell className="text-muted-foreground">{item.location || '-'}</TableCell>
+                  <TableCell>
+                    {addr
+                      ? <span className="inline-block rounded border border-border bg-muted px-1.5 font-mono text-xs text-primary">{addr}</span>
+                      : <span className="text-xs text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${isLow ? 'bg-destructive/15 text-destructive' : 'bg-success/15 text-success'}`}>
                       {isLow ? 'Estoque Baixo' : 'OK'}
@@ -547,23 +563,193 @@ function ReplenishmentTab() {
   );
 }
 
+function CyclicInventoryTab() {
+  const { token } = useAuth();
+  const [history, setHistory] = useState<CyclicCount[]>([]);
+  const [plan, setPlan] = useState<CyclicCountPlan | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const [h, p, e] = await Promise.all([
+        api.listCyclicCounts(token),
+        api.getCyclicCountPlan(token),
+        api.listEmployees(token),
+      ]);
+      setHistory(h); setPlan(p); setEmployees(e);
+    } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(data: CyclicCountInput) {
+    if (!token) return;
+    await api.createCyclicCount(token, data);
+    setOpen(false);
+    load();
+  }
+
+  if (loading || !plan) return <p className="text-muted-foreground">Carregando...</p>;
+
+  const year = new Date().getFullYear().toString();
+  const thisYear = history.filter((c) => c.countDate.startsWith(year));
+  const accuracyAvg = thisYear.length ? thisYear.reduce((a, c) => a + c.accuracyPct, 0) / thisYear.length : 0;
+  const itemsCounted = thisYear.reduce((a, c) => a + c.totalItems, 0);
+  const adjustmentYear = thisYear.reduce((a, c) => a + Math.abs(c.adjustmentValue), 0);
+  const overdue = plan.buckets.D.length;
+
+  const byClass = (['A', 'B', 'C'] as const).map((cl) => {
+    const cs = history.filter((c) => c.className === cl);
+    const m = cs.length ? cs.reduce((a, c) => a + c.accuracyPct, 0) / cs.length : null;
+    return { cl, n: plan.buckets[cl].length, m, target: CLASS_ACCURACY_TARGET[cl] };
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border-l-2 border-primary bg-muted/40 p-3 text-xs leading-relaxed">
+        <strong className="text-primary">Contagem cega.</strong> O sistema não mostra o saldo enquanto você conta.
+        Frequência: classe A todo mês · classe B a cada 3 meses · classe C a cada 6 meses. Poucos itens por dia, sem parar a operação.
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={() => setOpen(true)}><Plus size={16} className="mr-2" />Nova Contagem</Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-md border bg-card p-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Acuracidade média do ano</p>
+          <p className={`text-2xl font-bold font-mono ${accuracyAvg >= 95 ? 'text-success' : accuracyAvg >= 90 ? 'text-warning' : 'text-destructive'}`}>{thisYear.length ? `${accuracyAvg.toFixed(1)}%` : '—'}</p>
+          <p className="text-[10px] text-muted-foreground">Meta 95% · classe A 98%</p>
+        </div>
+        <div className="rounded-md border bg-card p-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contagens no ano</p>
+          <p className="text-2xl font-bold font-mono">{thisYear.length}</p>
+          <p className="text-[10px] text-muted-foreground">{itemsCounted} item(ns) contado(s)</p>
+        </div>
+        <div className="rounded-md border bg-card p-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Vencidos para contagem</p>
+          <p className={`text-2xl font-bold font-mono ${overdue ? 'text-warning' : 'text-success'}`}>{overdue}</p>
+          <p className="text-[10px] text-muted-foreground">de {plan.buckets.A.length + plan.buckets.B.length + plan.buckets.C.length} itens</p>
+        </div>
+        <div className="rounded-md border bg-card p-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Ajuste acumulado</p>
+          <p className="text-lg font-bold font-mono text-destructive">{fmt(adjustmentYear)}</p>
+          <p className="text-[10px] text-muted-foreground">Divergência em valor absoluto</p>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-md border bg-card p-4">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3">Acuracidade por classe</p>
+          <div className="space-y-3">
+            {byClass.map(({ cl, n, m, target }) => {
+              const color = m == null ? 'text-muted-foreground' : m >= target ? 'text-success' : m >= target - 5 ? 'text-warning' : 'text-destructive';
+              return (
+                <div key={cl}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span><span className={`inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold font-mono ${abcBadgeClass[cl]}`}>{cl}</span> <span className="ml-2">{n} itens · meta {target}%</span></span>
+                    <span className={`font-mono ${color}`}>{m != null ? `${m.toFixed(1)}%` : 'sem contagem'}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${m ?? 0}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="rounded-md border bg-card p-4">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3">Itens vencidos para contagem</p>
+          {plan.buckets.D.length === 0 ? (
+            <p className="text-sm text-success">✓ Nenhum item vencido para contagem.</p>
+          ) : (
+            <div className="space-y-1 text-xs">
+              {plan.buckets.D.slice(0, 8).map((it) => (
+                <div key={it.id} className="flex justify-between border-b py-1">
+                  <span><span className={`inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold font-mono ${abcBadgeClass[it.className]}`}>{it.className}</span> <span className="ml-1.5">{it.name}</span></span>
+                  <span className="text-muted-foreground">{it.daysSince == null ? 'nunca contado' : `há ${it.daysSince} dias`}</span>
+                </div>
+              ))}
+              {plan.buckets.D.length > 8 && <p className="text-muted-foreground pt-1">+ {plan.buckets.D.length - 8} item(ns)</p>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Histórico de contagens</p>
+        <Button size="sm" variant="outline" disabled={history.length === 0} onClick={() => downloadCsv('contagens-ciclicas.csv', [
+          ['Data', 'Classe', 'Itens', 'Certos', 'Divergentes', 'Acuracidade %', 'Ajuste R$', 'Responsável'],
+          ...history.map((c) => [new Date(c.countDate).toLocaleDateString('pt-BR'), c.className, c.totalItems, c.correctItems, c.divergentItems, c.accuracyPct, c.adjustmentValue, c.responsible?.name || '']),
+        ])}><Download size={14} className="mr-1" />CSV</Button>
+      </div>
+      <div className="border rounded-md bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data</TableHead><TableHead>Classe</TableHead><TableHead>Itens</TableHead>
+              <TableHead>Certos</TableHead><TableHead>Divergentes</TableHead><TableHead>Acuracidade</TableHead>
+              <TableHead>Ajuste (R$)</TableHead><TableHead>Responsável</TableHead><TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {history.length === 0 ? (
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nenhuma contagem registrada.</TableCell></TableRow>
+            ) : history.map((c) => {
+              const target = c.className === 'D' ? 95 : CLASS_ACCURACY_TARGET[c.className as 'A' | 'B' | 'C'];
+              return (
+                <TableRow key={c.id}>
+                  <TableCell>{new Date(c.countDate).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell><span className={`inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold font-mono ${abcBadgeClass[(c.className === 'D' ? 'A' : c.className) as 'A' | 'B' | 'C']}`}>{c.className}</span></TableCell>
+                  <TableCell className="font-mono">{c.totalItems}</TableCell>
+                  <TableCell className="font-mono text-success">{c.correctItems}</TableCell>
+                  <TableCell className={`font-mono ${c.divergentItems ? 'text-destructive' : 'text-muted-foreground'}`}>{c.divergentItems}</TableCell>
+                  <TableCell className={`font-mono ${c.accuracyPct >= target ? 'text-success' : 'text-warning'}`}>{c.accuracyPct.toFixed(1)}%</TableCell>
+                  <TableCell className="font-mono">{fmt(c.adjustmentValue)}</TableCell>
+                  <TableCell className="text-xs">{c.responsible?.name?.split(' ')[0] || '—'}</TableCell>
+                  <TableCell>{c.pendingItems && c.pendingItems.length > 0
+                    ? <Badge variant="danger" title={c.pendingItems.join(', ')}>{c.pendingItems.length} pend.</Badge>
+                    : <Badge variant="success">OK</Badge>}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>Contagem Cíclica</DialogTitle></DialogHeader>
+          <CyclicCountForm plan={plan} employees={employees} onSubmit={handleCreate} onCancel={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function EstoquePage() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Estoque</h1>
-        <p className="text-muted-foreground">Posição de estoque, sobras de projeto e lista de reposição.</p>
+        <p className="text-muted-foreground">Posição de estoque, inventário cíclico, sobras de projeto e lista de reposição.</p>
       </div>
 
       <Tabs defaultValue="posicao">
         <TabsList>
           <TabsTrigger value="posicao">Posição</TabsTrigger>
+          <TabsTrigger value="inventario"><ClipboardCheck size={14} className="mr-1" />Inventário Cíclico</TabsTrigger>
           <TabsTrigger value="sobras">Sobras</TabsTrigger>
           <TabsTrigger value="retorno">Retorno de Obra</TabsTrigger>
           <TabsTrigger value="sucata">Sucata</TabsTrigger>
           <TabsTrigger value="reposicao">Lista de Reposição</TabsTrigger>
         </TabsList>
         <TabsContent value="posicao"><StockPositionTab /></TabsContent>
+        <TabsContent value="inventario"><CyclicInventoryTab /></TabsContent>
         <TabsContent value="sobras"><SurplusTab /></TabsContent>
         <TabsContent value="retorno"><ReturnFromProjectTab /></TabsContent>
         <TabsContent value="sucata"><ScrapSalesTab /></TabsContent>

@@ -57,6 +57,8 @@ import { FinanceAccountsModule } from './finance-accounts/finance-accounts.modul
 import { FinanceClosuresModule } from './finance-closures/finance-closures.module';
 import { PrevistoRealizadoModule } from './previsto-realizado/previsto-realizado.module';
 import { ProjectFinancialAnalysisModule } from './project-financial-analysis/project-financial-analysis.module';
+import { CyclicCountsModule } from './cyclic-counts/cyclic-counts.module';
+import { ReconciliationModule } from './reconciliation/reconciliation.module';
 
 @Module({
   imports: [
@@ -123,6 +125,8 @@ import { ProjectFinancialAnalysisModule } from './project-financial-analysis/pro
     FinanceClosuresModule,
     PrevistoRealizadoModule,
     ProjectFinancialAnalysisModule,
+    CyclicCountsModule,
+    ReconciliationModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -1,9 +1,10 @@
-import { SocialChargeItem, BenefitItem } from './api';
+import { SocialChargeItem, BenefitItem, ToolingItem } from './api';
 
 export interface SocialChargesInput {
   grupoA: SocialChargeItem[];
   grupoB: SocialChargeItem[];
   beneficios: BenefitItem[];
+  ferramental?: ToolingItem[];
   horasProdMes: number;
 }
 
@@ -16,5 +17,16 @@ export function computeSocialCharges(input: SocialChargesInput) {
   const beneficiosMes = input.beneficios.reduce((sum, item) => sum + item.valorMes, 0);
   const beneficioHora = input.horasProdMes > 0 ? beneficiosMes / input.horasProdMes : 0;
 
-  return { pctGrupoA, pctGrupoB, encargosPct, beneficiosMes, beneficioHora };
+  const ferramentalHora = (input.ferramental ?? []).reduce((sum, item) => {
+    const vida = Number(item.vidaMeses) || 1;
+    return (
+      sum +
+      (input.horasProdMes > 0
+        ? (Number(item.preco) * Number(item.qtd)) / vida / input.horasProdMes
+        : 0)
+    );
+  }, 0);
+  const ferramentalMes = ferramentalHora * input.horasProdMes;
+
+  return { pctGrupoA, pctGrupoB, encargosPct, beneficiosMes, beneficioHora, ferramentalMes, ferramentalHora };
 }

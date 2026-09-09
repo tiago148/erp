@@ -231,19 +231,27 @@ function ToolsTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Código</TableHead><TableHead>Nome</TableHead><TableHead>Categoria</TableHead>
-              <TableHead>Localização Atual</TableHead><TableHead className="w-32">Ações</TableHead>
+              <TableHead>Custódia</TableHead><TableHead>Localização Atual</TableHead><TableHead className="w-32">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhuma ferramenta cadastrada.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhuma ferramenta cadastrada.</TableCell></TableRow>
             ) : items.map((t) => (
               <TableRow key={t.id}>
                 <TableCell>{t.code || '-'}</TableCell>
                 <TableCell className="font-medium">{t.name}</TableCell>
                 <TableCell>{t.category}</TableCell>
+                <TableCell>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${t.custody === 'INDIVIDUAL' ? 'bg-info/15 text-info' : t.custody === 'FIXED' ? 'bg-muted text-muted-foreground' : 'bg-warning/15 text-warning'}`}>
+                    {t.custody === 'INDIVIDUAL' ? 'Individual' : t.custody === 'FIXED' ? 'Fixa' : 'Compartilhada'}
+                  </span>
+                  {t.custody === 'INDIVIDUAL' && t.responsibleEmployee && (
+                    <span className="ml-1.5 text-[10px] text-primary">{t.responsibleEmployee.name.split(' ')[0]}</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${t.currentLocation === 'COMPANY' ? 'bg-secondary text-secondary-foreground' : 'bg-info/15 text-info'}`}>
                     {t.currentLocation === 'COMPANY' ? 'Empresa' : t.currentProject?.name || 'Projeto'}

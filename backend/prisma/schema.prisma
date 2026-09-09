@@ -132,6 +132,7 @@ model LaborRole {
   insalubridadePct Decimal                @default(0) @db.Decimal(5, 2)
   noturnoPct       Decimal                @default(0) @db.Decimal(5, 2)
   beneficioHora    Decimal                @default(0) @db.Decimal(10, 2)
+  ferramentalHora  Decimal                @default(0) @db.Decimal(10, 2)
   budgetItems      BudgetLaborItem[]
   compositionItems CostCompositionLabor[]
   createdAt        DateTime               @default(now())
@@ -264,11 +265,27 @@ model Budget {
   rentalItems          BudgetRentalItem[]
   project              Project?
   financeEntries       FinanceEntry[]
+  roteiro              BudgetRoteiro?
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 
   @@unique([number, version])
   @@map("budgets")
+}
+
+model BudgetRoteiro {
+  id                      String   @id @default(uuid())
+  budgetId                String   @unique
+  budget                  Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  checkedKeys             Json     @default("[]")
+  infoLevel               String   @default("basico")
+  siteVisitDone           Boolean  @default(false)
+  completionPct           Decimal  @default(0) @db.Decimal(5, 2)
+  suggestedContingencyPct Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("budget_roteiros")
 }
 
 model BudgetMaterialItem {
@@ -519,23 +536,58 @@ enum ToolLocation {
   PROJECT
 }
 
+enum ToolCustody {
+  SHARED
+  INDIVIDUAL
+  FIXED
+}
+
+enum ToolChargeStatus {
+  ACTIVE
+  RETURNED
+  TRANSFERRED
+}
+
 model Tool {
-  id               String            @id @default(uuid())
-  code             String?           @unique
-  name             String
-  category         String
-  currentLocation  ToolLocation      @default(COMPANY)
-  currentProjectId String?
-  currentProject   Project?          @relation(fields: [currentProjectId], references: [id])
-  notes            String?
-  movements        ToolMovement[]
-  workLogUsages    WorkLogTool[]
-  maintenances     ToolMaintenance[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  financeEntries   FinanceEntry[]
+  id                    String            @id @default(uuid())
+  code                  String?           @unique
+  name                  String
+  category              String
+  currentLocation       ToolLocation      @default(COMPANY)
+  currentProjectId      String?
+  currentProject        Project?          @relation(fields: [currentProjectId], references: [id])
+  custody               ToolCustody       @default(SHARED)
+  responsibleEmployeeId String?
+  responsibleEmployee   Employee?         @relation("ToolResponsible", fields: [responsibleEmployeeId], references: [id])
+  acquisitionValue      Decimal           @default(0) @db.Decimal(12, 2)
+  notes                 String?
+  movements             ToolMovement[]
+  workLogUsages         WorkLogTool[]
+  maintenances          ToolMaintenance[]
+  charges               ToolCharge[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  financeEntries        FinanceEntry[]
 
   @@map("tools")
+}
+
+model ToolCharge {
+  id           String           @id @default(uuid())
+  toolId       String
+  tool         Tool             @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id])
+  chargedAt    DateTime         @default(now())
+  returnedAt   DateTime?
+  conditionOut String           @default("Nova")
+  reason       String           @default("Primeira entrega")
+  returnReason String?
+  notes        String?
+  status       ToolChargeStatus @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+
+  @@map("tool_charges")
 }
 
 enum DocumentTargetType {
@@ -637,17 +689,62 @@ enum StockMovementSource {
 }
 
 model StockItem {
-  id          String          @id @default(uuid())
-  materialId  String          @unique
-  material    Material        @relation(fields: [materialId], references: [id])
-  quantity    Decimal         @default(0) @db.Decimal(12, 2)
-  minQuantity Decimal         @default(0) @db.Decimal(12, 2)
-  location    String?
-  movements   StockMovement[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id                 String            @id @default(uuid())
+  materialId         String            @unique
+  material           Material          @relation(fields: [materialId], references: [id])
+  quantity           Decimal           @default(0) @db.Decimal(12, 2)
+  minQuantity        Decimal           @default(0) @db.Decimal(12, 2)
+  location           String?
+  addrStreet         String?
+  addrShelf          String?
+  addrLevel          String?
+  addrPosition       String?
+  abcClass           String            @default("AUTO")
+  monthlyConsumption Decimal?          @db.Decimal(12, 2)
+  leadTimeDays       Int               @default(7)
+  serviceLevelZ      Decimal           @default(1.65) @db.Decimal(4, 2)
+  reorderPoint       Decimal           @default(0) @db.Decimal(12, 2)
+  movements          StockMovement[]
+  countItems         CyclicCountItem[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   @@map("stock_items")
+}
+
+model CyclicCount {
+  id              String            @id @default(uuid())
+  countDate       DateTime          @default(now())
+  className       String
+  responsibleId   String?
+  responsible     Employee?         @relation(fields: [responsibleId], references: [id])
+  totalItems      Int
+  correctItems    Int
+  divergentItems  Int
+  accuracyPct     Decimal           @db.Decimal(5, 2)
+  adjustmentValue Decimal           @default(0) @db.Decimal(12, 2)
+  adjustedItems   Int               @default(0)
+  pendingItems    Json?
+  items           CyclicCountItem[]
+  createdAt       DateTime          @default(now())
+
+  @@map("cyclic_counts")
+}
+
+model CyclicCountItem {
+  id            String      @id @default(uuid())
+  cyclicCountId String
+  cyclicCount   CyclicCount @relation(fields: [cyclicCountId], references: [id], onDelete: Cascade)
+  stockItemId   String
+  stockItem     StockItem   @relation(fields: [stockItemId], references: [id])
+  className     String
+  systemQty     Decimal     @db.Decimal(12, 2)
+  countedQty    Decimal     @db.Decimal(12, 2)
+  diff          Decimal     @db.Decimal(12, 2)
+  diffPct       Decimal     @db.Decimal(6, 2)
+  adjusted      Boolean     @default(false)
+
+  @@map("cyclic_count_items")
 }
 
 model StockMovement {
@@ -911,6 +1008,7 @@ model Settings {
   encargosGrupoA               Json?
   encargosGrupoB               Json?
   encargosBeneficios           Json?
+  encargosFerramental          Json?
   encargosHorasProdMes         Decimal        @default(176) @db.Decimal(6, 2)
   discountRatePct              Decimal        @default(12) @db.Decimal(5, 2)
   updatedAt                    DateTime       @updatedAt
@@ -947,17 +1045,27 @@ enum FixedExpenseType {
   SEMI_VARIABLE
 }
 
+enum AssetAbsorptionMode {
+  INDIRECT
+  HOURLY
+  TOOLING
+}
+
 model Asset {
-  id               String   @id @default(uuid())
-  name             String
-  category         String?
-  acquisitionValue Decimal  @db.Decimal(12, 2)
-  acquisitionDate  DateTime
-  usefulLifeMonths Int
-  residualValue    Decimal  @default(0) @db.Decimal(12, 2)
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                     String              @id @default(uuid())
+  name                   String
+  category               String?
+  acquisitionValue       Decimal             @db.Decimal(12, 2)
+  acquisitionDate        DateTime
+  usefulLifeMonths       Int
+  residualValue          Decimal             @default(0) @db.Decimal(12, 2)
+  absorptionMode         AssetAbsorptionMode @default(INDIRECT)
+  productiveHoursPerYear Int                 @default(1200)
+  annualMaintenance      Decimal             @default(0) @db.Decimal(12, 2)
+  operatingCostPerHour   Decimal             @default(0) @db.Decimal(12, 2)
+  notes                  String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
 
   @@map("assets")
 }
@@ -1003,6 +1111,9 @@ model Employee {
   vehicleTrips        VehicleTrip[]
   budgets             Budget[]
   responsibleProjects Project[]
+  cyclicCounts        CyclicCount[]
+  toolCharges         ToolCharge[]
+  responsibleTools    Tool[]            @relation("ToolResponsible")
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
